@@ -1,0 +1,21 @@
+# Data: point clouds, IFC models and benchmark zips are large; never commit
+data/
+outputs/
+*.e57
+*.las
+*.laz
+*.ply
+*.pcd
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets and OS
+.env
+.DS_Store
