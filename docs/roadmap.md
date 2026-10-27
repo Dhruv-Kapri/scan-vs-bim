@@ -71,3 +71,6 @@ The sustainability layer: what does the as-built building contain, in carbon ter
 - Scan-to-IFC: generating the model from the scan, then checking it with the Graham bylaw rules.
 - An AI agent over the scan and the IFC ("which walls are more than 2 cm off?").
 - Multi-epoch construction progress (the Nothing Stands Still dataset; check its licence first).
+- Image capture instead of a laser scan: photos turned into a point cloud (COLMAP, MapAnything), then
+  phases 1-2 unchanged. Evaluated in [image-capture-evaluation.md](image-capture-evaluation.md); start
+  with its one-week ETH3D experiment, which decides whether it is worth building.

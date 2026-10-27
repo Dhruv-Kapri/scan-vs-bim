@@ -63,6 +63,11 @@ Everything runs on Apple Silicon without a GPU.
 - [Roadmap](docs/roadmap.md): the phases, what "done" means for each, and the order.
 - [Data sources](docs/data-sources.md): datasets, licences, sizes and what is still unverified.
 - [Research outline](docs/research-outline.md): the one-page research framing behind the project.
+- [Image capture evaluation](docs/image-capture-evaluation.md): whether photos could replace the scan
+  (a later extension, with the experiment that would decide it).
+- Reading: [project reading list](docs/reference/Resources_Scan_vs_BIM.pdf) and
+  [domain foundations](docs/reference/Foundations_3D_Reality_Capture_BIM.pdf); HTML sources in
+  `docs/reference/src/`.
 
 ## Licence
 

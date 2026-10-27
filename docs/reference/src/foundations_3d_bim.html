@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>3D Reality Capture &amp; BIM — Foundations</title>
+<style>
+  @page { size: A4; margin: 14mm 17mm 14mm 17mm; }
+  body { font-family: Georgia, "Times New Roman", serif; color: #1a1a1a; font-size: 9.6pt; line-height: 1.38; margin: 0; }
+  h1 { font-size: 23pt; margin: 0 0 4px; line-height: 1.15; }
+  .subtitle { font-style: italic; color: #444; font-size: 12pt; margin: 0 0 6px; }
+  .meta { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #666; font-size: 8.5pt; margin: 0 0 10px; padding-bottom: 10px; border-bottom: 2.5px solid #1a1a1a; }
+  .callout { background: #f5f6f8; border-left: 5px solid #555; padding: 10px 14px; margin: 14px 0 10px; }
+  .path { font-family: -apple-system, Helvetica, Arial, sans-serif; font-size: 9pt; border: 1px solid #ddd; background: #fafafa; padding: 9px 14px; margin: 0 0 18px; }
+  h2 { font-size: 14pt; margin: 16px 0 7px; padding-bottom: 4px; border-bottom: 1px solid #bbb; break-after: avoid; }
+  h2 .num { color: #888; font-size: 10pt; font-weight: normal; }
+  h2 .gloss { font-size: 9pt; color: #555; }
+  .item { margin: 0 0 7px 22px; break-inside: avoid; }
+  .item .t { font-weight: bold; }
+  .item .by { color: #444; }
+  .item .why { font-style: italic; color: #222; display: block; }
+  .item .url { font-family: Menlo, Consolas, monospace; font-size: 8pt; color: #1a4fa0; display: block; }
+  .tag { font-family: -apple-system, Helvetica, Arial, sans-serif; font-size: 7.5pt; background: #fdf3c4; color: #6b5300; padding: 1px 4px; border-radius: 2px; }
+  .notes p { margin: 0 0 8px 22px; }
+  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 8.5pt; color: #555; }
+</style>
+<body>
+<h1>3D Reality Capture &amp; BIM — Foundations</h1>
+<p class="subtitle">The domain, not the project: how 3D measurement, point-cloud learning and building information fit together — plus things to read and follow casually.</p>
+<p class="meta">General-fluency primer · complements (does not repeat) the project reading list · Oct 2026 · every link verified against primary sources</p>
+
+<div class="callout"><b>What this is.</b> The project reading list covers the specific pipeline papers (registration, IFC tooling, BCF, LOA, carbon databases). This one is for the field itself: the conceptual spine of 3D geometry, measurement and building information. Nothing here duplicates that list. §1–3 are the ideas worth genuinely internalising; §4–6 are the modern landscape; §7–8 are for relaxed, ongoing absorption.</div>
+<div class="path"><b>If you only do three things:</b> (1) read Solà&#39;s <b>micro Lie theory</b> (§1) and Lague&#39;s <b>M3C2</b> (§3), so you think in poses with uncertainty and in significant, not raw, differences; (2) skim <b>Volk et al. on BIM for existing buildings</b> (§5) and the <b>RICS whole-life carbon standard</b> (§6) to speak the field&#39;s language; (3) follow one or two idle sources from §8 (start with <b>Stachniss on YouTube</b>) so the field stays in your peripheral vision.</div>
+
+<h2><span class="num">1 —</span> Why 3D Is Different <span class="gloss">(geometry you can't hand-wave)</span></h2>
+<div class="item">
+  <span class="t">A micro Lie theory for state estimation in robotics</span> — <span class="by">Solà, Deray &amp; Atchuthan (2018), arXiv</span>
+  <span class="why">The clearest intuitive route into SO(3)/SE(3), exp/log maps and perturbations on manifolds, which is what every registration optimiser is secretly doing.</span>
+  <span class="url">arxiv.org/abs/1812.01537</span>
+</div>
+<div class="item">
+  <span class="t">Lie Groups for 2D and 3D Transformations</span> — <span class="by">Ethan Eade (rev. 2017), self-published note</span>
+  <span class="why">Short, derivation-first companion to Solà; the reference you keep open while implementing pose updates.</span>
+  <span class="url">ethaneade.com/lie.pdf</span>
+</div>
+<div class="item">
+  <span class="t">Visualizing quaternions</span> — <span class="by">Grant Sanderson &amp; Ben Eater (2018), interactive explorable</span>
+  <span class="why">Builds the 4D intuition for unit quaternions and why they avoid gimbal lock, without any algebra up front.</span>
+  <span class="url">eater.net/quaternions</span>
+</div>
+<div class="item">
+  <span class="t">On the Continuity of Rotation Representations in Neural Networks</span> — <span class="by">Zhou, Barnes, Lu, Yang &amp; Li (2019), CVPR</span>
+  <span class="why">Why quaternions and Euler angles are bad regression targets and 6D representations are good: geometry meeting deep learning.</span>
+  <span class="url">arxiv.org/abs/1812.07035</span>
+</div>
+<div class="item">
+  <span class="t">Associating Uncertainty With Three-Dimensional Poses for Use in Estimation Problems</span> — <span class="by">Barfoot &amp; Furgale (2014), IEEE T-RO 30(3)</span> <span class="tag">paywalled</span>
+  <span class="why">How to put a covariance on a rotation and a pose, and propagate it. Registration without error bars is only half an answer.</span>
+  <span class="url">doi.org/10.1109/TRO.2014.2298059</span>
+</div>
+<h2><span class="num">2 —</span> Point-Cloud Processing Ideas <span class="gloss">(what you do before any model sees the data)</span></h2>
+<div class="item">
+  <span class="t">Surface reconstruction from unorganized points</span> — <span class="by">Hoppe, DeRose, Duchamp, McDonald &amp; Stuetzle (1992), ACM SIGGRAPH Computer Graphics 26(2)</span> <span class="tag">paywalled</span>
+  <span class="why">The origin of PCA-based normal estimation and consistent orientation, the quiet workhorse behind most point-cloud geometry.</span>
+  <span class="url">doi.org/10.1145/142920.134011</span>
+</div>
+<div class="item">
+  <span class="t">Multidimensional binary search trees used for associative searching</span> — <span class="by">Jon Louis Bentley (1975), Communications of the ACM 18(9)</span> <span class="tag">paywalled</span>
+  <span class="why">The k-d tree paper. Every neighbourhood query, normal and ICP correspondence step leans on this structure.</span>
+  <span class="url">doi.org/10.1145/361002.361007</span>
+</div>
+<div class="item">
+  <span class="t">Semantic point cloud interpretation based on optimal neighborhoods, relevant features and efficient classifiers</span> — <span class="by">Weinmann, Jutzi, Hinz &amp; Mallet (2015), ISPRS J. Photogrammetry &amp; Remote Sensing 105</span> <span class="tag">paywalled</span>
+  <span class="why">Shows that the choice of neighbourhood size and shape changes everything downstream; the classic argument for multi-scale thinking.</span>
+  <span class="url">doi.org/10.1016/j.isprsjprs.2015.01.016</span>
+</div>
+<div class="item">
+  <span class="t">Graduated Non-Convexity for Robust Spatial Perception</span> — <span class="by">Yang, Antonante, Tzoumas &amp; Carlone (2020), IEEE Robotics and Automation Letters 5(2)</span>
+  <span class="why">A clean unifying view of robust estimation (outliers, M-estimators, why RANSAC is one answer among several) with a practical alternative.</span>
+  <span class="url">arxiv.org/abs/1909.08605</span>
+</div>
+<div class="item">
+  <span class="t">MAGSAC++, a fast, reliable and accurate robust estimator</span> — <span class="by">Barath, Noskova, Ivashechkin &amp; Matas (2020), CVPR</span>
+  <span class="why">What modern RANSAC descendants look like: no hand-tuned inlier threshold. Useful for seeing how the idea has matured.</span>
+  <span class="url">arxiv.org/abs/1912.05909</span>
+</div>
+<div class="item">
+  <span class="t">Past, Present, and Future of Simultaneous Localization And Mapping</span> — <span class="by">Cadena et al. (2016), IEEE T-RO 32(6)</span>
+  <span class="why">The field's own map of itself: front-end versus back-end, outliers, loop closure, and what robust perception should mean.</span>
+  <span class="url">arxiv.org/abs/1606.05830</span>
+</div>
+<h2><span class="num">3 —</span> Measurement &amp; Metrology Thinking <span class="gloss">(what a number from a scanner actually means)</span></h2>
+<div class="item">
+  <span class="t">Evaluation of measurement data: Guide to the expression of uncertainty in measurement (GUM)</span> — <span class="by">JCGM 100:2008, BIPM</span>
+  <span class="why">The international standard vocabulary and method for uncertainty budgets and error propagation. Dense but definitive.</span>
+  <span class="url">bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf</span>
+</div>
+<div class="item">
+  <span class="t">Guidelines for Evaluating and Expressing the Uncertainty of NIST Measurement Results (TN 1297)</span> — <span class="by">Taylor &amp; Kuyatt (1994), NIST</span>
+  <span class="why">A short, readable distillation of the GUM; the quickest way to get type A/B uncertainty and combined standard uncertainty into your head.</span>
+  <span class="url">physics.nist.gov/Pubs/guidelines/TN1297/tn1297s.pdf</span>
+</div>
+<div class="item">
+  <span class="t">Statistics notes: Absence of evidence is not evidence of absence</span> — <span class="by">Altman &amp; Bland (1995), BMJ 311</span>
+  <span class="why">Two pages on the logic behind "not observed does not mean not there". Reread it every time a scan has a hole where a wall should be.</span>
+  <span class="url">doi.org/10.1136/bmj.311.7003.485</span>
+</div>
+<div class="item">
+  <span class="t">Accurate 3D comparison of complex topography with terrestrial laser scanner (M3C2)</span> — <span class="by">Lague, Brodu &amp; Leroux (2013), ISPRS J. Photogrammetry &amp; Remote Sensing 82</span> <span class="tag">paywalled</span>
+  <span class="why">Cloud-to-cloud comparison with a per-point confidence interval, so you can say whether a change is significant. The template for honest deviation maps.</span>
+  <span class="url">doi.org/10.1016/j.isprsjprs.2013.04.009</span>
+</div>
+<h2><span class="num">4 —</span> Deep Learning on 3D <span class="gloss">(from PointNet to foundation models)</span></h2>
+<div class="item">
+  <span class="t">Deep Learning for 3D Point Clouds: A Survey</span> — <span class="by">Guo, Wang, Bennamoun, Lu, Huang &amp; Wan (2021), IEEE TPAMI 43(12)</span>
+  <span class="why">The standard survey of classification, detection and segmentation architectures up to 2020; read it for the taxonomy.</span>
+  <span class="url">arxiv.org/abs/1912.12033</span>
+</div>
+<div class="item">
+  <span class="t">PointNet: Deep Learning on Point Sets for 3D Classification and Segmentation</span> — <span class="by">Qi, Su, Mo &amp; Guibas (2017), CVPR</span>
+  <span class="why">The founding idea: respect permutation invariance and consume raw points directly.</span>
+  <span class="url">arxiv.org/abs/1612.00593</span>
+</div>
+<div class="item">
+  <span class="t">PointNet++: Deep Hierarchical Feature Learning on Point Sets in a Metric Space</span> — <span class="by">Qi, Yi, Su &amp; Guibas (2017), NeurIPS</span>
+  <span class="why">Adds local neighbourhoods and hierarchy, the pattern (sample, group, aggregate) that most later models inherit.</span>
+  <span class="url">arxiv.org/abs/1706.02413</span>
+</div>
+<div class="item">
+  <span class="t">Dynamic Graph CNN for Learning on Point Clouds</span> — <span class="by">Wang, Sun, Liu, Sarma, Bronstein &amp; Solomon (2019), ACM Trans. Graphics 38(5)</span>
+  <span class="why">EdgeConv on a feature-space k-NN graph: point clouds as dynamic graphs.</span>
+  <span class="url">arxiv.org/abs/1801.07829</span>
+</div>
+<div class="item">
+  <span class="t">KPConv: Flexible and Deformable Convolution for Point Clouds</span> — <span class="by">Thomas, Qi, Deschaud, Marcotegui, Goulette &amp; Guibas (2019), ICCV</span>
+  <span class="why">A true convolution with kernel points in continuous space; strong on outdoor and building-scale segmentation.</span>
+  <span class="url">arxiv.org/abs/1904.08889</span>
+</div>
+<div class="item">
+  <span class="t">Point Transformer</span> — <span class="by">Zhao, Jiang, Jia, Torr &amp; Koltun (2021), ICCV</span>
+  <span class="why">Vector self-attention over local neighbourhoods; the start of the transformer era for point clouds.</span>
+  <span class="url">arxiv.org/abs/2012.09164</span>
+</div>
+<div class="item">
+  <span class="t">Point Transformer V2: Grouped Vector Attention and Partition-based Pooling</span> — <span class="by">Wu, Lao, Jiang, Liu &amp; Zhao (2022), NeurIPS</span>
+  <span class="why">Fixes the efficiency and expressiveness issues of v1; the middle step of the series.</span>
+  <span class="url">arxiv.org/abs/2210.05666</span>
+</div>
+<div class="item">
+  <span class="t">Point Transformer V3: Simpler, Faster, Stronger</span> — <span class="by">Wu et al. (2024), CVPR</span>
+  <span class="why">Trades exact neighbour search for serialised point order and scales up cleanly. The current default backbone.</span>
+  <span class="url">arxiv.org/abs/2312.10035</span>
+</div>
+<div class="item">
+  <span class="t">Pointcept</span> — <span class="by">Pointcept contributors, GitHub</span>
+  <span class="why">The codebase behind PTv1-v3 and Sonata, with unified benchmarks on ScanNet, S3DIS and others. Read the configs to see how the field trains.</span>
+  <span class="url">github.com/Pointcept/Pointcept</span>
+</div>
+<div class="item">
+  <span class="t">VGGT: Visual Geometry Grounded Transformer</span> — <span class="by">Wang, Chen, Karaev, Vedaldi, Rupprecht &amp; Novotny (2025), CVPR</span>
+  <span class="why">Feed-forward prediction of cameras, depth and point maps from images: the learned replacement for classical structure-from-motion.</span>
+  <span class="url">arxiv.org/abs/2503.11651</span>
+</div>
+<div class="item">
+  <span class="t">Geometric Deep Learning: Grids, Groups, Graphs, Geodesics, and Gauges</span> — <span class="by">Bronstein, Bruna, Cohen &amp; Veličković (2021), arXiv</span>
+  <span class="why">The symmetry-first framing (equivariance to SE(3), permutation) that explains why 3D architectures look the way they do.</span>
+  <span class="url">arxiv.org/abs/2104.13478</span>
+</div>
+<h2><span class="num">5 —</span> BIM, Digital Twins &amp; Information Modelling <span class="gloss">(the field behind the file format)</span></h2>
+<div class="item">
+  <span class="t">Building Information Modeling: Why? What? How?</span> — <span class="by">Borrmann, König, Koch &amp; Beetz, eds. (2018), Ch. 1, Springer, open access</span>
+  <span class="why">A compact conceptual introduction to BIM, openBIM and model-based collaboration, written for engineers.</span>
+  <span class="url">doi.org/10.1007/978-3-319-92862-3_1</span>
+</div>
+<div class="item">
+  <span class="t">Building Information Modeling (BIM) for existing buildings: Literature review and future needs</span> — <span class="by">Volk, Stengel &amp; Schultmann (2014), Automation in Construction 38</span> <span class="tag">paywalled</span>
+  <span class="why">Why as-built BIM is hard: the canonical statement of the problem this whole project lives in.</span>
+  <span class="url">doi.org/10.1016/j.autcon.2013.10.023</span>
+</div>
+<div class="item">
+  <span class="t">Semantic web technologies in AEC industry: A literature overview</span> — <span class="by">Pauwels, Zhang &amp; Lee (2017), Automation in Construction 73</span> <span class="tag">paywalled</span>
+  <span class="why">Why IFC alone is not enough and what linked data adds; the information-science side of BIM.</span>
+  <span class="url">doi.org/10.1016/j.autcon.2016.10.003</span>
+</div>
+<div class="item">
+  <span class="t">BIMForum Level of Development (LOD) Specification</span> — <span class="by">BIMForum (2025), BIMForum</span>
+  <span class="why">The industry reference for how much a model element is allowed to be trusted at each stage. Free, CC-licensed.</span>
+  <span class="url">bimforum.org/LOD/</span>
+</div>
+<div class="item">
+  <span class="t">Digital Twin: Mitigating Unpredictable, Undesirable Emergent Behavior in Complex Systems</span> — <span class="by">Grieves &amp; Vickers (2016), Transdisciplinary Perspectives on Complex Systems, Springer</span> <span class="tag">paywalled</span>
+  <span class="why">The widely cited origin of the term. Read it to see how much of today's usage stretches the original meaning.</span>
+  <span class="url">doi.org/10.1007/978-3-319-38756-7_4</span>
+</div>
+<div class="item">
+  <span class="t">Digital twins</span> — <span class="by">Michael Batty (2018), Environment and Planning B 45(5)</span> <span class="tag">paywalled</span>
+  <span class="why">A short, sceptical editorial on what a digital twin is and is not: a useful counterweight to vendor definitions.</span>
+  <span class="url">doi.org/10.1177/2399808318796416</span>
+</div>
+<h2><span class="num">6 —</span> Sustainability of the Built Environment <span class="gloss">(carbon, materials and reuse, conceptually)</span></h2>
+<div class="item">
+  <span class="t">Biogenic carbon in buildings: a critical overview of LCA methods</span> — <span class="by">Hoxha et al. (2020), Buildings and Cities 1(1)</span>
+  <span class="why">A clear tour of why timber and bio-based carbon accounting is contentious: a good lesson in method choices driving results.</span>
+  <span class="url">doi.org/10.5334/bc.46</span>
+</div>
+<div class="item">
+  <span class="t">Concept for a BIM-based Material Passport for buildings</span> — <span class="by">Honic, Kovacic &amp; Rechberger (2019), IOP Conf. Series: Earth and Environmental Science 225</span>
+  <span class="why">What a material passport is and how it would hang off a BIM model; the bridge between this project and reuse.</span>
+  <span class="url">doi.org/10.1088/1755-1315/225/1/012073</span>
+</div>
+<div class="item">
+  <span class="t">Whole life carbon assessment for the built environment, 2nd edition</span> — <span class="by">RICS (2023), RICS professional standard</span>
+  <span class="why">The professional standard that defines how whole-life carbon is scoped and reported, in force since July 2024.</span>
+  <span class="url">rics.org/profession-standards/rics-standards-and-guidance/sector-standards/building-surveying-standards/whole-life-carbon-assessment-2nd-edition</span>
+</div>
+<div class="item">
+  <span class="t">Embodied Carbon Primer</span> — <span class="by">LETI (2020), London Energy Transformation Initiative</span>
+  <span class="why">A practitioner-friendly primer on embodied carbon across life-cycle stages, with design levers. Free.</span>
+  <span class="url">leti.uk/ecp</span>
+</div>
+<div class="item">
+  <span class="t">Global Status Report for Buildings and Construction 2024/2025</span> — <span class="by">UNEP &amp; GlobalABC (2025), UNEP</span>
+  <span class="why">The macro view: where buildings sit in global emissions and what policy is doing about it.</span>
+  <span class="url">unep.org/resources/report/global-status-report-buildings-and-construction-20242025</span>
+</div>
+<h2><span class="num">7 —</span> Books &amp; Longer Reads <span class="gloss">(mostly free / open)</span></h2>
+<div class="item">
+  <span class="t">State Estimation for Robotics (2nd ed.)</span> — <span class="by">Timothy Barfoot (2024), Cambridge University Press; free PDF from the author</span>
+  <span class="why">Rigid-body kinematics, Lie groups, batch least squares and uncertainty, written for the exact maths this project uses.</span>
+  <span class="url">asrl.utias.utoronto.ca/~tdb/bib/barfoot_ser24.pdf</span>
+</div>
+<div class="item">
+  <span class="t">Computer Vision: Algorithms and Applications (2nd ed.)</span> — <span class="by">Richard Szeliski (2022), Springer; free PDF via form</span>
+  <span class="why">The broad 3D vision reference: cameras, alignment, SfM, depth, neural rendering.</span>
+  <span class="url">szeliski.org/Book/</span>
+</div>
+<div class="item">
+  <span class="t">Modern Robotics: Mechanics, Planning, and Control</span> — <span class="by">Lynch &amp; Park (2017), Cambridge University Press; free preprint</span>
+  <span class="why">Chapters 2-3 are the gentlest rigorous treatment of rotations and SE(3) available,.</span>
+  <span class="url">hades.mech.northwestern.edu/index.php/Modern_Robotics</span>
+</div>
+<div class="item">
+  <span class="t">Multiple View Geometry in Computer Vision (2nd ed.)</span> — <span class="by">Hartley &amp; Zisserman (2004), Cambridge University Press</span> <span class="tag">paywalled</span>
+  <span class="why">The classic on projective geometry and estimation; worth owning for the chapters on estimation and error analysis.</span>
+  <span class="url">robots.ox.ac.uk/~vgg/hzbook/</span>
+</div>
+<div class="item">
+  <span class="t">Airborne and Terrestrial Laser Scanning</span> — <span class="by">Vosselman &amp; Maas, eds. (2010), Whittles Publishing</span> <span class="tag">paywalled</span>
+  <span class="why">The standard text on how laser scanners work and how their data is processed; ISPRS Karl Kraus Medal winner.</span>
+  <span class="url">whittlespublishing.com/Airborne_and_Terrestrial_Laser_Scanning</span>
+</div>
+<div class="item">
+  <span class="t">BIM Handbook: A Guide to Building Information Modeling (3rd ed.)</span> — <span class="by">Sacks, Eastman, Lee &amp; Teicholz (2018), Wiley</span> <span class="tag">paywalled</span>
+  <span class="why">The field's standard handbook: what BIM is, who uses it and how workflows change.</span>
+  <span class="url">wiley.com/en-us/BIM+Handbook (ISBN 978-1-119-28757-5)</span>
+</div>
+<div class="item">
+  <span class="t">Sustainable Materials: With Both Eyes Open</span> — <span class="by">Allwood, Cullen et al. (2012), UIT Cambridge; free online</span>
+  <span class="why">Material efficiency as a climate lever: why using less steel and cement beats making it greener. Free chapters.</span>
+  <span class="url">withbotheyesopen.com</span>
+</div>
+<h2><span class="num">8 —</span> Idle Learning <span class="gloss">(follow casually: active as of Oct 2026)</span></h2>
+<div class="item">
+  <span class="t">Cyrill Stachniss (YouTube)</span> — <span class="by">Cyrill Stachniss, University of Bonn, YouTube</span>
+  <span class="why">Full lecture series on photogrammetry and mobile sensing plus the short "5 Minutes with Cyrill" explainers. Uploads in Oct 2026.</span>
+  <span class="url">youtube.com/@CyrillStachniss</span>
+</div>
+<div class="item">
+  <span class="t">Radiance Fields</span> — <span class="by">Radiance Fields, news site + newsletter</span>
+  <span class="why">Independent daily coverage of Gaussian splatting, NeRFs and capture tools. The best single feed for fast-moving reality capture.</span>
+  <span class="url">radiancefields.com</span>
+</div>
+<div class="item">
+  <span class="t">Geo Week News</span> — <span class="by">Diversified Communications, news site</span>
+  <span class="why">Lidar, reality capture, BIM, digital twins and surveying industry news.</span>
+  <span class="url">geoweeknews.com</span>
+</div>
+<div class="item">
+  <span class="t">AEC Magazine</span> — <span class="by">X3DMedia, magazine + site</span>
+  <span class="why">AEC technology reporting: BIM, AI, reality capture, sustainability. Print and web.</span>
+  <span class="url">aecmag.com</span>
+</div>
+<div class="item">
+  <span class="t">OSArch</span> — <span class="by">OSArch community, community news + forum</span>
+  <span class="why">Hub of the open-source BIM community: Bonsai, IfcOpenShell, IFC tooling, including point-cloud support work.</span>
+  <span class="url">osarch.org</span>
+</div>
+<div class="item">
+  <span class="t">Building Tomorrow: Conversations with Climate Solvers</span> — <span class="by">Urban Green Council, podcast</span>
+  <span class="why">Interviews on building decarbonisation, policy and retrofit; episodes through mid-2026.</span>
+  <span class="url">urbangreencouncil.org/resource-library/insights/building-tomorrow-conversations-with-climate-solvers/</span>
+</div>
+<div class="item">
+  <span class="t">Carbon Leadership Forum</span> — <span class="by">Carbon Leadership Forum, blog + resources</span>
+  <span class="why">Embodied-carbon research, policy and tools from the field's main non-profit; posting through 2026.</span>
+  <span class="url">carbonleadershipforum.org</span>
+</div>
+<p class="footer"><b>Every link verified to resolve against a primary source (Oct 2026).</b> Journal and book items marked paywalled (Elsevier, ACM, IEEE, Sage, Springer, Wiley, CUP) block automated fetchers or sit behind subscriptions; they were confirmed real through DOI resolution and Crossref metadata. Idle-learning sources were checked for 2026 activity. Dropped as unconfirmed: the Talking Papers podcast (no 2026 episodes found), Computer Vision News (publisher exited in 2024), Thornton Tomasetti&#39;s embodied-carbon podcast and Building Transparency&#39;s blog (site blocked, 2026 activity not confirmed). Seven items that also appear in the project reading list were removed here to avoid repetition. Companion document: the <i>Scan vs BIM</i> project reading list.</p>
+</body>
+</html>

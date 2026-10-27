@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scan vs BIM — Reading List</title>
+<style>
+  @page { size: A4; margin: 14mm 17mm 14mm 17mm; }
+  body { font-family: Georgia, "Times New Roman", serif; color: #1a1a1a; font-size: 9.6pt; line-height: 1.38; margin: 0; }
+  h1 { font-size: 23pt; margin: 0 0 4px; line-height: 1.15; }
+  .subtitle { font-style: italic; color: #444; font-size: 12pt; margin: 0 0 6px; }
+  .meta { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #666; font-size: 8.5pt; margin: 0 0 10px; padding-bottom: 10px; border-bottom: 2.5px solid #1a1a1a; }
+  .callout { background: #f5f6f8; border-left: 5px solid #555; padding: 10px 14px; margin: 14px 0 10px; }
+  .path { font-family: -apple-system, Helvetica, Arial, sans-serif; font-size: 9pt; border: 1px solid #ddd; background: #fafafa; padding: 9px 14px; margin: 0 0 18px; }
+  h2 { font-size: 14pt; margin: 16px 0 7px; padding-bottom: 4px; border-bottom: 1px solid #bbb; break-after: avoid; }
+  h2 .num { color: #888; font-size: 10pt; font-weight: normal; }
+  h2 .gloss { font-size: 9pt; color: #555; }
+  .item { margin: 0 0 7px 22px; break-inside: avoid; }
+  .item .t { font-weight: bold; }
+  .item .by { color: #444; }
+  .item .why { font-style: italic; color: #222; display: block; }
+  .item .url { font-family: Menlo, Consolas, monospace; font-size: 8pt; color: #1a4fa0; display: block; }
+  .tag { font-family: -apple-system, Helvetica, Arial, sans-serif; font-size: 7.5pt; background: #fdf3c4; color: #6b5300; padding: 1px 4px; border-radius: 2px; }
+  .notes p { margin: 0 0 8px 22px; }
+  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 8.5pt; color: #555; }
+</style>
+</head>
+<body>
+<h1>Scan vs BIM — Reading List</h1>
+<p class="subtitle">A curated, verified reading list — to align a laser scan to a BIM model, judge every element, and put a carbon number on the difference.</p>
+<p class="meta">Companion to the <i>Scan vs BIM</i> project · Oct 2026 · every link verified against primary sources · old foundations + current (2023–26) work</p>
+
+<div class="callout"><b>How to use this.</b> You don't need all of it. Read §2 and the Open3D tutorial first (Phase 1), then §4–5 for the compare logic and tolerances. §6 is the IFC, BCF and viewer reference for Phases 3–4, §7–8 for the carbon layer. §9 is a lookup table, §3 is for after the baseline runs, and §10 is for framing the PhD story.</div>
+<div class="path"><b>Suggested path (≈4 weeks of evenings, alongside the roadmap):</b> Week 1 — §1 scanning basics + §2 registration, while building Phase 1 → Week 2 — §3 surveys + §5 PC2Model and Becker 2026 → Week 3 — §4 Bosché papers + USIBD LOA + §6 IfcOpenShell docs, for Phases 2–3 → Week 4 — §7–8 carbon, §6 georeferencing, then §10.</div>
+
+<h2><span class="num">1 —</span> Point Clouds &amp; Laser Scanning <span class="gloss">(what the scan actually is)</span></h2>
+<div class="item">
+  <span class="t">Scanning Geometry: Influencing Factor on the Quality of Terrestrial Laser Scanning Points</span> — <span class="by">Soudarissanane, Lindenbergh &amp; Menenti, ISPRS J. Photogramm. Remote Sens. 66(4) (2011)</span> <span class="tag">paywalled</span>
+  <span class="why">Quantifies how incidence angle and range degrade TLS points — the reason a wall scanned at a grazing angle looks "shifted" when it isn't.</span>
+  <span class="url">doi.org/10.1016/j.isprsjprs.2011.01.005</span>
+</div>
+<div class="item">
+  <span class="t">Virtual Laser Scanning with HELIOS++</span> — <span class="by">Winiwarter, Esmorís Pena, Weiser et al., Remote Sensing of Environment 269 (2022)</span> <span class="tag">paywalled</span>
+  <span class="why">The simulator that generated PC2Model's synthetic scans (Leica P40 profile); read it to know what noise, mixed pixels and occlusion you are being scored against.</span>
+  <span class="url">doi.org/10.1016/j.rse.2021.112772</span>
+</div>
+<div class="item">
+  <span class="t">libE57: ASTM E2807 E57 Format</span> — <span class="by">ASTM E57.04 / libE57 project</span>
+  <span class="why">The vendor-neutral container PC2Model and most TLS exports use; explains what an .e57 holds (per-scan poses, intensity, colour) beyond xyz.</span>
+  <span class="url">libe57.org</span>
+</div>
+<div class="item">
+  <span class="t">LAS Specification 1.4 (R15)</span> — <span class="by">ASPRS (2019)</span>
+  <span class="why">The other point-cloud format you will meet; the classification and return fields are what laspy/PDAL expose.</span>
+  <span class="url">asprs.org/?p=650</span>
+</div>
+<div class="item">
+  <span class="t">Sonata: Self-Supervised Learning of Reliable Point Representations</span> — <span class="by">Wu, DeTone, Frost, Shen et al., CVPR 2025</span>
+  <span class="why">A "later" pointer: pretrained indoor point features that could separate clutter from structure before comparing scan to IFC (the roadmap's cloud-GPU item).</span>
+  <span class="url">arxiv.org/abs/2503.16429</span>
+</div>
+<div class="item">
+  <span class="t">Utonia: Toward One Encoder for All Point Clouds</span> — <span class="by">Zhang, Wu, Yang, Fan et al., ICML 2026</span>
+  <span class="why">Same group's successor, one encoder across indoor, outdoor and object data; shows where segmentation priors for scan-vs-BIM are heading.</span>
+  <span class="url">arxiv.org/abs/2603.03283</span>
+</div>
+
+<h2><span class="num">2 —</span> Registration: the Method <span class="gloss">(classical baseline, in the order you will build it)</span></h2>
+<div class="item">
+  <span class="t">A Method for Registration of 3-D Shapes</span> — <span class="by">Besl &amp; McKay, IEEE TPAMI 14(2) (1992)</span> <span class="tag">paywalled</span>
+  <span class="why">The original ICP: your fine-alignment step, and the source of its main failure mode (convergence only from a good start).</span>
+  <span class="url">doi.org/10.1109/34.121791</span>
+</div>
+<div class="item">
+  <span class="t">Object Modelling by Registration of Multiple Range Images</span> — <span class="by">Chen &amp; Medioni, Image and Vision Computing 10(3) (1992)</span> <span class="tag">paywalled</span>
+  <span class="why">Origin of point-to-plane ICP, which is the variant you want when the target is flat walls and slabs.</span>
+  <span class="url">doi.org/10.1016/0262-8856(92)90066-C</span>
+</div>
+<div class="item">
+  <span class="t">Efficient Variants of the ICP Algorithm</span> — <span class="by">Rusinkiewicz &amp; Levoy, 3DIM (2001)</span> <span class="tag">paywalled</span>
+  <span class="why">The taxonomy of sampling, matching, weighting and rejection choices; a checklist for the ICP settings you must justify in the write-up.</span>
+  <span class="url">doi.org/10.1109/IM.2001.924423</span>
+</div>
+<div class="item">
+  <span class="t">Generalized-ICP</span> — <span class="by">Segal, Haehnel &amp; Thrun, RSS (2009)</span>
+  <span class="why">Plane-to-plane ICP, a cheap upgrade over point-to-plane when the model side is sampled mesh rather than a real scan.</span>
+  <span class="url">roboticsproceedings.org/rss05/p21.html</span>
+</div>
+<div class="item">
+  <span class="t">Fast Point Feature Histograms (FPFH) for 3D Registration</span> — <span class="by">Rusu, Blodow &amp; Beetz, ICRA (2009)</span> <span class="tag">paywalled</span>
+  <span class="why">The descriptor behind your coarse step; know its radius parameters and why it struggles when scan and model densities differ.</span>
+  <span class="url">doi.org/10.1109/ROBOT.2009.5152473</span>
+</div>
+<div class="item">
+  <span class="t">Random Sample Consensus</span> — <span class="by">Fischler &amp; Bolles, Commun. ACM 24(6) (1981)</span> <span class="tag">paywalled</span>
+  <span class="why">The hypothesise-and-verify loop inside Open3D's global registration; explains the iteration count and inlier threshold you will tune.</span>
+  <span class="url">doi.org/10.1145/358669.358692</span>
+</div>
+<div class="item">
+  <span class="t">Fast Global Registration</span> — <span class="by">Zhou, Park &amp; Koltun, ECCV (2016)</span>
+  <span class="why">A faster, RANSAC-free alternative on the same FPFH correspondences; an easy second baseline in Open3D.</span>
+  <span class="url">vladlen.info/publications/fast-global-registration/</span>
+</div>
+<div class="item">
+  <span class="t">Least-Squares Estimation of Transformation Parameters Between Two Point Patterns</span> — <span class="by">Umeyama, IEEE TPAMI 13(4) (1991)</span> <span class="tag">paywalled</span>
+  <span class="why">Closed-form similarity transform with scale: the answer to PC2Model's 0.5-1.5 random scaling on half the samples.</span>
+  <span class="url">doi.org/10.1109/34.88573</span>
+</div>
+<div class="item">
+  <span class="t">Open3D Tutorial: Global Registration (and ICP registration)</span> — <span class="by">Open3D project</span>
+  <span class="why">The exact FPFH + RANSAC + ICP recipe from the roadmap, with voxel-size guidance; start here for Phase 1.</span>
+  <span class="url">open3d.org/docs/latest/tutorial/pipelines/global_registration.html</span>
+</div>
+
+<h2><span class="num">3 —</span> Registration: Surveys &amp; Learned Methods <span class="gloss">(read after the baseline runs)</span></h2>
+<div class="item">
+  <span class="t">A Review of Point Cloud Registration Algorithms for Mobile Robotics</span> — <span class="by">Pomerleau, Colas &amp; Siegwart, Foundations and Trends in Robotics 4(1) (2015)</span> <span class="tag">paywalled</span>
+  <span class="why">The best single map of ICP variants and their error models; useful for explaining why your baseline fails on specific PC2Model categories.</span>
+  <span class="url">doi.org/10.1561/2300000035</span>
+</div>
+<div class="item">
+  <span class="t">A Comprehensive Survey on Point Cloud Registration</span> — <span class="by">Huang, Mei, Zhang &amp; Abbas, arXiv (2021)</span>
+  <span class="why">Covers learned and optimisation-based methods including partial overlap and cross-source cases, the PC2Model situation.</span>
+  <span class="url">arxiv.org/abs/2103.02690</span>
+</div>
+<div class="item">
+  <span class="t">TEASER: Fast and Certifiable Point Cloud Registration</span> — <span class="by">Yang, Shi &amp; Carlone, IEEE T-RO 37(2) (2021)</span>
+  <span class="why">A robust global solver that tolerates most correspondences being outliers; a strong non-learned upgrade to RANSAC for a model-vs-scan setting.</span>
+  <span class="url">arxiv.org/abs/2001.07715</span>
+</div>
+<div class="item">
+  <span class="t">PREDATOR: Registration of 3D Point Clouds with Low Overlap</span> — <span class="by">Huang, Gojcic, Usvyatsov, Wieser et al., CVPR 2021</span>
+  <span class="why">Learned registration designed for partial overlap, which is what a scan of part of a building against the full model is.</span>
+  <span class="url">arxiv.org/abs/2011.13005</span>
+</div>
+<div class="item">
+  <span class="t">Geometric Transformer for Fast and Robust Point Cloud Registration (GeoTransformer)</span> — <span class="by">Qin, Yu, Wang, Guo et al., CVPR 2022</span>
+  <span class="why">The usual learned baseline to cite when you say your classical result leaves room; correspondence-free and fast.</span>
+  <span class="url">arxiv.org/abs/2202.06688</span>
+</div>
+<div class="item">
+  <span class="t">Nothing Stands Still: A Spatiotemporal Benchmark on 3D Point Cloud Registration</span> — <span class="by">Sun, Hao, Huang, Savarese et al., arXiv (2023, rev. 2025)</span>
+  <span class="why">Registration of indoor scans of buildings under construction; the multi-epoch follow-on in the roadmap's "later" list (licence still to check).</span>
+  <span class="url">arxiv.org/abs/2311.09346</span>
+</div>
+
+<h2><span class="num">4 —</span> Scan-vs-BIM Foundations <span class="gloss">(as-built vs as-designed, the classic papers)</span></h2>
+<div class="item">
+  <span class="t">Automated Retrieval of 3D CAD Model Objects in Construction Range Images</span> — <span class="by">Bosché &amp; Haas, Automation in Construction 17(4) (2008)</span> <span class="tag">paywalled</span>
+  <span class="why">The founding scan-vs-BIM paper: register scan to model, then recognise each model object by its visible surface; your per-element design in miniature.</span>
+  <span class="url">doi.org/10.1016/j.autcon.2007.09.001</span>
+</div>
+<div class="item">
+  <span class="t">Automated Recognition of 3D CAD Model Objects in Laser Scans and Calculation of As-Built Dimensions for Dimensional Compliance Control in Construction</span> — <span class="by">Bosché, Advanced Engineering Informatics 24(1) (2010)</span> <span class="tag">paywalled</span>
+  <span class="why">Adds as-built dimension measurement and tolerance compliance per element, which is exactly the shifted/OK verdict.</span>
+  <span class="url">doi.org/10.1016/j.aei.2009.08.006</span>
+</div>
+<div class="item">
+  <span class="t">Tracking the Built Status of MEP Works: Assessing the Value of a Scan-vs-BIM System</span> — <span class="by">Bosché, Guillemet, Turkan &amp; Haas, J. Computing in Civil Eng. 28(4) (2014)</span> <span class="tag">paywalled</span>
+  <span class="why">Evaluates recall/precision for "is it built" and treats occlusion explicitly, supporting your not-visible vs missing split.</span>
+  <span class="url">doi.org/10.1061/(ASCE)CP.1943-5487.0000343</span>
+</div>
+<div class="item">
+  <span class="t">Automated Progress Tracking Using 4D Schedule and 3D Sensing Technologies</span> — <span class="by">Turkan, Bosché, Haas &amp; Haas, Automation in Construction 22 (2012)</span> <span class="tag">paywalled</span>
+  <span class="why">Shows how element-level verdicts roll up into progress and schedule status; the multi-epoch extension of this project.</span>
+  <span class="url">doi.org/10.1016/j.autcon.2011.10.003</span>
+</div>
+<div class="item">
+  <span class="t">Deviation Analysis Method for the Assessment of the Quality of the As-Is BIM Models Generated from Point Cloud Data</span> — <span class="by">Anil, Tang &amp; Akinci, Automation in Construction 35 (2013)</span> <span class="tag">paywalled</span>
+  <span class="why">Defines point-to-surface deviation statistics for judging a model against a scan; the metric vocabulary for your per-element CSV.</span>
+  <span class="url">doi.org/10.1016/j.autcon.2013.06.003</span>
+</div>
+<div class="item">
+  <span class="t">Automatic Reconstruction of As-Built BIMs from Laser-Scanned Point Clouds: A Review</span> — <span class="by">Tang, Huber, Akinci &amp; Lipman, Automation in Construction 19(7) (2010)</span> <span class="tag">paywalled</span>
+  <span class="why">The canonical scan-to-BIM survey; gives you the vocabulary (geometry, object recognition, relationships) for the research story.</span>
+  <span class="url">doi.org/10.1016/j.autcon.2010.06.007</span>
+</div>
+
+<h2><span class="num">5 —</span> Scan-vs-BIM Now &amp; Accuracy Standard <span class="gloss">(2023-26 work, plus the tolerance spec)</span></h2>
+<div class="item">
+  <span class="t">PC2Model: ISPRS Benchmark on 3D Point Cloud to Model Registration</span> — <span class="by">Maboudi, Harb, Ferrao et al., ISPRS Archives XLIX-B2-2026</span>
+  <span class="why">The benchmark you score on; read for categories, transforms and the metrics the authors use (still unverified in data-sources.md).</span>
+  <span class="url">arxiv.org/abs/2604.19596</span>
+</div>
+<div class="item">
+  <span class="t">Evaluation of ICP Variants for Point Cloud/BIM Alignment Enabling Scan-vs-BIM Comparison</span> — <span class="by">Becker, Macher, Landes &amp; Kila, ISPRS Archives XLIX-B2-2026</span>
+  <span class="why">Same 2026 ISPRS volume, directly on ICP variants for scan-vs-BIM; the nearest published comparison to your Phase 1 ablations.</span>
+  <span class="url">doi.org/10.5194/isprs-archives-xlix-b2-2026-1229-2026</span>
+</div>
+<div class="item">
+  <span class="t">Global BIM-Point Cloud Registration and Association for Construction Progress Monitoring</span> — <span class="by">Zhang, Lu, Luo et al., Automation in Construction 168 (2024)</span> <span class="tag">paywalled</span>
+  <span class="why">Registers a scan to a BIM model globally then associates points to components; a current counterpart to your align and compare stages.</span>
+  <span class="url">doi.org/10.1016/j.autcon.2024.105796</span>
+</div>
+<div class="item">
+  <span class="t">Procedural Point Cloud Modelling in Scan-to-BIM and Scan-vs-BIM Applications: A Review</span> — <span class="by">Abreu, Pinto &amp; Matos, ISPRS Int. J. Geo-Information 12(7) (2023)</span>
+  <span class="why">Recent review whose authors also made the CRAS dataset; good map of what scan-vs-BIM pipelines do and where they stop.</span>
+  <span class="url">doi.org/10.3390/ijgi12070260</span>
+</div>
+<div class="item">
+  <span class="t">Labelled Indoor Point Cloud Dataset for BIM Related Applications</span> — <span class="by">Abreu, Souza, Pinto &amp; Matos, Data 8(6):101 (2023)</span>
+  <span class="why">The data paper for the INESC CRAS scan + IFC pair: classes, scan setup and IFC provenance, to read before trusting it as ground truth.</span>
+  <span class="url">doi.org/10.3390/data8060101</span>
+</div>
+<div class="item">
+  <span class="t">Open-Source Automatic Pipeline for Efficient Conversion of Large-Scale Point Clouds to IFC Format (Cloud2BIM)</span> — <span class="by">Zbirovský &amp; Nežerka, Automation in Construction 177 (2025)</span>
+  <span class="why">A scan-to-IFC pipeline you can run on the same data; the reverse direction and a natural 'later' extension.</span>
+  <span class="url">arxiv.org/abs/2503.11498</span>
+</div>
+<div class="item">
+  <span class="t">USIBD Level of Accuracy (LOA) Specification</span> — <span class="by">U.S. Institute of Building Documentation (v3.1, Jan 2025)</span>
+  <span class="why">The source for tolerance bands instead of invented thresholds; check the version PC2Model cites.</span>
+  <span class="url">usibd.org/level-of-accuracy/</span>
+</div>
+
+<h2><span class="num">6 —</span> BIM, IFC &amp; Georeferencing <span class="gloss">(the model side and the viewer)</span></h2>
+<div class="item">
+  <span class="t">ISO 16739-1:2024 Industry Foundation Classes: Data Schema</span> — <span class="by">ISO / buildingSMART (2nd ed., 2024)</span> <span class="tag">paywalled</span>
+  <span class="why">The IFC standard itself; the entity definitions you will traverse when turning elements into geometry and quantities.</span>
+  <span class="url">iso.org/standard/84123.html</span>
+</div>
+<div class="item">
+  <span class="t">IfcMapConversion (IFC 4.3.2.0)</span> — <span class="by">buildingSMART International</span>
+  <span class="why">The entity that stores eastings, northings, height and rotation; what you write to place the building on MapLibre.</span>
+  <span class="url">standards.buildingsmart.org/IFC/RELEASE/IFC4_3/HTML/lexical/IfcMapConversion.htm</span>
+</div>
+<div class="item">
+  <span class="t">Tools for BIM-GIS Integration (IFC Georeferencing and Conversions): Results from the GeoBIM Benchmark 2019</span> — <span class="by">Noardo, Harrie, Arroyo Ohori, Biljecki et al., ISPRS Int. J. Geo-Information 9(9) (2020)</span>
+  <span class="why">Shows which tools silently drop or misread IFC georeferencing; a warning before you trust a viewer's map placement.</span>
+  <span class="url">doi.org/10.3390/ijgi9090502</span>
+</div>
+<div class="item">
+  <span class="t">IfcOpenShell: Geometry Processing (iterator)</span> — <span class="by">IfcOpenShell docs</span>
+  <span class="why">How to turn every IFC element into a mesh in bulk with the multithreaded iterator; the core of the compare phase.</span>
+  <span class="url">docs.ifcopenshell.org/ifcopenshell-python/geometry_processing.html</span>
+</div>
+<div class="item">
+  <span class="t">IfcOpenShell: BCF</span> — <span class="by">IfcOpenShell docs</span>
+  <span class="why">Reading and writing BCF-XML 2.1/3.0 from Python, for the one-issue-per-deviating-element export.</span>
+  <span class="url">docs.ifcopenshell.org/bcf.html</span>
+</div>
+<div class="item">
+  <span class="t">BCF-XML Specification</span> — <span class="by">buildingSMART (GitHub)</span>
+  <span class="why">The schema behind the issue files; check viewpoint and component-reference fields before promising 'points to the right element'.</span>
+  <span class="url">github.com/buildingSMART/BCF-XML</span>
+</div>
+<div class="item">
+  <span class="t">That Open Engine Documentation</span> — <span class="by">That Open Company</span>
+  <span class="why">The browser IFC viewer stack for Phase 4, including how to colour elements by a property such as your verdict.</span>
+  <span class="url">docs.thatopen.com/intro</span>
+</div>
+<div class="item">
+  <span class="t">MapLibre GL JS Documentation</span> — <span class="by">MapLibre</span>
+  <span class="why">Map rendering for the georeferenced building; you know the GIS side, this covers custom layers for placing a 3D model.</span>
+  <span class="url">maplibre.org/maplibre-gl-js/docs/</span>
+</div>
+
+<h2><span class="num">7 —</span> Embodied Carbon: Method <span class="gloss">(what A1-A3 means and why quantities matter)</span></h2>
+<div class="item">
+  <span class="t">EN 15978:2011 Sustainability of Construction Works: Assessment of Environmental Performance of Buildings</span> — <span class="by">CEN (2011)</span> <span class="tag">paywalled</span>
+  <span class="why">Defines the life-cycle modules; this is where your A1-A3 product-stage scope and its stated exclusions come from.</span>
+  <span class="url">din.de/en/wdc-beuth:din21:164252701</span>
+</div>
+<div class="item">
+  <span class="t">Embodied GHG Emissions of Buildings: The Hidden Challenge for Effective Climate Change Mitigation</span> — <span class="by">Röck, Saade, Balouktsi, Rasmussen et al., Applied Energy 258 (2020)</span> <span class="tag">paywalled</span>
+  <span class="why">Shows embodied emissions are a large share of building impact, the motivation line for the carbon layer.</span>
+  <span class="url">doi.org/10.1016/j.apenergy.2019.114107</span>
+</div>
+<div class="item">
+  <span class="t">Embodied Carbon Mitigation and Reduction in the Built Environment: What Does the Evidence Say?</span> — <span class="by">Pomponi &amp; Moncaster, J. Environmental Management 181 (2016)</span> <span class="tag">paywalled</span>
+  <span class="why">Evidence review of what reduces embodied carbon, including reuse; frames why verified inventories help.</span>
+  <span class="url">doi.org/10.1016/j.jenvman.2016.08.036</span>
+</div>
+<div class="item">
+  <span class="t">Critical Review of BIM-Based LCA Method to Buildings</span> — <span class="by">Soust-Verdaguer, Llatas &amp; García-Martínez, Energy and Buildings 136 (2017)</span> <span class="tag">paywalled</span>
+  <span class="why">Describes how IFC quantities are mapped to LCA data and where that breaks, which is your element-to-factor step.</span>
+  <span class="url">doi.org/10.1016/j.enbuild.2016.12.009</span>
+</div>
+
+<h2><span class="num">8 —</span> Carbon Factors &amp; Material Passports <span class="gloss">(pick one licence before Phase 5)</span></h2>
+<div class="item">
+  <span class="t">ICE Database (Inventory of Carbon and Energy)</span> — <span class="by">Circular Ecology (v4.0, Dec 2024)</span>
+  <span class="why">The widely cited UK factor set; per data-sources.md its tool use needs a paid licence, so read the terms before choosing it.</span>
+  <span class="url">circularecology.com/embodied-carbon-footprint-database.html</span>
+</div>
+<div class="item">
+  <span class="t">EPiC Database: Usage and Licence Information</span> — <span class="by">University of Melbourne (Crawford, Stephan &amp; Prideaux)</span>
+  <span class="why">CC BY-NC-ND with citation required; the page says what you may do, so it decides if factors can ship in a public repo.</span>
+  <span class="url">msd.unimelb.edu.au/research/projects/current/environmental-performance-in-construction/epic-database/usage-and-licence-information</span>
+</div>
+<div class="item">
+  <span class="t">ÖKOBAUDAT</span> — <span class="by">German Federal Ministry for Housing, Urban Development and Building</span>
+  <span class="why">The official German EPD-based database (EN 15804 data), the likeliest to have an API and clear licence; check terms.</span>
+  <span class="url">oekobaudat.de/en.html</span>
+</div>
+<div class="item">
+  <span class="t">Improving the Recycling Potential of Buildings Through Material Passports (MP): An Austrian Case Study</span> — <span class="by">Honic, Kovacic &amp; Rechberger, J. Cleaner Production 217 (2019)</span> <span class="tag">paywalled</span>
+  <span class="why">BIM-based material passport in practice; the target your scan-verified inventory is a first step toward.</span>
+  <span class="url">doi.org/10.1016/j.jclepro.2019.01.212</span>
+</div>
+<div class="item">
+  <span class="t">Materials Passports: Best Practice</span> — <span class="by">Heinrich &amp; Lang, TUM / BAMB (2019)</span>
+  <span class="why">What information a passport holds and who needs it, which tells you which fields scan evidence can supply.</span>
+  <span class="url">zenodo.org/record/2556515</span>
+</div>
+
+<h2><span class="num">9 —</span> Datasets &amp; Tools Lookup <span class="gloss">(a table you will return to)</span></h2>
+<div class="item">
+  <span class="t">PC2Model (v1, Nov 2025)</span> — <span class="by">Zenodo, CC BY 4.0, 10.2 GB</span>
+  <span class="why">137 samples with models, e57 scans and ground-truth transforms; 31 are houses or indoor.</span>
+  <span class="url">zenodo.org/records/17581812</span>
+</div>
+<div class="item">
+  <span class="t">INESC TEC CRAS Lab</span> — <span class="by">Zenodo, CC BY 4.0</span>
+  <span class="why">21 TLS scans, 585M points, plus a 67 MB as-built IFC: the case study; subsample first.</span>
+  <span class="url">zenodo.org/records/7948116</span>
+</div>
+<div class="item">
+  <span class="t">Open3D</span> — <span class="by">Zhou, Park &amp; Koltun (2018)</span>
+  <span class="why">Point cloud and registration library; cite this paper when you use it.</span>
+  <span class="url">arxiv.org/abs/1801.09847</span>
+</div>
+<div class="item">
+  <span class="t">CloudCompare</span> — <span class="by">CloudCompare project</span>
+  <span class="why">Visual check of your alignment and an independent cloud-to-mesh distance to cross-check your CSV.</span>
+  <span class="url">cloudcompare.org</span>
+</div>
+<div class="item">
+  <span class="t">HELIOS++</span> — <span class="by">3DGeo Heidelberg</span>
+  <span class="why">To reproduce PC2Model-style scans or make your own occlusion test cases from an IFC mesh.</span>
+  <span class="url">github.com/3dgeo-heidelberg/helios</span>
+</div>
+<div class="item">
+  <span class="t">Bonsai (BlenderBIM) Documentation</span> — <span class="by">IfcOpenShell community</span>
+  <span class="why">Free IFC and BCF viewer/editor for hand-checking elements and opening your BCF output.</span>
+  <span class="url">docs.bonsaibim.org</span>
+</div>
+
+<h2><span class="num">10 —</span> Research Framing for the PhD Story <span class="gloss">(surveys and groups)</span></h2>
+<div class="item">
+  <span class="t">Towards a Semantic Construction Digital Twin: Directions for Future Research</span> — <span class="by">Boje, Guerriero, Kubicki &amp; Rezgui, Automation in Construction 114 (2020)</span> <span class="tag">paywalled</span>
+  <span class="why">Gives the digital-twin framing: your scan-verified model is the 'as-built state' layer such twins lack.</span>
+  <span class="url">doi.org/10.1016/j.autcon.2020.103179</span>
+</div>
+<div class="item">
+  <span class="t">Construction with Digital Twin Information Systems</span> — <span class="by">Sacks, Brilakis, Pikas, Xie et al., Data-Centric Engineering 1 (2020)</span>
+  <span class="why">Open-access argument for continuous model-reality feedback; useful for the research-proposal motivation.</span>
+  <span class="url">doi.org/10.1017/dce.2020.16</span>
+</div>
+<div class="item">
+  <span class="t">From BIM to Digital Twins: A Systematic Review of the Evolution of Intelligent Building Representations</span> — <span class="by">Deng, Menassa &amp; Kamat, J. Information Technology in Construction 26 (2021)</span>
+  <span class="why">Maps the BIM to digital-twin gap and where scan data enters; a source for naming research groups to approach.</span>
+  <span class="url">doi.org/10.36680/j.itcon.2021.005</span>
+</div>
+
+<h2><span class="num">*</span> What's Still Unverified</h2>
+<div class="notes">
+<p><b>PC2Model:</b> the evaluation metrics the authors use and whether an evaluation server will open are not yet confirmed. The Zenodo record is labelled v1 but the file is <span style="font-family:Menlo,monospace;font-size:8.5pt">PC2Model_v1.4.zip</span>; the mismatch is unexplained.</p>
+<p><b>Carbon factor licences:</b> not decided. ICE needs a paid licence for tool use (per the earlier survey); EPiC is CC BY-NC-ND; ÖKOBAUDAT terms not read. The UNSW "ICM" database in data-sources.md could not be confirmed and is not listed here.</p>
+<p><b>USIBD LOA:</b> v3.1 (Jan 2025) is current per press releases; a direct download path was not confirmed, and PC2Model's cited version should be checked against it.</p>
+<p><b>Nothing Stands Still:</b> its dataset licence is unverified (a mirror says CC BY-NC-SA) and the paper's venue was not confirmed.</p>
+</div>
+
+<p class="footer"><b>Every link verified to resolve against a primary source (Oct 2026).</b> DOI metadata (authors, year, venue) was checked against Crossref and arXiv records; web pages were fetched or confirmed by search. Cloudflare or bot blocks prevented direct fetches of the buildingSMART, ISO, DIN, Zenodo and MDPI pages, so those were confirmed through search results and DOIs and are kept. Yellow tags mark paywalled items. Dropped as unconfirmed: the UNSW ICM database. Left out for lack of a verifiable primary source: a NIST-linked scan-to-BIM survey. Companion document: <i>3D Reality Capture &amp; BIM — Foundations</i>.</p>
+</body>
+</html>
