@@ -19,6 +19,14 @@ marked unverified and must be checked before use.
 - Not a building dataset overall: 31 of 137 samples are houses or indoor spaces. Report those
   categories separately.
 - Unverified: the metrics the authors use, and whether an evaluation server will open.
+- **Verified 2026-10-27 (access):** Zenodo serves HTTP range requests (206) on the zip, so single
+  samples can be pulled without the 10.2 GB download, e.g. with `remotezip`. Each sample is a folder
+  of model `.obj`, scan `.e57` and transform `.txt`, 115 MB to 1.6 GB (`house_19` is the largest). Layout:
+  `PC2Model_v1.4/house/house_N-sketchfab/` (25), `indoor_modelling/indoor_modelling_N-ISPRS_indoor_modelling-<site>/`
+  (6) and `ISPRS_indoor_modeling_benchmark/real-indoor_modelling_N-.../` (6). Probably simulated and real
+  respectively, going by the folder names; unverified.
+- Open3D 0.20 cannot read `.e57`; a separate reader (e.g. `pye57`) is needed. `pye57` on Apple Silicon:
+  untested.
 
 ### INESC TEC CRAS lab: indoor scan with as-built IFC
 
@@ -26,6 +34,10 @@ marked unverified and must be checked before use.
 - **Verified:** CC BY 4.0. 21 terrestrial laser scans, 585M points, 33 labelled classes, in a 4.3 GB
   ASCII file; IFC model, 67 MB.
 - The only open real scan + IFC pair found in the survey. Subsample before use.
+- Files: `craslabannotated.zip` (4.27 GB) and `craslabbim.ifc` (67.6 MB); no photos (verified via the
+  Zenodo API). Unzipped, 585M ASCII points are likely 25-30 GB (estimate), more than the dev laptop can
+  hold in memory (8 GB RAM, about 68 GB free disk on 2026-10-27). Stream the zip member and subsample
+  on the fly; don't extract it.
 
 ## Carbon factors
 

@@ -8,7 +8,29 @@ next phase does not start until the previous one is done.
 
 - `uv` Python project, Open3D and IfcOpenShell installed and imported on Apple Silicon.
 - Download the INESC CRAS IFC (67 MB) and one PC2Model indoor sample; load both and render them.
+- Dev machine limits: 8 GB RAM, about 68 GB free disk. Pull PC2Model samples one by one over HTTP
+  ranges and stream-subsample CRAS; see [data-sources.md](data-sources.md). Open3D 0.20 and
+  IfcOpenShell 0.9 (with `ifcopenshell.geom`) install and import with Python 3.12 on Apple Silicon
+  (checked 2026-10-27); E57 needs a separate reader.
 - **Done when:** one script loads a scan and an IFC and shows them in the same window (unaligned).
+
+## 0.5 Explore (weeks 1-2)
+
+Notebooks before code, as in the rooftop project: each one works one stage inline on a small slice,
+with rendered outputs committed so it reads on GitHub. The clean version goes into the package after.
+
+| # | Notebook | Slice | Question it answers |
+| --- | --- | --- | --- |
+| 00 | Pipeline overview | a hand-built toy room, one wall moved 4 cm | the whole chain by hand, with known answers |
+| 01 | Data | one CRAS room (subsampled) + its IFC; one PC2Model indoor sample | is the CRAS scan already in the IFC's frame? |
+| 02 | Align | the PC2Model sample | FPFH+RANSAC+ICP vs ground truth; the scale problem |
+| 03 | Compare | the CRAS room | per-element verdicts; occluded vs missing; tolerance |
+| 04 | Report + carbon | the CRAS room | IFC properties, BCF export, a small carbon table |
+| 05 | Validation | the 31 building/indoor PC2Model samples; hand check of CRAS verdicts | good enough to formalise? |
+
+- No notebook for the web viewer (phase 4); it is JavaScript and goes straight to code.
+- Static PNG snapshots, not interactive 3D widgets, so the outputs render on GitHub.
+- **Done when:** 00-05 run top to bottom and 05 says the baseline is worth formalising.
 
 ## 1. Align (weeks 1-3)
 
