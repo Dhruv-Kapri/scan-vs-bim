@@ -25,8 +25,13 @@ marked unverified and must be checked before use.
   `PC2Model_v1.4/house/house_N-sketchfab/` (25), `indoor_modelling/indoor_modelling_N-ISPRS_indoor_modelling-<site>/`
   (6) and `ISPRS_indoor_modeling_benchmark/real-indoor_modelling_N-.../` (6). Probably simulated and real
   respectively, going by the folder names; unverified.
-- Open3D 0.20 cannot read `.e57`; a separate reader (e.g. `pye57`) is needed. `pye57` on Apple Silicon:
-  untested.
+- Open3D 0.20 cannot read `.e57`; a separate reader is needed. **Verified 2026-10-27:** `pye57` 0.4.19
+  installs from a wheel on Apple Silicon (Python 3.12) and reads
+  `real-indoor_modelling_3-ISPRS_indoor_modelling-UVigo` (1 scan with pose, 9.5M points, XYZ only: no
+  colour or intensity).
+- **Verified 2026-10-27 (download):** Zenodo throughput varied from 0.15 to 1 MB/s, with occasional HTTP
+  504s, and one long streamed `remotezip` read died after 267 KB. `scripts/fetch_data.py` therefore uses
+  chunked, retried, resumable range requests (`remotezip` only reads the central directory).
 
 ### INESC TEC CRAS lab: indoor scan with as-built IFC
 

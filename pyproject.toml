@@ -1,0 +1,25 @@
+[project]
+name = "scan-vs-bim"
+version = "0.1.0"
+description = "Compare laser scans against IFC BIM models per element and report what was built, shifted or missing."
+readme = "README.md"
+authors = [
+    { name = "Dhruv Kapri", email = "dhruv27kapri@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "ifcopenshell==0.9.*",
+    "open3d==0.20.*",
+    "pye57>=0.4.19",
+    "remotezip>=0.12.6",
+    "requests>=2.34.2",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.31,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

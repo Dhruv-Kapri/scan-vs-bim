@@ -4,10 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Planning stage: no code, no build/lint/test commands yet. The repo holds the plan (`README.md`), the
-phased plan with "done when" criteria (`docs/roadmap.md`), the dataset survey (`docs/data-sources.md`)
-and the research framing (`docs/research-outline.md`). Read the roadmap before starting any work; when
-commands exist, record them here.
+Phase 0 (setup) done. The repo holds the plan (`README.md`), the phased plan with "done when" criteria
+(`docs/roadmap.md`), the dataset survey (`docs/data-sources.md`) and the research framing
+(`docs/research-outline.md`). Read the roadmap before starting any work; record new commands here.
+
+## Commands
+
+```sh
+uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57, pytest
+uv run pytest                             # tests
+uv run python scripts/fetch_data.py       # CRAS IFC + PC2Model real-indoor_modelling_3 (UVigo) into data/;
+                                          # resumable, idempotent; ~5-10 min at Zenodo speeds
+uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, unaligned; writes
+                                          # docs/images/stage0-unaligned{,-scan,-ifc}.png (overview + close-ups;
+                                          # --no-interactive: PNGs only)
+```
+
+- `src/scan_vs_bim/fetch.py`: chunked, retried, resumable HTTP range downloads and single-member zip
+  extraction (Zenodo is slow and returns 504s; a long `remotezip` stream died).
+- E57 reader: `pye57` 0.4.19 works on Apple Silicon. Measured 2026-10-27: `show_unaligned.py` peaks
+  under 2 GB RSS; the CRAS IFC tessellation (~1.2M triangles) takes about 90 s.
 
 ## What gets built
 
@@ -20,7 +36,7 @@ scan-confirmed elements). Python with Open3D and IfcOpenShell; the viewer is Jav
 - Phase 0.5 is notebook-first: notebooks `00`–`05` each work one stage on a small slice, with rendered
   outputs committed as **static PNGs** (not interactive 3D widgets) so they render on GitHub. Clean code
   moves into the package afterwards. The web viewer skips notebooks.
-- Planned tooling: a `uv` Python project, Python 3.12, Open3D 0.20, IfcOpenShell 0.9 (`ifcopenshell.geom`).
+- Tooling: a `uv` Python project, Python 3.12, Open3D 0.20, IfcOpenShell 0.9 (`ifcopenshell.geom`).
 
 ## Constraints that shape the code
 
@@ -28,11 +44,12 @@ scan-confirmed elements). Python with Open3D and IfcOpenShell; the viewer is Jav
 - **Never commit data.** `data/`, `outputs/` and point-cloud/zip extensions are gitignored; datasets
   keep their own licences.
 - **PC2Model** (10.2 GB zip): don't download whole. Zenodo serves HTTP range requests, so pull single
-  samples (e.g. `remotezip`). Half its samples are randomly scaled 0.5–1.5, so registration needs a scale
-  estimate or must report those separately. Report the 31 house/indoor samples separately.
+  samples (chunked, retried ranges; see `scripts/fetch_data.py`). Half its samples are randomly scaled
+  0.5–1.5, so registration needs a scale estimate or must report those separately. Report the 31
+  house/indoor samples separately.
 - **INESC CRAS** (4.3 GB zip, ~585M ASCII points, likely 25–30 GB unzipped): stream the zip member and
   subsample on the fly; never extract.
-- Open3D cannot read `.e57`; a separate reader (e.g. `pye57`) is needed, untested on Apple Silicon.
+- Open3D cannot read `.e57`; use `pye57` (works on Apple Silicon).
 - Tolerances must come from a standard (USIBD Level of Accuracy), not be invented.
 - Carbon factor source is undecided and licence-gated (repo is public); see `docs/data-sources.md`.
 
