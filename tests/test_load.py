@@ -72,6 +72,8 @@ def test_merge_and_load_ifc(ifc_path):
     assert len(mesh.vertices) == sum(len(e.vertices) for e in els)
     assert mesh.has_vertex_normals() and not mesh.has_vertex_colors()
     assert np.asarray(mesh.triangles).max() < len(mesh.vertices)
+    np.testing.assert_allclose(np.asarray(mesh.vertices)[np.asarray(mesh.triangles)],
+                               np.concatenate([e.vertices[e.faces] for e in els]))  # faces keep their own element's vertices
     assert len(load_ifc(path).triangles) == len(mesh.triangles)
 
 
