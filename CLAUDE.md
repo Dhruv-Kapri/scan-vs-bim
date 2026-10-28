@@ -14,7 +14,7 @@ Phase 0 (setup) done. The repo holds the plan (`README.md`), the phased plan wit
 uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57, pytest
 uv run pytest                             # tests
 uv run python scripts/fetch_data.py       # CRAS IFC + CRAS scan zip (4.27 GB, never extracted; measured 2026-10-28:
-                                          # ~0.5 MB/s per connection, ~2.5 h) + PC2Model real-indoor_modelling_3 (UVigo) into
+                                          # 0.1-0.5 MB/s on one connection, ~3.5 h) + PC2Model real-indoor_modelling_3 (UVigo) into
                                           # data/; resumable, idempotent
 uv run python scripts/build_cras_cache.py # stream the CRAS zip into data/cras/cras_voxel_1cm.npz (first point per
                                           # 1 cm voxel; xyz/rgb/cls + meta; idempotent; --zip/--out/--voxel)
