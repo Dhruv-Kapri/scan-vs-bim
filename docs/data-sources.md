@@ -76,16 +76,21 @@ marked unverified and must be checked before use.
 - **Verified 2026-10-28 (Guide C120, LOA table and the paragraph after it):** bands as upper/lower
   range, "*Specified at the 95% Confidence level": LOA10 15 cm-5 cm, LOA20 5 cm-15 mm, LOA30 15 mm-5 mm,
   LOA40 5 mm-1 mm, LOA50 1 mm-0. "The numbers represented in the LOA ranges relate to standard deviation
-  of 2 Sigma." LOA10's 15 cm upper range dates from v3.0. A result better than the specified band "is
-  presumed also to be acceptable", so LOA30 as a pass/fail tolerance is ≤ 15 mm at 2σ. Bands apply to
+  of 2 Sigma." LOA10's 15 cm upper range dates from v3.0 (corrects the earlier "> 5 cm" from secondary
+  sources). A result better than the specified band "is presumed also to be acceptable". Bands apply to
   both Measured Accuracy (the measurements) and Represented Accuracy (data "processed into some other
-  form such as line work or a model"); a scan-vs-model deviation is checked against the latter. The
-  project uses LOA30 as its tolerance.
+  form such as line work or a model").
+- Reading of the bands (2026-10-28): LOA30 as a pass/fail tolerance is ≤ 15 mm at 2σ, and a
+  scan-vs-model deviation is checked against Represented Accuracy. The project uses LOA30 as its
+  tolerance.
 - **Verified 2026-10-28 (licence, Guide C120 and v3.1 release notes):** © 2025 USIBD, under Creative
-  Commons Attribution-NonCommercial-NoDerivatives 4.0 International. Reading of those terms: quoting the
-  band values with attribution (USIBD LOA Specification v3.1, Guide C120) is fine; don't commit the PDF
-  or a modified copy. "Modifications to the LOA Framework may be made ... if they are licensed to do so by the USIBD";
-  only LOA10-LOA50 may be called USIBD LOAs. Licensing questions: communications@usibd.org.
+  Commons Attribution-NonCommercial-NoDerivatives 4.0 International. "Modifications to the LOA
+  Framework may be made ... if they are licensed to do so by the USIBD"; only LOA10-LOA50 may be called
+  USIBD LOAs. Licensing questions: communications@usibd.org.
+- Reading of the licence (2026-10-28), not confirmed with USIBD: quoting the band values with
+  attribution (USIBD LOA Specification v3.1, Guide C120) is fine; don't commit the PDF or a modified
+  copy. NonCommercial binds copies of the document, so a commercial use of this project would need the
+  values cited, not the PDF shipped; ask USIBD if that ever matters.
 - PC2Model's "LOA" is a different thing: `LOA_mean`/`LOA_median` are registration residuals
   (point-to-model distances; the paper cites Ersöz and Bosché 2026), not USIBD bands. Read from the
   arXiv PDF; see [CONTEXT.md](../CONTEXT.md).
@@ -115,7 +120,8 @@ marked unverified and must be checked before use.
   `https://www.oekobaudat.de/OEKOBAU.DAT/resource`.
 - Reading of those terms (2026-10-28): runtime download into gitignored `data/` is use, which is
   unrestricted, and redistributes nothing. The committed IFC-material → dataset-UUID mapping holds
-  identifiers, not data values. Both are allowed. Name ÖKOBAUDAT as the source wherever factors are shown.
+  identifiers, not data values. Both appear allowed; not confirmed with BBSR. Name ÖKOBAUDAT as the
+  source wherever factors are shown.
   Committing factor values or a filtered/modified copy stays out, since only unmodified data may be
   passed on.
 
