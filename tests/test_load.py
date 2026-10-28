@@ -50,6 +50,15 @@ def test_ifc_elements_identity_and_world_coords(ifc_path):
     np.testing.assert_allclose(wall.vertices.max(0), np.add(OFFSET, (4.0, 0.2, 3.0)), atol=1e-6)
 
 
+def test_ifc_only_guids(ifc_path):
+    path, expected = ifc_path
+    wall_guid = next(g for g, c in expected.items() if c == "IfcWall")
+    els = load_ifc_elements(path, only_guids=[wall_guid])
+    assert [e.global_id for e in els] == [wall_guid]
+    full = next(e for e in load_ifc_elements(path) if e.global_id == wall_guid)
+    np.testing.assert_allclose(els[0].vertices, full.vertices)
+
+
 def test_ifc_exclude_override(ifc_path):
     path, _ = ifc_path
     assert "IfcSpace" in {e.ifc_class for e in load_ifc_elements(path, exclude=())}

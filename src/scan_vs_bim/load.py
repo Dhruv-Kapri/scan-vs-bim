@@ -42,11 +42,15 @@ def load_e57(path: Path, max_points: int, seed: int = 0) -> o3d.geometry.PointCl
     return o3d.geometry.PointCloud(o3d.utility.Vector3dVector(np.concatenate(xyz_parts)))
 
 
-def load_ifc_elements(path: Path, exclude=("IfcSpace", "IfcOpeningElement")) -> list[ElementMesh]:
+def load_ifc_elements(path: Path, exclude=("IfcSpace", "IfcOpeningElement"), only_guids=None) -> list[ElementMesh]:
+    """Tessellate the model. `only_guids` limits it to those GlobalIds (much faster on a big model); `exclude` is then ignored."""
     model = ifcopenshell.open(str(path))
     settings = ifcopenshell.geom.settings()
     settings.set("use-world-coords", True)
-    geom_iter = ifcopenshell.geom.iterator(settings, model, os.cpu_count() or 1, exclude=list(exclude))
+    if only_guids is None:
+        geom_iter = ifcopenshell.geom.iterator(settings, model, os.cpu_count() or 1, exclude=list(exclude))
+    else:
+        geom_iter = ifcopenshell.geom.iterator(settings, model, os.cpu_count() or 1, include=[model.by_guid(g) for g in only_guids])
     elements = []
     if geom_iter.initialize():
         while True:
