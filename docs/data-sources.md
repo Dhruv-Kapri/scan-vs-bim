@@ -20,9 +20,9 @@ marked unverified and must be checked before use.
   `scripts/find_scaled_sample.py`):** 71 samples are scaled (uniform scale = cube root of the 3x3
   determinant, |s − 1| > 0.001), and their scales run from 0.69 to 1.98, not 0.5 to 1.5. Scaled per
   category: house 11/25, simulated indoor 4/6, real indoor 2/6. The ground-truth matrix maps the
-  transformed scan into the model frame (**Verified 2026-10-28**, measured in notebook 02 on UVigo: median
-  scan-to-model distance 0.042 m with T, 927 m with its inverse). The smallest scaled sample is `furniture/fur_010-modelnet` (0.38 MB,
-  scale 1.357).
+  transformed scan into the model frame (**Verified 2026-10-28**, measured in notebook 02 on UVigo:
+  median scan-to-model distance 0.042 m with T, 927 m with its inverse). The smallest scaled sample is
+  `furniture/fur_010-modelnet` (0.38 MB, scale 1.357).
 - Not a building dataset overall: 31 of 137 samples are houses or indoor spaces. Report those
   categories separately.
 - Unverified: the metrics the authors use, and whether an evaluation server will open.

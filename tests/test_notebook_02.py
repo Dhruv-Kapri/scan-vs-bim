@@ -19,9 +19,10 @@ def test_notebook_02_runs_with_known_answers(tmp_path):
     for p in NEEDS:
         if not p.exists():
             pytest.skip(f"{p.relative_to(ROOT)} missing (run scripts/find_scaled_sample.py and scripts/fetch_data.py, see CLAUDE.md)")
-    # Run a copy so the committed notebook is not rewritten; data/ and outputs/ are symlinked so ROOT/outputs/... resolves.
+    # Run a copy so the committed notebook is not rewritten and its PNGs land in tmp_path, not the real outputs/02.
     (tmp_path / "notebooks").mkdir()
+    (tmp_path / "outputs").mkdir()
     (tmp_path / "data").symlink_to(ROOT / "data")
-    (tmp_path / "outputs").symlink_to(ROOT / "outputs")
+    (tmp_path / "outputs" / "pc2model_scales.csv").symlink_to(NEEDS[0])
     copy = shutil.copy(NOTEBOOK, tmp_path / "notebooks")
     run_notebook(Path(copy), timeout=1800)
