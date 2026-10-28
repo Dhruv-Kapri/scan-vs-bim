@@ -60,7 +60,7 @@ def test_notebook_04b_carbon_table_adds_up(tmp_path):
         assert confirmed + rest == pytest.approx(sum(kg.values()))
 
     assert sum(float(r["kg_co2e_a1_a3"] or 0) for r in layers) == pytest.approx(sum(float(r["kg_co2e_a1_a3"]) for r in elements), abs=0.05 * len(elements))
-    assert {r["status"] for r in layers} <= {"counted", "unmapped", "not quantifiable"}
+    assert {r["quantification"] for r in layers} <= {"counted", "unmapped", "not quantifiable"}
     mapped = {r["oekobaudat_uuid"] for r in read(MAPPING) if r["oekobaudat_uuid"]}
     assert mapped <= {r["oekobaudat_uuid"] for r in layers}  # each mapped dataset is counted or reported as not quantifiable
 
