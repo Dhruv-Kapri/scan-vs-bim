@@ -2100,6 +2100,7 @@ dev = [
     { name = "ipykernel" },
     { name = "jupyter" },
     { name = "nbclient" },
+    { name = "nbformat" },
     { name = "pytest" },
 ]
 
@@ -2117,6 +2118,7 @@ dev = [
     { name = "ipykernel", specifier = ">=7.4.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "nbclient", specifier = ">=0.11.0" },
+    { name = "nbformat", specifier = ">=5.11.1" },
     { name = "pytest", specifier = ">=9.1.1" },
 ]
 

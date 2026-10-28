@@ -36,7 +36,8 @@ def main() -> None:
     ap.add_argument("--png", type=Path, default=ROOT / "docs/images/stage0-unaligned.png")
     ap.add_argument("--no-interactive", action="store_true")
     a = ap.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logging.basicConfig(format="%(message)s")
+    logging.getLogger("scan_vs_bim").setLevel(logging.INFO)  # root INFO would also print Open3D's help text
 
     t = time.perf_counter()
     pcd = load_e57(a.e57, a.max_points)
