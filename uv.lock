@@ -142,6 +142,20 @@ wheels = [
 ]
 
 [[package]]
+name = "bcf-client"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ifcopenshell" },
+    { name = "numpy" },
+    { name = "requests" },
+    { name = "xsdata" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b2/7d/21fa18386b08bf73ee28600aa578e5ccd23bc8760cafe1cdbc94c798f6cc/bcf_client-0.9.0-py3-none-any.whl", hash = "sha256:68915ee2633e9b683ed122a90a7f3fbeca1e4af8a0bf3e0623499d16c616c3f5", size = 41509, upload-time = "2026-09-29T07:23:56.965Z" },
+]
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2487,6 +2501,7 @@ name = "scan-vs-bim"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "bcf-client" },
     { name = "ifcopenshell" },
     { name = "open3d" },
     { name = "pye57" },
@@ -2507,6 +2522,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bcf-client", specifier = ">=0.9.0" },
     { name = "ifcopenshell", specifier = "==0.9.*" },
     { name = "open3d", specifier = "==0.20.*" },
     { name = "pye57", specifier = ">=0.4.19" },
@@ -2926,6 +2942,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/bf/60/bc7a980fc78837d6ef8f5940cca4cadc433364503a4c4d42e2a7a0de3231/widgetsnbextension-4.0.16.tar.gz", hash = "sha256:adeea0ae78f0856ee4945f413299801b82a0a01416303301f39a704282a37b73", size = 1111094, upload-time = "2026-08-18T08:52:55.859Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/34/95/40e17e20046b7bc820d29d09ae84ec157ec8dd6e6f6cd722626292c31b2e/widgetsnbextension-4.0.16-py3-none-any.whl", hash = "sha256:a31a8774885b96fe825462f5d6496166f0c7cae111195b6465c801d230eb5a4e", size = 2225148, upload-time = "2026-08-18T08:52:53.736Z" },
+]
+
+[[package]]
+name = "xsdata"
+version = "26.10"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f3/b8/7b301b80494a750dba431d3d0a800e0e80c91903e8891eef78ead8f95120/xsdata-26.10.tar.gz", hash = "sha256:4bc944d9fa3955f84ecebb83c677e2f681687c002a777731a21104e8360a7522", size = 356001, upload-time = "2026-10-16T10:06:30.516Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/fe/5a9698cef0850317de2a8f3c50519fbaa2cc4225d15bcfe9922e4dff8380/xsdata-26.10-py3-none-any.whl", hash = "sha256:37a697d60db1396a0431750486744a7e0491fd60669751d95e3ede08f034e0c6", size = 243015, upload-time = "2026-10-16T10:06:28.782Z" },
 ]
 
 [[package]]

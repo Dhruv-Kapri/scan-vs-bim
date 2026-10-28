@@ -31,6 +31,9 @@ uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, una
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3000 notebooks/01_data.ipynb
                                           # re-run notebook 01 in place (needs the CRAS cache + IFC; ~5-6 min, peak
                                           # RSS under 3 GB); rewrites notebooks/01_cras_slice.json (read by 03/04)
+uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
+  notebooks/00_pipeline_overview.ipynb    # notebook 00 (toy room, no downloaded data); the flag drops timing
+                                          # metadata so re-runs give no diff
 ```
 
 - `src/scan_vs_bim/load.py`: E57 loader (seeded subsample, poses applied) and IFC loaders (per-element meshes
