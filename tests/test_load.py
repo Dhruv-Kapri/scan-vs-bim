@@ -64,6 +64,12 @@ def test_ifc_exclude_override(ifc_path):
     assert "IfcSpace" in {e.ifc_class for e in load_ifc_elements(path, exclude=())}
 
 
+def test_ifc_only_guids_with_exclude_raises(ifc_path):
+    path, expected = ifc_path
+    with pytest.raises(ValueError):
+        load_ifc_elements(path, only_guids=list(expected)[:1], exclude=("IfcSpace",))
+
+
 def test_ifc_no_geometry_raises(tmp_path):
     f = ifcopenshell.api.run("project.create_file")
     ifcopenshell.api.run("root.create_entity", f, ifc_class="IfcProject", name="p")
