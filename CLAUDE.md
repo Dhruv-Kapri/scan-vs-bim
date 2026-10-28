@@ -13,8 +13,11 @@ Phase 0 (setup) done. The repo holds the plan (`README.md`), the phased plan wit
 ```sh
 uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57, pytest
 uv run pytest                             # tests
-uv run python scripts/fetch_data.py       # CRAS IFC + PC2Model real-indoor_modelling_3 (UVigo) into data/;
-                                          # resumable, idempotent; ~5-10 min at Zenodo speeds
+uv run python scripts/fetch_data.py       # CRAS IFC + CRAS scan zip (4.27 GB, never extracted; measured 2026-10-28:
+                                          # ~0.5 MB/s per connection, ~2.5 h) + PC2Model real-indoor_modelling_3 (UVigo) into
+                                          # data/; resumable, idempotent
+uv run python scripts/build_cras_cache.py # stream the CRAS zip into data/cras/cras_voxel_1cm.npz (first point per
+                                          # 1 cm voxel; xyz/rgb/cls + meta; idempotent; --zip/--out/--voxel)
 uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, unaligned; writes
                                           # docs/images/stage0-unaligned{,-scan,-ifc}.png (overview + close-ups;
                                           # --no-interactive: PNGs only)
@@ -22,6 +25,14 @@ uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, una
 
 - `src/scan_vs_bim/fetch.py`: chunked, retried, resumable HTTP range downloads and single-member zip
   extraction (Zenodo is slow and returns 504s; a long `remotezip` stream died).
+- `src/scan_vs_bim/cras_cache.py`: streams the 26.8 GB ASCII zip member in 64 MB blocks (never extracted
+  or loaded whole), keeps the first point per voxel; xyz float32, rgb/class uint8, intensity dropped.
+  Measured 2026-10-28 on synthetic members (8 GB Apple Silicon): ~54 MB/s uncompressed (~8 min for the
+  real member); max RSS ~0.75 GB fixed (64 MB blocks) + ~29 MB per million occupied voxels (24 B/voxel
+  kept plus a transient sort copy of the keys), e.g. 100M voxels ~3.6 GB. A run whose point count
+  differs from the header's raises and writes no cache. Run it detached (~10 min, long):
+  `mkdir -p outputs/jobs; nohup sh -c 'uv run python scripts/build_cras_cache.py; echo "exit=$?" > outputs/jobs/cras-cache.status' > outputs/jobs/cras-cache.log 2>&1 &`
+  then poll the `.log` and `.status` files.
 - E57 reader: `pye57` 0.4.19 works on Apple Silicon. Measured 2026-10-27: `show_unaligned.py` peaks
   under 2 GB RSS; the CRAS IFC tessellation (~1.2M triangles) takes about 90 s.
 
