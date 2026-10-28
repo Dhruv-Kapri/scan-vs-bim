@@ -27,10 +27,10 @@ uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, una
   extraction (Zenodo is slow and returns 504s; a long `remotezip` stream died).
 - `src/scan_vs_bim/cras_cache.py`: streams the 26.8 GB ASCII zip member in 64 MB blocks (never extracted
   or loaded whole), keeps the first point per voxel; xyz float32, rgb/class uint8, intensity dropped.
-  Measured 2026-10-28 on synthetic members (8 GB Apple Silicon): ~54 MB/s uncompressed (~8 min for the
-  real member); max RSS ~0.75 GB fixed (64 MB blocks) + ~29 MB per million occupied voxels (24 B/voxel
-  kept plus a transient sort copy of the keys), e.g. 100M voxels ~3.6 GB. A run whose point count
-  differs from the header's raises and writes no cache. Run it detached (~10 min, long):
+  Measured 2026-10-28 on the real member (8 GB Apple Silicon): 584,701,977 points read (= declared),
+  20,404,814 kept at 1 cm, 5.3 min, max RSS 1.22 GB, cache 326 MB; extent x 0.01..18.32, y -4.18..20.27,
+  z -2.07..3.25 m. Memory is ~0.75 GB fixed (64 MB blocks) + ~29 MB per million occupied voxels (synthetic).
+  A run whose point count differs from the header's raises and writes no cache. Run it detached:
   `mkdir -p outputs/jobs; nohup sh -c 'uv run python scripts/build_cras_cache.py; echo "exit=$?" > outputs/jobs/cras-cache.status' > outputs/jobs/cras-cache.log 2>&1 &`
   then poll the `.log` and `.status` files.
 - E57 reader: `pye57` 0.4.19 works on Apple Silicon. Measured 2026-10-27: `show_unaligned.py` peaks
