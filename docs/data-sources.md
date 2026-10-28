@@ -93,8 +93,20 @@ marked unverified and must be checked before use.
 | [EPiC](https://msd.unimelb.edu.au/research/projects/current/environmental-performance-in-construction/epic-database/usage-and-licence-information) (University of Melbourne) | CC BY-NC-ND, unverified (page blocked) | No modified copies; Australian |
 | EC3 (Building Transparency) | API terms of service, unverified | No caching or redistribution on the free tier |
 
-Open: confirm that ÖKOBAUDAT's "unmodified" wording permits runtime download plus a committed UUID
-mapping (read in a browser, or ask BBSR).
+- **Verified 2026-10-28 (ÖKOBAUDAT terms, read from the
+  [data-users page](https://www.oekobaudat.de/en/guidance/data-users.html) and the
+  [manual](https://www.oekobaudat.de/fileadmin/downloads/2021-06-28_OEBD-Manual.pdf) §3.4.2, same
+  wording):** "The BMWSB provides the ÖKOBAUDAT data free of charge and without any restrictions. They
+  are primarily intended for performing life cycle assessment of buildings." and "The free distribution
+  of unmodified data is permitted, provided that the source is named." Data owners stay responsible
+  for values; BMWSB/BBSR take no liability. "ÖKOBAUDAT is not designed for performing life cycle
+  assessment of building products." The page gives a service-interface base URL for software tools,
+  `https://www.oekobaudat.de/OEKOBAU.DAT/resource`.
+- Reading of those terms (2026-10-28): runtime download into gitignored `data/` is use, which is
+  unrestricted, and redistributes nothing. The committed IFC-material → dataset-UUID mapping holds
+  identifiers, not data values. Both are allowed. Name ÖKOBAUDAT as the source wherever factors are shown.
+  Committing factor values or a filtered/modified copy stays out, since only unmodified data may be
+  passed on.
 
 ## Considered, not used now
 
