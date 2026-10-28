@@ -1,11 +1,10 @@
 import io
 import os
-import struct
 import zipfile
 
 import pytest
 
-from scan_vs_bim.fetch import extract_zip_member
+from scan_vs_bim.fetch import data_start, extract_zip_member
 
 
 def make_zip(path):
@@ -17,12 +16,6 @@ def make_zip(path):
         for name, (data, method) in payloads.items():
             z.writestr(zipfile.ZipInfo(name), data, compress_type=method)
     return {n: d for n, (d, _) in payloads.items()}
-
-
-def data_start(blob, info):
-    """Offset of a member's compressed bytes, from its local header (not the central directory)."""
-    name_len, extra_len = struct.unpack("<HH", blob[info.header_offset + 26 : info.header_offset + 30])
-    return info.header_offset + 30 + name_len + extra_len
 
 
 def reader_for(blob, calls=None):
@@ -55,7 +48,7 @@ def test_resume_from_part_file(tmp_path):
     info = zipfile.ZipFile(zpath).getinfo("dir/deflated.bin")
     dest = tmp_path / "x.bin"
     # Pre-seed a partial download: first 120 compressed bytes.
-    start = data_start(blob, info)
+    start = data_start(reader_for(blob), info)
     dest.with_name("x.bin.part").write_bytes(blob[start : start + 120])
     calls = []
     extract_zip_member(reader_for(blob, calls), info, dest, chunk_size=100)
@@ -81,7 +74,7 @@ def test_corruption_fails_crc(tmp_path):
     make_zip(zpath)
     blob = bytearray(zpath.read_bytes())
     info = zipfile.ZipFile(zpath).getinfo("dir/stored.bin")
-    blob[data_start(blob, info) + 10] ^= 0xFF
+    blob[data_start(reader_for(blob), info) + 10] ^= 0xFF
     dest = tmp_path / "x.bin"
     with pytest.raises(ValueError, match="CRC"):
         extract_zip_member(reader_for(bytes(blob)), info, dest, chunk_size=100)
