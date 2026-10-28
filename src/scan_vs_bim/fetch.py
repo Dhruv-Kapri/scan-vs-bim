@@ -63,6 +63,15 @@ def download_range(
             print(f"  {label} {have / 1e6:.1f}/{length / 1e6:.1f} MB", flush=True)
 
 
+def data_start(read_range: ReadRange, info: zipfile.ZipInfo) -> int:
+    """Offset of a member's compressed bytes. Local header lengths can differ from the central directory's."""
+    hdr = read_range(info.header_offset, info.header_offset + LOCAL_HEADER - 1)
+    if hdr[:4] != b"PK\x03\x04":
+        raise ValueError(f"bad local header signature at {info.header_offset}")
+    name_len, extra_len = struct.unpack("<HH", hdr[26:30])
+    return info.header_offset + LOCAL_HEADER + name_len + extra_len
+
+
 def extract_zip_member(
     read_range: ReadRange, info: zipfile.ZipInfo, dest: Path, chunk_size: int = CHUNK
 ) -> None:
@@ -71,15 +80,8 @@ def extract_zip_member(
     if dest.exists() and dest.stat().st_size == info.file_size:
         print(f"skip {dest} (exists)")
         return
-    # Local header lengths can differ from the central directory's.
-    hdr = read_range(info.header_offset, info.header_offset + LOCAL_HEADER - 1)
-    if hdr[:4] != b"PK\x03\x04":
-        raise ValueError(f"bad local header signature at {info.header_offset}")
-    name_len, extra_len = struct.unpack("<HH", hdr[26:30])
-    data_start = info.header_offset + LOCAL_HEADER + name_len + extra_len
-
     part = dest.with_name(dest.name + ".part")
-    download_range(read_range, data_start, info.compress_size, part, chunk_size, dest.name)
+    download_range(read_range, data_start(read_range, info), info.compress_size, part, chunk_size, dest.name)
 
     if info.compress_type == zipfile.ZIP_DEFLATED:
         inflater = zlib.decompressobj(-15)

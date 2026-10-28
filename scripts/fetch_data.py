@@ -5,6 +5,7 @@ from pathlib import Path
 from remotezip import RemoteZip
 
 from scan_vs_bim.fetch import extract_zip_member, fetch_file, http_range_reader
+from scan_vs_bim.pc2model import URL as PC2MODEL_URL
 
 ROOT = Path(__file__).resolve().parent.parent / "data"
 
@@ -16,7 +17,6 @@ CRAS_SCAN_URL = "https://zenodo.org/api/records/7948116/files/craslabannotated.z
 CRAS_SCAN_SIZE = 4267281425
 CRAS_SCAN_MD5 = "e5ecedab8f2a1d1f91861a3aec028a72"
 
-PC2MODEL_URL = "https://zenodo.org/api/records/17581812/files/PC2Model_v1.4.zip/content"
 SAMPLE_DIR = "PC2Model_v1.4/ISPRS_indoor_modeling_benchmark/real-indoor_modelling_3-ISPRS_indoor_modelling-UVigo/"
 
 

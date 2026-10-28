@@ -19,6 +19,12 @@ uv run python scripts/fetch_data.py       # CRAS IFC + CRAS scan zip (4.27 GB, n
                                           # data/; resumable, idempotent
 uv run python scripts/build_cras_cache.py # stream the CRAS zip into data/cras/cras_voxel_1cm.npz (first point per
                                           # 1 cm voxel; xyz/rgb/cls + meta; idempotent; --zip/--out/--voxel)
+uv run python scripts/find_scaled_sample.py # reads only PC2Model's 137 transform files (cached in data/pc2model/
+                                          # transforms/), writes outputs/pc2model_scales.csv, fetches the smallest
+                                          # scaled sample; --no-fetch to list only
+uv run jupyter nbconvert --to notebook --execute --inplace notebooks/02_align.ipynb
+                                          # notebook 02 (UVigo + fur_010; ~2 min, <1 GB RSS; needs fetch_data.py and
+                                          # find_scaled_sample.py first)
 uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, unaligned; writes
                                           # docs/images/stage0-unaligned{,-scan,-ifc}.png (overview + close-ups;
                                           # --no-interactive: PNGs only)
@@ -61,10 +67,10 @@ scan-confirmed elements). Python with Open3D and IfcOpenShell; the viewer is Jav
 - **Dev machine: Apple Silicon, 8 GB RAM, ~68 GB free disk, no GPU.** Everything must run on it.
 - **Never commit data.** `data/`, `outputs/` and point-cloud/zip extensions are gitignored; datasets
   keep their own licences.
-- **PC2Model** (10.2 GB zip): don't download whole. Zenodo serves HTTP range requests, so pull single
-  samples (chunked, retried ranges; see `scripts/fetch_data.py`). Half its samples are randomly scaled
-  0.5–1.5, so registration needs a scale estimate or must report those separately. Report the 31
-  house/indoor samples separately.
+- **PC2Model** (10.2 GB zip): don't download whole. Zenodo serves HTTP range requests, so pull single samples
+  (chunked, retried ranges; see `scripts/fetch_data.py`). 71 of 137 samples are scaled (0.69–1.98 measured;
+  the record says 0.5–1.5), so registration needs a scale estimate or must report those separately. Report the
+  31 house/indoor samples separately.
 - **INESC CRAS** (4.3 GB zip, ~585M ASCII points, likely 25–30 GB unzipped): stream the zip member and
   subsample on the fly; never extract.
 - Open3D cannot read `.e57`; use `pye57` (works on Apple Silicon).
