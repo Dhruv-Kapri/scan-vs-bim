@@ -11,7 +11,8 @@ Phase 0 (setup) done. The repo holds the plan (`README.md`), the phased plan wit
 ## Commands
 
 ```sh
-uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57, pytest
+uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57; dev: pytest,
+                                          # jupyter/ipykernel, nbclient
 uv run pytest                             # tests
 uv run python scripts/fetch_data.py       # CRAS IFC + CRAS scan zip (4.27 GB, never extracted; measured 2026-10-28:
                                           # 0.1-0.5 MB/s on one connection, ~3.5 h) + PC2Model real-indoor_modelling_3 (UVigo) into
