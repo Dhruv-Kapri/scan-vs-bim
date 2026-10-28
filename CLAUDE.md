@@ -22,6 +22,9 @@ uv run python scripts/build_cras_cache.py # stream the CRAS zip into data/cras/c
 uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, unaligned; writes
                                           # docs/images/stage0-unaligned{,-scan,-ifc}.png (overview + close-ups;
                                           # --no-interactive: PNGs only)
+cd notebooks && uv run jupyter nbconvert --to notebook --execute --inplace \
+  --ClearMetadataPreprocessor.enabled=True 00_pipeline_overview.ipynb   # re-execute a notebook, outputs kept for
+                                          # GitHub; the flag drops timing metadata so re-runs give no diff
 ```
 
 - `src/scan_vs_bim/load.py`: E57 loader (seeded subsample, poses applied) and IFC loaders (per-element meshes
