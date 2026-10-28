@@ -15,7 +15,14 @@ marked unverified and must be checked before use.
   vehicles), 6 simulated indoor spaces, 6 real indoor spaces. Simulated scans come from Helios++
   configured as a Leica P40, with noise, mixed pixels, occlusion and density changes.
 - Transforms: any rotation, translation up to 5x the cloud extent, and on half the samples a scale of
-  0.5 to 1.5.
+  0.5 to 1.5 (the record's description).
+- **Verified 2026-10-28 (all 137 transform files, read over range requests by
+  `scripts/find_scaled_sample.py`):** 71 samples are scaled (uniform scale = cube root of the 3x3
+  determinant, |s − 1| > 0.001), and their scales run from 0.69 to 1.98, not 0.5 to 1.5. Scaled per
+  category: house 11/25, simulated indoor 4/6, real indoor 2/6. The ground-truth matrix maps the
+  transformed scan into the model frame (checked on UVigo: median scan-to-model distance 0.08 m with
+  T, 927 m with its inverse). The smallest scaled sample is `furniture/fur_010-modelnet` (0.38 MB,
+  scale 1.357).
 - Not a building dataset overall: 31 of 137 samples are houses or indoor spaces. Report those
   categories separately.
 - Unverified: the metrics the authors use, and whether an evaluation server will open.
