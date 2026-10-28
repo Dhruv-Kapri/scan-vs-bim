@@ -29,7 +29,7 @@ def test_mapping_has_identifiers_only():
 
 
 def test_notebook_04b_carbon_table_adds_up(tmp_path):
-    """One row per room element in carbon_elements.csv; confirmed + rest = total; every mapped dataset is used or reported;
+    """One row per room element in carbon_elements.csv; carbon_summary.csv splits it into confirmed + rest = total per variant; every mapped dataset is used or reported;
     only outputs/04b/ is new."""
     for p in [IFC, *CSVS.values()]:
         if not p.exists():
@@ -52,12 +52,17 @@ def test_notebook_04b_carbon_table_adds_up(tmp_path):
     assert [r["global_id"] for r in elements] == list(verdicts["no_labels"])  # one row per room element, in 03a's order
     assert len(elements) == 35
 
+    kg = {r["global_id"]: float(r["kg_co2e_a1_a3"]) for r in elements}
+    summary = {r["variant"]: r for r in read(out / "carbon_summary.csv")}
+    assert set(summary) == set(CSVS)
     for variant, column in (("no_labels", "verdict_no_labels"), ("oracle_labels", "verdict_oracle_labels")):
-        kg = {r["global_id"]: float(r["kg_co2e_a1_a3"]) for r in elements}
         assert all(r[column] == verdicts[variant][r["global_id"]] for r in elements)
-        confirmed = sum(v for g, v in kg.items() if verdicts[variant][g] in ("OK", "shifted"))
-        rest = sum(v for g, v in kg.items() if verdicts[variant][g] not in ("OK", "shifted"))
-        assert confirmed + rest == pytest.approx(sum(kg.values()))
+        confirmed = [g for g in kg if verdicts[variant][g] in ("OK", "shifted")]
+        s = summary[variant]
+        assert int(s["confirmed_elements"]) == len(confirmed) and int(s["rest_elements"]) == len(kg) - len(confirmed)
+        assert float(s["confirmed_kg_co2e_a1_a3"]) == pytest.approx(sum(kg[g] for g in confirmed), abs=0.5)
+        assert float(s["confirmed_kg_co2e_a1_a3"]) + float(s["rest_kg_co2e_a1_a3"]) == pytest.approx(float(s["total_kg_co2e_a1_a3"]), abs=1)
+        assert float(s["total_kg_co2e_a1_a3"]) == pytest.approx(sum(kg.values()), abs=0.5)
 
     assert sum(float(r["kg_co2e_a1_a3"] or 0) for r in layers) == pytest.approx(sum(float(r["kg_co2e_a1_a3"]) for r in elements), abs=0.05 * len(elements))
     assert {r["quantification"] for r in layers} <= {"counted", "unmapped", "not quantifiable"}
