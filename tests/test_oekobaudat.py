@@ -94,3 +94,9 @@ def test_carbon_converts_through_the_flow_properties():
 
 def test_carbon_is_none_when_nothing_converts():
     assert dataset(MASS, {MASS: 1}).carbon({"m3": 2.0}) is None  # no density in the data: never guessed
+
+
+def test_a_total_indicator_without_a1_a3_is_skipped():
+    p = process(results=[(GWP_TOTAL_A2, {"C2": 5}), (CLIMATE_CHANGE_EF31, {"A1": 1, "A2": 1})])
+    with pytest.raises(ValueError, match="GWP-total"):
+        parse_dataset(p, flow(MASS, {MASS: 1}))
