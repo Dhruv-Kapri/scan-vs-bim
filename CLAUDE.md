@@ -12,7 +12,7 @@ Phase 0 (setup) done. The repo holds the plan (`README.md`), the phased plan wit
 
 ```sh
 uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57; dev: pytest,
-                                          # jupyter/ipykernel, nbclient
+                                          # jupyter/ipykernel, nbclient, matplotlib, scipy
 uv run pytest                             # tests
 uv run python scripts/fetch_data.py       # CRAS IFC + CRAS scan zip (4.27 GB, never extracted; measured 2026-10-28:
                                           # 0.1-0.5 MB/s on one connection, ~3.5 h) + PC2Model real-indoor_modelling_3 (UVigo) into
@@ -22,6 +22,9 @@ uv run python scripts/build_cras_cache.py # stream the CRAS zip into data/cras/c
 uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, unaligned; writes
                                           # docs/images/stage0-unaligned{,-scan,-ifc}.png (overview + close-ups;
                                           # --no-interactive: PNGs only)
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3000 notebooks/01_data.ipynb
+                                          # re-run notebook 01 in place (needs the CRAS cache + IFC; ~5-6 min, peak
+                                          # RSS under 3 GB); rewrites notebooks/01_cras_slice.json (read by 03/04)
 ```
 
 - `src/scan_vs_bim/load.py`: E57 loader (seeded subsample, poses applied) and IFC loaders (per-element meshes

@@ -1,0 +1,210 @@
+{
+ "frame": {
+  "answer": "far off",
+  "thresholds_m": {
+   "in_frame_median_below": 0.05,
+   "near_median_below": 0.5
+  },
+  "median_distance_m": {
+   "as delivered": 2.67926025390625,
+   "translation only": 0.04381084442138672,
+   "translation + ICP": 0.01367580983787775
+  },
+  "p90_distance_m": {
+   "as delivered": 9.587261199951172,
+   "translation only": 0.15325450897216797,
+   "translation + ICP": 0.08383479714393616
+  },
+  "scan_to_model_4x4": [
+   [
+    0.9998728745698184,
+    -0.015943316007905512,
+    0.00021301211461333754,
+    -9.817070722746502
+   ],
+   [
+    0.015943253182706656,
+    0.9998728551996486,
+    0.000293449917405093,
+    -0.42702900511370273
+   ],
+   [
+    -0.00021766359599623594,
+    -0.0002900165063838419,
+    0.9999999342564905,
+    1.2586264976489592
+   ],
+   [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  ],
+  "translation_m": [
+   -9.817070722746502,
+   -0.42702900511370273,
+   1.2586264976489592
+  ],
+  "yaw_deg": 0.9135198443667114,
+  "tilt_deg": 0.02077610227672255,
+  "note": "Estimated, not given: coarse FFT shift, z from floor/slab, point-to-plane ICP on scan classes wall/floor/ceiling. Apply to scan points to get the model frame."
+ },
+ "room": {
+  "box_model_frame": {
+   "xmin": 0.38,
+   "xmax": 8.3,
+   "ymin": 2.9,
+   "ymax": 10.97,
+   "zmin": -0.1,
+   "zmax": 3.05
+  },
+  "frame_note": "model frame; apply frame.scan_to_model_4x4 to scan points before cropping",
+  "scan_points_in_box": 3672753,
+  "element_global_ids": [
+   "054HMVvnL1EOSZl$bniLeG",
+   "2unE$VYSL2OPIL$6LYYccT",
+   "2unE$VYSL2OPIL$6LYYcpM",
+   "2unE$VYSL2OPIL$6LYYd$b",
+   "2unE$VYSL2OPIL$6LYYdVk",
+   "33gtcvddH7cec8$WOT4fKs",
+   "0WU0DUvgT6tu4IXFc9kNX5",
+   "3XP_HdJcfD9xJPuaOu_0Jb",
+   "0FDABnXCHCUR8gI54b$Kx2",
+   "1gsZ4XbYD0qRhfvwOUEI1z",
+   "1gsZ4XbYD0qRhfvwOUEIAE",
+   "1gsZ4XbYD0qRhfvwOUEIEw",
+   "1gsZ4XbYD0qRhfvwOUELvf",
+   "3qeiF73TD1uOeHIcNGcTy8",
+   "3qeiF73TD1uOeHIcNGcU5f",
+   "3qeiF73TD1uOeHIcNGcU7L",
+   "3qeiF73TD1uOeHIcNGcUXS",
+   "3qeiF73TD1uOeHIcNGcUyj",
+   "3qeiF73TD1uOeHIcNGcVOd",
+   "1L1ux2$dP8WO2wsydYGc16",
+   "1L1ux2$dP8WO2wsydYGc73",
+   "1L1ux2$dP8WO2wsydYGcHX",
+   "1L1ux2$dP8WO2wsydYGdZX",
+   "1L1ux2$dP8WO2wsydYGdcL",
+   "1L1ux2$dP8WO2wsydYGddh",
+   "1L1ux2$dP8WO2wsydYGdfN",
+   "1L1ux2$dP8WO2wsydYGdld",
+   "1L1ux2$dP8WO2wsydYGdwv",
+   "1L1ux2$dP8WO2wsydYGdzv",
+   "1clZEeY_LECBal6NIv_ikZ",
+   "1clZEeY_LECBal6NIv_ikp",
+   "1clZEeY_LECBal6NIv_ikx",
+   "1clZEeY_LECBal6NIv_jTu",
+   "2yjBEpGLvEJx_JunuixZeX",
+   "3iJGmd4gX4uwx4ku7SqaZ_"
+  ],
+  "element_classes": {
+   "IfcColumn": 1,
+   "IfcCovering": 5,
+   "IfcDoor": 1,
+   "IfcSlab": 1,
+   "IfcWallStandardCase": 11,
+   "IfcWindow": 16
+  }
+ },
+ "scanner_positions": {
+  "recovered": false,
+  "answer": "partly",
+  "n_found": 1,
+  "n_expected": 21,
+  "positions_model_frame": [
+   [
+    5.813,
+    17.009,
+    1.8
+   ]
+  ],
+  "positions_scan_frame": [
+   [
+    15.906,
+    17.185,
+    0.55
+   ]
+  ],
+  "assumed_height_above_floor_m": 1.7,
+  "hole_radius_m": [
+   1.1
+  ],
+  "vote_fraction": [
+   0.63
+  ],
+  "inside_room_box": [
+   false
+  ],
+  "note": "Too few to decide line of sight: 03 treats missing vs not visible as not confirmed."
+ },
+ "uvigo": {
+  "sample": "real-indoor_modelling_3-ISPRS_indoor_modelling-UVigo",
+  "scan_point_count": 9529657,
+  "scan_bbox_m": [
+   [
+    -652.8929020704047,
+    -6.233414811424311,
+    -3.571830482256779
+   ],
+   [
+    -529.4189068616645,
+    104.95951731748194,
+    110.09059932731353
+   ]
+  ],
+  "scan_extent_p0.1_p99.9_m": [
+   27.893631511688568,
+   32.1288105697632,
+   38.90310893249524
+  ],
+  "model_bbox_m": [
+   [
+    -9.25200080871582,
+    -20.661415100097656,
+    -0.15000200271606445
+   ],
+   [
+    32.02300262451172,
+    5.90222692489624,
+    4.254999160766602
+   ]
+  ],
+  "model_obj_vertices": 69319,
+  "model_obj_triangles": 79736,
+  "ground_truth_4x4_scan_to_model": [
+   [
+    0.418441,
+    -0.349979,
+    0.838107,
+    215.815277
+   ],
+   [
+    -0.481263,
+    -0.868018,
+    -0.122189,
+    -213.619905
+   ],
+   [
+    0.770255,
+    -0.352221,
+    -0.531646,
+    492.4662
+   ],
+   [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  ],
+  "singular_values": [
+   1.00000080394251,
+   0.9999999776788531,
+   0.9999996467617517
+  ],
+  "determinant": 1.0000004283828203,
+  "scale": 1.0000001427943717,
+  "median_distance_after_ground_truth_m": 0.0426364541053772
+ }
+}
