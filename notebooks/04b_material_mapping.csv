@@ -1,0 +1,19 @@
+ifc_material,oekobaudat_uuid,basis,dataset_name,note
+Gesso com Pintura Branca,7e0c008a-009d-4357-92c1-afb2cec3bc0a,volume,Gypsum interior plaster,Plasterboard and plaster finish alike; the dataset is per m3 so the layer volume applies directly
+Lã de rocha,a5b22bbe-175d-4aef-bb19-4954e699eb8c,volume,Mineral wool (partition walls insulation),Rock wool in the drywall cavity
+Pintura branca,8c5e949d-1b5e-4dc6-b6ae-bfc8e6c863ce,volume,"Applicationpaint emulsion, dispersion paint",Declared per kg and the data gives no density: expected to come out as not quantifiable
+Emboço/Reboco,dca9f05c-036b-40e5-ae81-c957c2420fd8,volume,Lime-cement plaster,Render on the masonry wall
+Bloco cerâmico (9cm),1401638f-b9d7-4b33-9444-b072e2756f49,volume,Facing brick,"Nearest fired-clay masonry dataset found; a solid brick, so it overstates a hollow ceramic block"
+Porcelanato cinza claro 60x60,5618689c-57a8-4860-85d3-7403ad5ba201,volume,Stoneware tiles glazed,Declared per m2 of tile: the area is the layer volume divided by the layer thickness
+Argamassa,96171066-34d9-4b33-b1e6-3af1ea11db61,volume,Cement mortar,Bedding mortar under the tiles
+Contrapiso,96171066-34d9-4b33-b1e6-3af1ea11db61,volume,Cement mortar,"Screed; the cement screed dataset is declared per kg with no density in the data, so cement mortar (per m3) stands in"
+Alumínio,d37635ad-8fa2-4454-ab14-e537d74d257f,opening_area,Windows - VFF - Aluminium windows,"Whole window (frame and glazing) per m2 of opening; the window meshes give no per-material volume, so OverallWidth x OverallHeight is used"
+Glass_ALUPROF_Clear,d37635ad-8fa2-4454-ab14-e537d74d257f,opening_area,Windows - VFF - Aluminium windows,Glazing of the same whole window: counted once per element
+Vidro,d37635ad-8fa2-4454-ab14-e537d74d257f,opening_area,Windows - VFF - Aluminium windows,Glazing of the same whole window: counted once per element
+RAL 5005,54a4dad1-bc25-4384-acf4-87ed9bab0026,opening_area,Exterior door - VFF - Steel exterior door with light cut-out,"Colour of the steel door; the whole door (leaf, frame, light cut-out) per m2, OverallWidth x OverallHeight"
+Titanium,54a4dad1-bc25-4384-acf4-87ed9bab0026,opening_area,Exterior door - VFF - Steel exterior door with light cut-out,Door hardware; same whole door: counted once per element
+Stainless Steel AISI 304,54a4dad1-bc25-4384-acf4-87ed9bab0026,opening_area,Exterior door - VFF - Steel exterior door with light cut-out,Door hardware; same whole door: counted once per element
+Glass,54a4dad1-bc25-4384-acf4-87ed9bab0026,opening_area,Exterior door - VFF - Steel exterior door with light cut-out,Light cut-out of the same whole door: counted once per element
+<Unnamed>,,,,"No material name (the column, and one entry in each Westcoast window material list): nothing to map"
+Rubber - Westcoast Windows - Light Grey,,,,Window gasket: part of the whole window already counted through the aluminium frame
+ExpandingFoam_ALUPROF_Yellow,,,,Mounting foam on one window: not a product the whole-window dataset describes; left out

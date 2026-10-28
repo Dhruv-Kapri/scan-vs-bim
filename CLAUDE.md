@@ -47,6 +47,13 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   notebooks/04a_report.ipynb              # notebook 04a (03a's no-labels verdicts as a ScanVsBim_Verdict pset in an IFC
                                           # copy, plus a BCF 2.1 file with one issue per non-OK element; ~10 s; needs
                                           # the CRAS IFC and outputs/03a/*.csv from 03a; writes outputs/04a/)
+uv run python scripts/fetch_oekobaudat.py # the ÖKOBAUDAT process + flow datasets named in
+                                          # notebooks/04b_material_mapping.csv, unmodified, into data/oekobaudat/
+                                          # (never committed; idempotent; seconds)
+uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
+  notebooks/04b_carbon.ipynb              # notebook 04b (A1-A3 embodied carbon of the 35 room elements, confirmed (OK +
+                                          # shifted) vs the rest; ~40 s; needs the CRAS IFC, outputs/03a/*.csv and
+                                          # data/oekobaudat/; writes outputs/04b/; prints no factor values)
 ```
 
 - `src/scan_vs_bim/load.py`: E57 loader (seeded subsample, poses applied) and IFC loaders (per-element meshes
@@ -54,6 +61,10 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   elements, 17 s instead of minutes for the 35 room elements (measured 2026-10-28); it cannot be combined with
   `exclude=`). `tests/run_notebook.py`: `run_notebook(path)`
   executes a notebook top to bottom for tests (nbclient; raises on any cell error).
+- `src/scan_vs_bim/oekobaudat.py`: reads one ÖKOBAUDAT process dataset + its reference-flow XML: UUID, version,
+  English name, GWP-total A1-A3 per declared unit (A1-A3 combined, or A1+A2+A3 summed; EN 15804+A2 "GWP-total" and
+  EF 3.1 "Climate change" method UUIDs), and kg/m3/m2 per declared unit from the flow properties. `Dataset.carbon()`
+  returns None when nothing converts: no densities are ever guessed.
 - `src/scan_vs_bim/fetch.py`: chunked, retried, resumable HTTP range downloads and single-member zip
   extraction (Zenodo is slow and returns 504s; a long `remotezip` stream died).
 - `src/scan_vs_bim/cras_cache.py`: streams the 26.8 GB ASCII zip member in 64 MB blocks (never extracted
