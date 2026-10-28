@@ -5,6 +5,7 @@ import zipfile
 import numpy as np
 import pytest
 
+from scan_vs_bim.fetch import data_start
 from scan_vs_bim.pc2model import group_samples, parse_transform, pick_smallest_scaled, read_member, scale_of
 
 
@@ -72,8 +73,6 @@ def test_read_member_crc_mismatch():
     blob, z = make_zip({"Root/cat/a": (1.0, False, b"x")})
     info = z.getinfo("Root/cat/a/pointcloud_a_transformed.e57")
     bad = bytearray(blob)
-    from scan_vs_bim.fetch import data_start
-
     bad[data_start(reader_for(blob), info)] ^= 0xFF
     with pytest.raises(ValueError, match="CRC"):
         read_member(reader_for(bytes(bad)), info)

@@ -64,11 +64,10 @@ scan-confirmed elements). Python with Open3D and IfcOpenShell; the viewer is Jav
 - **Dev machine: Apple Silicon, 8 GB RAM, ~68 GB free disk, no GPU.** Everything must run on it.
 - **Never commit data.** `data/`, `outputs/` and point-cloud/zip extensions are gitignored; datasets
   keep their own licences.
-- **PC2Model** (10.2 GB zip): don't download whole. Zenodo serves HTTP range requests, so pull single
-  samples (chunked, retried ranges; see `scripts/fetch_data.py`). 71 of 137 samples are scaled
-  (0.69–1.98 measured; the record says 0.5–1.5), so registration needs a scale estimate or must report
-  those separately. Report the 31
-  house/indoor samples separately.
+- **PC2Model** (10.2 GB zip): don't download whole. Zenodo serves HTTP range requests, so pull single samples
+  (chunked, retried ranges; see `scripts/fetch_data.py`). 71 of 137 samples are scaled (0.69–1.98 measured;
+  the record says 0.5–1.5), so registration needs a scale estimate or must report those separately. Report the
+  31 house/indoor samples separately.
 - **INESC CRAS** (4.3 GB zip, ~585M ASCII points, likely 25–30 GB unzipped): stream the zip member and
   subsample on the fly; never extract.
 - Open3D cannot read `.e57`; use `pye57` (works on Apple Silicon).
