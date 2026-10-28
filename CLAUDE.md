@@ -55,6 +55,12 @@ scan-confirmed elements). Python with Open3D and IfcOpenShell; the viewer is Jav
 - Carbon factors: ÖKOBAUDAT, downloaded at runtime into `data/`; commit only the IFC-material → UUID
   mapping, never factor values (its terms allow only unmodified copies). See `docs/data-sources.md`.
 
+## Worktrees
+
+Parallel sessions put git worktrees under `.claude/worktrees/<branch>` inside this repo (gitignored), never
+as sibling directories next to the repo (`../scan-vs-bim-4` and the like). Example:
+`git worktree add .claude/worktrees/issue-6 -b issue-6`.
+
 ## Docs conventions
 
 - In `docs/data-sources.md`, facts are marked **Verified** (with date, read from the source) or

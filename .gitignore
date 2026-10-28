@@ -16,6 +16,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# Agent worktrees
+.claude/worktrees/
+
 # Secrets and OS
 .env
 .DS_Store
