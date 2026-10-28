@@ -8,31 +8,31 @@
   "median_distance_m": {
    "as delivered": 2.67926025390625,
    "translation only": 0.04381084442138672,
-   "translation + ICP": 0.01367580983787775
+   "translation + ICP": 0.013636589050292969
   },
   "p90_distance_m": {
    "as delivered": 9.587261199951172,
    "translation only": 0.15325450897216797,
-   "translation + ICP": 0.08383479714393616
+   "translation + ICP": 0.08369672298431396
   },
   "scan_to_model_4x4": [
    [
-    0.9998728745698184,
-    -0.015943316007905512,
-    0.00021301211461333754,
-    -9.817070722746502
+    0.9998732599479413,
+    -0.015919069769209173,
+    0.00021739080079846755,
+    -9.817199453384614
    ],
    [
-    0.015943253182706656,
-    0.9998728551996486,
-    0.000293449917405093,
-    -0.42702900511370273
+    0.015919005346955166,
+    0.9998732411097954,
+    0.0002949260186414479,
+    -0.42658818773120666
    ],
    [
-    -0.00021766359599623594,
-    -0.0002900165063838419,
-    0.9999999342564905,
-    1.2586264976489592
+    -0.00022205819244932608,
+    -0.0002914279943822021,
+    0.999999932879939,
+    1.258667075082234
    ],
    [
     0.0,
@@ -42,13 +42,13 @@
    ]
   ],
   "translation_m": [
-   -9.817070722746502,
-   -0.42702900511370273,
-   1.2586264976489592
+   -9.817199453384614,
+   -0.42658818773120666,
+   1.258667075082234
   ],
-  "yaw_deg": 0.9135198443667114,
-  "tilt_deg": 0.02077610227672255,
-  "note": "Estimated, not given: coarse FFT shift, z from floor/slab, point-to-plane ICP on scan classes wall/floor/ceiling. Apply to scan points to get the model frame."
+  "yaw_deg": 0.912130370228066,
+  "tilt_deg": 0.020992482691513912,
+  "note": "Estimated, not given: coarse FFT shift, z from floor/slab, point-to-plane ICP on scan classes wall/floor/ceiling. Apply to scan points to get the model frame. The translation + ICP distances are a fit residual on the points the transform was fitted to (oracle labels), not an accuracy figure."
  },
  "room": {
   "box_model_frame": {
@@ -60,7 +60,7 @@
    "zmax": 3.05
   },
   "frame_note": "model frame; apply frame.scan_to_model_4x4 to scan points before cropping",
-  "scan_points_in_box": 3672753,
+  "scan_points_in_box": 3672373,
   "element_global_ids": [
    "054HMVvnL1EOSZl$bniLeG",
    "2unE$VYSL2OPIL$6LYYccT",
@@ -98,6 +98,218 @@
    "2yjBEpGLvEJx_JunuixZeX",
    "3iJGmd4gX4uwx4ku7SqaZ_"
   ],
+  "elements": [
+   {
+    "global_id": "054HMVvnL1EOSZl$bniLeG",
+    "ifc_class": "IfcColumn",
+    "name": "M_Concrete-Rectangular-Column:150 x 350mm:1164179",
+    "inside_box": true
+   },
+   {
+    "global_id": "2unE$VYSL2OPIL$6LYYccT",
+    "ifc_class": "IfcCovering",
+    "name": "Compound Ceiling:Forro de gesso:1428995",
+    "inside_box": true
+   },
+   {
+    "global_id": "2unE$VYSL2OPIL$6LYYcpM",
+    "ifc_class": "IfcCovering",
+    "name": "Compound Ceiling:Forro de gesso:1428296",
+    "inside_box": false
+   },
+   {
+    "global_id": "2unE$VYSL2OPIL$6LYYd$b",
+    "ifc_class": "IfcCovering",
+    "name": "Compound Ceiling:Forro de gesso:1431675",
+    "inside_box": false
+   },
+   {
+    "global_id": "2unE$VYSL2OPIL$6LYYdVk",
+    "ifc_class": "IfcCovering",
+    "name": "Compound Ceiling:Forro de gesso:1429616",
+    "inside_box": false
+   },
+   {
+    "global_id": "33gtcvddH7cec8$WOT4fKs",
+    "ifc_class": "IfcCovering",
+    "name": "Forros 1:Forros 1:1537527",
+    "inside_box": false
+   },
+   {
+    "global_id": "0WU0DUvgT6tu4IXFc9kNX5",
+    "ifc_class": "IfcDoor",
+    "name": "Doors_Door-sets_Swedoor_JELD-WEN_Exterior_Steel_4210_GS1T_Unequal_Double_40:SDE30 - M15 (M10) x M20 - EI30:1044681",
+    "inside_box": true
+   },
+   {
+    "global_id": "3XP_HdJcfD9xJPuaOu_0Jb",
+    "ifc_class": "IfcSlab",
+    "name": "Floor:(15cm) Piso + Porcelanato cinza claro 60 X 60:911079",
+    "inside_box": false
+   },
+   {
+    "global_id": "0FDABnXCHCUR8gI54b$Kx2",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(35cm) Tijolo cer\u00e2mico acabamento pintura branca:919433",
+    "inside_box": false
+   },
+   {
+    "global_id": "1gsZ4XbYD0qRhfvwOUEI1z",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(10cm) Drywall:961571",
+    "inside_box": true
+   },
+   {
+    "global_id": "1gsZ4XbYD0qRhfvwOUEIAE",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(10cm) Drywall:962256",
+    "inside_box": true
+   },
+   {
+    "global_id": "1gsZ4XbYD0qRhfvwOUEIEw",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(10cm) Drywall:962532",
+    "inside_box": false
+   },
+   {
+    "global_id": "1gsZ4XbYD0qRhfvwOUELvf",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(10cm) Drywall:971319",
+    "inside_box": false
+   },
+   {
+    "global_id": "3qeiF73TD1uOeHIcNGcTy8",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(10cm) Drywall:973242",
+    "inside_box": true
+   },
+   {
+    "global_id": "3qeiF73TD1uOeHIcNGcU5f",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(10cm) Drywall:976859",
+    "inside_box": true
+   },
+   {
+    "global_id": "3qeiF73TD1uOeHIcNGcU7L",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(10cm) Drywall:976743",
+    "inside_box": false
+   },
+   {
+    "global_id": "3qeiF73TD1uOeHIcNGcUXS",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(10cm) Drywall:978670",
+    "inside_box": true
+   },
+   {
+    "global_id": "3qeiF73TD1uOeHIcNGcUyj",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(10cm) Drywall:977311",
+    "inside_box": true
+   },
+   {
+    "global_id": "3qeiF73TD1uOeHIcNGcVOd",
+    "ifc_class": "IfcWallStandardCase",
+    "name": "Basic Wall:(10cm) Drywall:979093",
+    "inside_box": false
+   },
+   {
+    "global_id": "1L1ux2$dP8WO2wsydYGc16",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1470160",
+    "inside_box": true
+   },
+   {
+    "global_id": "1L1ux2$dP8WO2wsydYGc73",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1470293",
+    "inside_box": true
+   },
+   {
+    "global_id": "1L1ux2$dP8WO2wsydYGcHX",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:720 x 480:1469175",
+    "inside_box": true
+   },
+   {
+    "global_id": "1L1ux2$dP8WO2wsydYGdZX",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1472119",
+    "inside_box": true
+   },
+   {
+    "global_id": "1L1ux2$dP8WO2wsydYGdcL",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1472259",
+    "inside_box": true
+   },
+   {
+    "global_id": "1L1ux2$dP8WO2wsydYGddh",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1472381",
+    "inside_box": true
+   },
+   {
+    "global_id": "1L1ux2$dP8WO2wsydYGdfN",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:720 x 480:1471681",
+    "inside_box": true
+   },
+   {
+    "global_id": "1L1ux2$dP8WO2wsydYGdld",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1471857",
+    "inside_box": true
+   },
+   {
+    "global_id": "1L1ux2$dP8WO2wsydYGdwv",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1470511",
+    "inside_box": true
+   },
+   {
+    "global_id": "1L1ux2$dP8WO2wsydYGdzv",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1470959",
+    "inside_box": true
+   },
+   {
+    "global_id": "1clZEeY_LECBal6NIv_ikZ",
+    "ifc_class": "IfcWindow",
+    "name": "Window-Westcoas_Windows-FKG-Fixed-Frame_Option_115mm:FKG Triple Glazed 36mm:1134771",
+    "inside_box": true
+   },
+   {
+    "global_id": "1clZEeY_LECBal6NIv_ikp",
+    "ifc_class": "IfcWindow",
+    "name": "Window-Westcoas_Windows-FKG-Fixed-Frame_Option_115mm:FKG Triple Glazed 36mm:1134755",
+    "inside_box": true
+   },
+   {
+    "global_id": "1clZEeY_LECBal6NIv_ikx",
+    "ifc_class": "IfcWindow",
+    "name": "Window-Westcoas_Windows-FKG-Fixed-Frame_Option_115mm:FKG Triple Glazed 36mm:1134763",
+    "inside_box": true
+   },
+   {
+    "global_id": "1clZEeY_LECBal6NIv_jTu",
+    "ifc_class": "IfcWindow",
+    "name": "Window-Westcoas_Windows-FKG-Fixed-Frame_Option_115mm:FKG Triple Glazed 36mm:1133672",
+    "inside_box": true
+   },
+   {
+    "global_id": "2yjBEpGLvEJx_JunuixZeX",
+    "ifc_class": "IfcWindow",
+    "name": "Aluprof_MB-79N-SI_E_Alu_Window-3sash-FIX-Tilt-and-Slide-FIX_ENG_R-00460:3690 x 1480:1154752",
+    "inside_box": false
+   },
+   {
+    "global_id": "3iJGmd4gX4uwx4ku7SqaZ_",
+    "ifc_class": "IfcWindow",
+    "name": "Window-Westcoas_Windows-FKG-Fixed-Frame_Option_115mm:FKG Triple Glazed 36mm:1134873",
+    "inside_box": true
+   }
+  ],
   "element_classes": {
    "IfcColumn": 1,
    "IfcCovering": 5,
@@ -115,14 +327,14 @@
   "positions_model_frame": [
    [
     5.813,
-    17.009,
+    16.989,
     1.8
    ]
   ],
   "positions_scan_frame": [
    [
     15.906,
-    17.185,
+    17.165,
     0.55
    ]
   ],
@@ -136,6 +348,7 @@
   "inside_room_box": [
    false
   ],
+  "use_not_confirmed": true,
   "note": "Too few to decide line of sight: 03 treats missing vs not visible as not confirmed."
  },
  "uvigo": {
@@ -205,6 +418,6 @@
   ],
   "determinant": 1.0000004283828203,
   "scale": 1.0000001427943717,
-  "median_distance_after_ground_truth_m": 0.0426364541053772
+  "median_distance_after_ground_truth_m": 0.04267525672912598
  }
 }
