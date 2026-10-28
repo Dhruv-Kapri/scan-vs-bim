@@ -70,11 +70,27 @@ marked unverified and must be checked before use.
 
 ### USIBD Level of Accuracy (LOA) Specification
 
-- Latest is v3.1 (January 2025), listed at $0.00 on the USIBD store (from search results; the site
-  returned 403 to automated reads). Licence and quoting terms are unverified.
-- Bands, unverified (secondary sources), stated at 95% confidence (about 2σ) for both measured and
-  represented accuracy: LOA10 > 5 cm, LOA20 15 mm-5 cm, LOA30 5-15 mm, LOA40 1-5 mm, LOA50 0-1 mm. The
-  project uses LOA30 as its tolerance. Read the spec PDF before quoting it.
+- **Verified 2026-10-28 (spec PDF, downloaded by hand from the USIBD store at $0.00; the site returns
+  403 to automated reads):** v3.1, Guide C120 "USIBD_LOA3.1_SpecGuide-2025.pdf", plus the Framework
+  template C220 (`.xlsm`). Kept locally in gitignored `data/reference/`, not committed.
+- **Verified 2026-10-28 (Guide C120, LOA table and the paragraph after it):** bands as upper/lower
+  range, "*Specified at the 95% Confidence level": LOA10 15 cm-5 cm, LOA20 5 cm-15 mm, LOA30 15 mm-5 mm,
+  LOA40 5 mm-1 mm, LOA50 1 mm-0. "The numbers represented in the LOA ranges relate to standard deviation
+  of 2 Sigma." LOA10's 15 cm upper range dates from v3.0 (corrects the earlier "> 5 cm" from secondary
+  sources). A result better than the specified band "is presumed also to be acceptable". Bands apply to
+  both Measured Accuracy (the measurements) and Represented Accuracy (data "processed into some other
+  form such as line work or a model").
+- Reading of the bands (2026-10-28): LOA30 as a pass/fail tolerance is ≤ 15 mm at 2σ, and a
+  scan-vs-model deviation is checked against Represented Accuracy. The project uses LOA30 as its
+  tolerance.
+- **Verified 2026-10-28 (licence, Guide C120 and v3.1 release notes):** © 2025 USIBD, under Creative
+  Commons Attribution-NonCommercial-NoDerivatives 4.0 International. "Modifications to the LOA
+  Framework may be made ... if they are licensed to do so by the USIBD"; only LOA10-LOA50 may be called
+  USIBD LOAs. Licensing questions: communications@usibd.org.
+- Reading of the licence (2026-10-28), not confirmed with USIBD: quoting the band values with
+  attribution (USIBD LOA Specification v3.1, Guide C120) is fine; don't commit the PDF or a modified
+  copy. NonCommercial binds copies of the document, so a commercial use of this project would need the
+  values cited, not the PDF shipped; ask USIBD if that ever matters.
 - PC2Model's "LOA" is a different thing: `LOA_mean`/`LOA_median` are registration residuals
   (point-to-model distances; the paper cites Ersöz and Bosché 2026), not USIBD bands. Read from the
   arXiv PDF; see [CONTEXT.md](../CONTEXT.md).
@@ -93,8 +109,21 @@ marked unverified and must be checked before use.
 | [EPiC](https://msd.unimelb.edu.au/research/projects/current/environmental-performance-in-construction/epic-database/usage-and-licence-information) (University of Melbourne) | CC BY-NC-ND, unverified (page blocked) | No modified copies; Australian |
 | EC3 (Building Transparency) | API terms of service, unverified | No caching or redistribution on the free tier |
 
-Open: confirm that ÖKOBAUDAT's "unmodified" wording permits runtime download plus a committed UUID
-mapping (read in a browser, or ask BBSR).
+- **Verified 2026-10-28 (ÖKOBAUDAT terms, read from the
+  [data-users page](https://www.oekobaudat.de/en/guidance/data-users.html) and the
+  [manual](https://www.oekobaudat.de/fileadmin/downloads/2021-06-28_OEBD-Manual.pdf) §3.4.2, same
+  wording):** "The BMWSB provides the ÖKOBAUDAT data free of charge and without any restrictions. They
+  are primarily intended for performing life cycle assessment of buildings." and "The free distribution
+  of unmodified data is permitted, provided that the source is named." Data owners stay responsible
+  for values; BMWSB/BBSR take no liability. "ÖKOBAUDAT is not designed for performing life cycle
+  assessment of building products." The page gives a service-interface base URL for software tools,
+  `https://www.oekobaudat.de/OEKOBAU.DAT/resource`.
+- Reading of those terms (2026-10-28): runtime download into gitignored `data/` is use, which is
+  unrestricted, and redistributes nothing. The committed IFC-material → dataset-UUID mapping holds
+  identifiers, not data values. Both appear allowed; not confirmed with BBSR. Name ÖKOBAUDAT as the
+  source wherever factors are shown.
+  Committing factor values or a filtered/modified copy stays out, since only unmodified data may be
+  passed on.
 
 ## Considered, not used now
 
