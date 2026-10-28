@@ -38,6 +38,11 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # notebook 03a (CRAS room, per-element verdicts with and without oracle
                                           # labels; ~1.5 min, peak RSS 1.1 GB; needs the CRAS cache + IFC and
                                           # notebooks/01_cras_slice.json; writes outputs/03a/)
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03b_perturbed.ipynb
+                                          # notebook 03b (03a's verdicts on a perturbed copy of the CRAS model: three
+                                          # walls moved 1/3/10 cm in an IFC copy, door/column/wall masked in the scan;
+                                          # ~2-3 min, peak RSS 1.8 GB; needs the same inputs as 03a; writes
+                                          # outputs/03b/: perturbed IFC, manifest.json, scores_*.csv, figure)
 ```
 
 - `src/scan_vs_bim/load.py`: E57 loader (seeded subsample, poses applied) and IFC loaders (per-element meshes
