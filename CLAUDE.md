@@ -43,6 +43,10 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # walls moved 1/3/10 cm in an IFC copy, door/column/wall masked in the scan;
                                           # ~2-3 min, peak RSS 1.8 GB; needs the same inputs as 03a; writes
                                           # outputs/03b/: perturbed IFC, manifest.json, scores_*.csv, figure)
+uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
+  notebooks/04a_report.ipynb              # notebook 04a (03a's no-labels verdicts as a ScanVsBim_Verdict pset in an IFC
+                                          # copy, plus a BCF 2.1 file with one issue per non-OK element; ~10 s; needs
+                                          # the CRAS IFC and outputs/03a/*.csv from 03a; writes outputs/04a/)
 ```
 
 - `src/scan_vs_bim/load.py`: E57 loader (seeded subsample, poses applied) and IFC loaders (per-element meshes
