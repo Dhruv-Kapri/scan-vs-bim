@@ -85,6 +85,7 @@ about it. Not scanned is not the same as not built.
 _Avoid_: occluded (fine in prose), hidden
 
 **Not confirmed**:
-Too few scan points on the element and no scanner positions to say why; missing and not visible
-cannot be told apart.
+The scan cannot settle the element: too few scan points on it and no scanner positions to say why
+(missing and not visible cannot be told apart), or enough points that neither lie within tolerance
+nor cluster at one offset (clutter mixed in, or only a sliver of the element in view).
 _Avoid_: unknown, missing (when visibility was not checked)

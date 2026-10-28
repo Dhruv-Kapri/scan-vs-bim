@@ -34,10 +34,16 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
 uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
   notebooks/00_pipeline_overview.ipynb    # notebook 00 (toy room, no downloaded data); the flag drops timing
                                           # metadata so re-runs give no diff
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03a_compare.ipynb
+                                          # notebook 03a (CRAS room, per-element verdicts with and without oracle
+                                          # labels; ~1.5 min, peak RSS 1.1 GB; needs the CRAS cache + IFC and
+                                          # notebooks/01_cras_slice.json; writes outputs/03a/)
 ```
 
 - `src/scan_vs_bim/load.py`: E57 loader (seeded subsample, poses applied) and IFC loaders (per-element meshes
-  with GlobalId + class in world coordinates, or one merged mesh). `tests/run_notebook.py`: `run_notebook(path)`
+  with GlobalId + class in world coordinates, or one merged mesh; `only_guids=` tessellates just those
+  elements, 17 s instead of minutes for the 35 room elements (measured 2026-10-28); it cannot be combined with
+  `exclude=`). `tests/run_notebook.py`: `run_notebook(path)`
   executes a notebook top to bottom for tests (nbclient; raises on any cell error).
 - `src/scan_vs_bim/fetch.py`: chunked, retried, resumable HTTP range downloads and single-member zip
   extraction (Zenodo is slow and returns 504s; a long `remotezip` stream died).
