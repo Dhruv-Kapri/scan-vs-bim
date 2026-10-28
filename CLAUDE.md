@@ -22,6 +22,9 @@ uv run python scripts/build_cras_cache.py # stream the CRAS zip into data/cras/c
 uv run python scripts/find_scaled_sample.py # reads only PC2Model's 137 transform files (cached in data/pc2model/
                                           # transforms/), writes outputs/pc2model_scales.csv, fetches the smallest
                                           # scaled sample; --no-fetch to list only
+uv run jupyter nbconvert --to notebook --execute --inplace notebooks/02_align.ipynb
+                                          # notebook 02 (UVigo + fur_010; ~2 min, <1 GB RSS; needs fetch_data.py and
+                                          # find_scaled_sample.py first)
 uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, unaligned; writes
                                           # docs/images/stage0-unaligned{,-scan,-ifc}.png (overview + close-ups;
                                           # --no-interactive: PNGs only)
