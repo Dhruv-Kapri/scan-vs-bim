@@ -48,13 +48,8 @@ def group_samples(infos: list[zipfile.ZipInfo]) -> list[Sample]:
 def read_member(read_range: ReadRange, info: zipfile.ZipInfo) -> bytes:
     """Read one small member into memory via ranged reads; verifies size and CRC32."""
     start = data_start(read_range, info)
-    raw = read_range(start, start + info.compress_size - 1) if info.compress_size else b""
-    if info.compress_type == zipfile.ZIP_DEFLATED:
-        data = zlib.decompress(raw, -15)
-    elif info.compress_type == zipfile.ZIP_STORED:
-        data = raw
-    else:
-        raise ValueError(f"unsupported compression method {info.compress_type}")
+    raw = read_range(start, start + info.compress_size - 1)
+    data = zlib.decompress(raw, -15) if info.compress_type == zipfile.ZIP_DEFLATED else raw
     if zlib.crc32(data) != info.CRC or len(data) != info.file_size:
         raise ValueError(f"CRC/size mismatch for {info.filename}")
     return data
