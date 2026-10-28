@@ -70,11 +70,22 @@ marked unverified and must be checked before use.
 
 ### USIBD Level of Accuracy (LOA) Specification
 
-- Latest is v3.1 (January 2025), listed at $0.00 on the USIBD store (from search results; the site
-  returned 403 to automated reads). Licence and quoting terms are unverified.
-- Bands, unverified (secondary sources), stated at 95% confidence (about 2σ) for both measured and
-  represented accuracy: LOA10 > 5 cm, LOA20 15 mm-5 cm, LOA30 5-15 mm, LOA40 1-5 mm, LOA50 0-1 mm. The
-  project uses LOA30 as its tolerance. Read the spec PDF before quoting it.
+- **Verified 2026-10-28 (spec PDF, downloaded by hand from the USIBD store at $0.00; the site returns
+  403 to automated reads):** v3.1, Guide C120 "USIBD_LOA3.1_SpecGuide-2025.pdf", plus the Framework
+  template C220 (`.xlsm`). Kept locally in gitignored `data/reference/`, not committed.
+- **Verified 2026-10-28 (Guide C120, LOA table and the paragraph after it):** bands as upper/lower
+  range, "*Specified at the 95% Confidence level": LOA10 15 cm-5 cm, LOA20 5 cm-15 mm, LOA30 15 mm-5 mm,
+  LOA40 5 mm-1 mm, LOA50 1 mm-0. "The numbers represented in the LOA ranges relate to standard deviation
+  of 2 Sigma." LOA10's 15 cm upper range dates from v3.0. A result better than the specified band "is
+  presumed also to be acceptable", so LOA30 as a pass/fail tolerance is ≤ 15 mm at 2σ. Bands apply to
+  both Measured Accuracy (the measurements) and Represented Accuracy (data "processed into some other
+  form such as line work or a model"); a scan-vs-model deviation is checked against the latter. The
+  project uses LOA30 as its tolerance.
+- **Verified 2026-10-28 (licence, Guide C120 and v3.1 release notes):** © 2025 USIBD, under Creative
+  Commons Attribution-NonCommercial-NoDerivatives 4.0 International. Reading of those terms: quoting the
+  band values with attribution (USIBD LOA Specification v3.1, Guide C120) is fine; don't commit the PDF
+  or a modified copy. "Modifications to the LOA Framework may be made ... if they are licensed to do so by the USIBD";
+  only LOA10-LOA50 may be called USIBD LOAs. Licensing questions: communications@usibd.org.
 - PC2Model's "LOA" is a different thing: `LOA_mean`/`LOA_median` are registration residuals
   (point-to-model distances; the paper cites Ersöz and Bosché 2026), not USIBD bands. Read from the
   arXiv PDF; see [CONTEXT.md](../CONTEXT.md).
