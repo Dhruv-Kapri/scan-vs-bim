@@ -43,19 +43,58 @@ marked unverified and must be checked before use.
   Zenodo API). Unzipped, 585M ASCII points are likely 25-30 GB (estimate), more than the dev laptop can
   hold in memory (8 GB RAM, about 68 GB free disk on 2026-10-27). Stream the zip member and subsample
   on the fly; don't extract it.
+- **Verified 2026-10-27 (zip, via range reads):** one member, `CRASLAB_annotated.asc`, deflate, zip64,
+  26,752,658,348 bytes uncompressed (4,267,281,165 compressed); it can be streamed sequentially (the
+  local header has 0xFFFFFFFF sizes, so the central directory gives the real ones). Line 1 is the header
+  `//X Y Z R G B Intensity Classification` (tab-separated), line 2 the point count `584701977`, then rows
+  such as `6.5185 15.7385 1.5075 164 174 193 0.201 0.000`. XYZ in metres, RGB 0-255, class as a float.
+  No scan-id column.
+- **Verified (Zenodo description):** the 21 scans were registered in Leica Cyclone Register 360 (3 mm
+  mean error) and delivered as one merged cloud. No scanner positions in the zip or the record. 33 scan
+  classes: 0 unassigned, 1 ceiling, 2 floor, 3 wall, 4 door, 5 window, 6 desk, 7 chair, 8 cabinet,
+  9 mobile cabinet, 10 shelf, 11 vents, 12 water tank, 13 bin, 14 box, 15 board, 16 computer, 17 screen,
+  18 printer, 19 vest, 20 switch, 21 paper dispenser, 22 alcohol dispenser, 23 cable, 24 phone, 25 robot,
+  26 water kettle, 27 stairs, 28 ladder, 29 oil heater, 30 divider, 31 hanger, 32 fan, 33 water dispenser.
+- **Verified 2026-10-27 (IFC, read with IfcOpenShell):**
+  - IFC2X3, metres. Counts: 61 IfcWallStandardCase, 44 IfcWindow, 10 IfcColumn, 7 IfcCovering,
+    6 IfcDoor, 5 IfcSlab, 1 IfcStair (2 flights), 1 proxy, 66 IfcFurnishingElement, 54 openings.
+  - No IfcSpace, so no rooms in the model.
+  - IfcSite "Default" with Revit's default latitude/longitude (near Brasília), so there is no real
+    georeference ([#2](https://github.com/Dhruv-Kapri/scan-vs-bim/issues/2)).
+  - Element bounding box about x -9.9..8.3, y -4.5..20.0, z -1.2..3.0 m.
+- Unverified: whether the scan is in the IFC's coordinate frame (the scan coordinates fall inside the
+  IFC's bounding box, which suggests it is), and whether the IFC was modelled from this scan. The MDPI
+  paper returned 403 to automated reads; read it in a browser. Notebook 01 checks the frame.
+
+## Standards
+
+### USIBD Level of Accuracy (LOA) Specification
+
+- Latest is v3.1 (January 2025), listed at $0.00 on the USIBD store (from search results; the site
+  returned 403 to automated reads). Licence and quoting terms are unverified.
+- Bands, unverified (secondary sources), stated at 95% confidence (about 2σ) for both measured and
+  represented accuracy: LOA10 > 5 cm, LOA20 15 mm-5 cm, LOA30 5-15 mm, LOA40 1-5 mm, LOA50 0-1 mm. The
+  project uses LOA30 as its tolerance. Read the spec PDF before quoting it.
+- PC2Model's "LOA" is a different thing: `LOA_mean`/`LOA_median` are registration residuals
+  (point-to-model distances; the paper cites Ersöz and Bosché 2026), not USIBD bands. Read from the
+  arXiv PDF; see [CONTEXT.md](../CONTEXT.md).
 
 ## Carbon factors
 
-Undecided. The licence matters because this repo is public.
+**Chosen (2026-10-27): ÖKOBAUDAT, downloaded at runtime.** The repo commits only its own mapping
+(IFC material → ÖKOBAUDAT dataset UUID), never the factors or a filtered copy. Licences checked
+2026-10-27:
 
-| Source | Licence (from search, unverified) | Note |
+| Source | Licence | Verdict |
 | --- | --- | --- |
-| ICE database (Circular Ecology) | Free educational version; use in software or tools needs a paid licence | Probably not usable in a public tool |
-| [EPiC](https://msd.unimelb.edu.au/research/projects/current/environmental-performance-in-construction/epic-database/usage-and-licence-information) (University of Melbourne) | CC BY-NC-ND | Usable non-commercially; don't ship a modified copy |
-| ICM database (UNSW) | Listed as open on Research Data Australia | Check the actual licence |
-| ÖKOBAUDAT (German federal) | Not checked | Free, with an API, per general knowledge |
+| [ÖKOBAUDAT](https://www.oekobaudat.de/en/guidance/data-users.html) (German federal) | **Verified:** use is "free of charge and without any restrictions"; unmodified copies may be redistributed if the source is named. No named open licence | Chosen. Download at runtime: a subset or modified copy is not clearly allowed. CSV and ILCD/EPD XML downloads plus a soda4LCA API (**verified**); size and coverage unverified |
+| [ICE](https://circularecology.com/embodied-carbon-footprint-database.html) (Circular Ecology) | **Verified:** proprietary; the free Educational V5.0 (June 2026) excludes use in tools or software | Not usable |
+| ICM database (UNSW) | CC BY 4.0, unverified (search snippet; the record page blocked automated reads) | Fallback if committable values are ever needed; Australian, 2014-15 data |
+| [EPiC](https://msd.unimelb.edu.au/research/projects/current/environmental-performance-in-construction/epic-database/usage-and-licence-information) (University of Melbourne) | CC BY-NC-ND, unverified (page blocked) | No modified copies; Australian |
+| EC3 (Building Transparency) | API terms of service, unverified | No caching or redistribution on the free tier |
 
-Next step: read each licence page and pick one before phase 5.
+Open: confirm that ÖKOBAUDAT's "unmodified" wording permits runtime download plus a committed UUID
+mapping (read in a browser, or ask BBSR).
 
 ## Considered, not used now
 

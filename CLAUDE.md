@@ -50,8 +50,10 @@ scan-confirmed elements). Python with Open3D and IfcOpenShell; the viewer is Jav
 - **INESC CRAS** (4.3 GB zip, ~585M ASCII points, likely 25–30 GB unzipped): stream the zip member and
   subsample on the fly; never extract.
 - Open3D cannot read `.e57`; use `pye57` (works on Apple Silicon).
-- Tolerances must come from a standard (USIBD Level of Accuracy), not be invented.
-- Carbon factor source is undecided and licence-gated (repo is public); see `docs/data-sources.md`.
+- Tolerances must come from a standard: USIBD LOA30 (≤ 15 mm at 2σ), not invented. PC2Model's `LOA_mean`
+  is a registration residual, not a USIBD band (see `CONTEXT.md`).
+- Carbon factors: ÖKOBAUDAT, downloaded at runtime into `data/`; commit only the IFC-material → UUID
+  mapping, never factor values (its terms allow only unmodified copies). See `docs/data-sources.md`.
 
 ## Docs conventions
 

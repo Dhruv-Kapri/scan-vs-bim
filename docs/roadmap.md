@@ -21,18 +21,52 @@ with rendered outputs committed so it reads on GitHub. The clean version goes in
 
 | # | Notebook | Slice | Question it answers |
 | --- | --- | --- | --- |
-| 00 | Pipeline overview | a hand-built toy room, one wall moved 4 cm | the whole chain by hand, with known answers |
-| 01 | Data | one CRAS room (subsampled) + its IFC; one PC2Model indoor sample | is the CRAS scan already in the IFC's frame? |
-| 02 | Align | the PC2Model sample | FPFH+RANSAC+ICP vs ground truth; the scale problem |
-| 03 | Compare | the CRAS room | per-element verdicts; occluded vs missing; tolerance |
+| 00 | Pipeline overview | a toy room written as a real IFC (`ifcopenshell.api`), one wall moved 4 cm | the whole chain by hand, with known answers |
+| 01 | Data | one CRAS room (subsampled) + its IFC; one PC2Model indoor sample | is the CRAS scan already in the IFC's frame? can the 21 scanner positions be recovered? |
+| 02 | Align | PC2Model `real-indoor_modelling_3` (UVigo, unscaled) + one small scaled sample | FPFH+RANSAC+ICP vs ground truth; the scale problem, with one scale estimate tried |
+| 03 | Compare | the CRAS room, real and perturbed model | per-element verdicts; occluded vs missing; tolerance |
 | 04 | Report + carbon | the CRAS room | IFC properties, BCF export, a small carbon table |
-| 05 | Validation | the 31 building/indoor PC2Model samples; hand check of CRAS verdicts | good enough to formalise? |
+| 05 | Validation | 9 PC2Model samples (3 house, 3 simulated indoor, 3 real indoor; smallest of each, scaled and unscaled); hand check of CRAS verdicts | good enough to formalise? |
 
+Terms (verdict, element, clutter, perturbed model, ...) are defined in [CONTEXT.md](../CONTEXT.md).
+
+- Notebooks are plain `.ipynb` with outputs committed. They import helpers from the `scan_vs_bim`
+  package (fetch, loaders); the stage logic stays inline until the stage is formalised.
 - No notebook for the web viewer (phase 4); it is JavaScript and goes straight to code.
-- Static PNG snapshots, not interactive 3D widgets, so the outputs render on GitHub.
-- **Done when:** 00-05 run top to bottom and 05 says the baseline is worth formalising.
+- Static PNG snapshots (Open3D offscreen rendering), not interactive 3D widgets, so the outputs render on GitHub.
+- **CRAS data:** download the zip once, never extract it; stream its single member locally into a
+  ~1 cm voxel cache of the whole lab, keeping RGB and scan class. The IFC has no `IfcSpace`, so the
+  room is a hand-picked box bounded by IFC walls.
+- **CRAS frame:** whatever 01 finds, 03 starts from a recorded transform: always ICP-refine (and report
+  the correction); coarse-register with 02's method first if the scan is far off.
+- **Compare (03):**
+  - Tolerance: USIBD LOA30 (≤ 15 mm at 2σ); quote it from the spec PDF, not secondary sources.
+  - Verdicts go to building elements only (walls, slabs, columns, doors, windows, coverings, stairs).
+    Furniture counts as clutter.
+  - Run 03 both with and without the CRAS scan classes as oracle labels; the gap is what learned
+    segmentation would be worth.
+  - Missing vs not visible needs scanner positions. CRAS gives none, so 01 tries to recover them from
+    the shadow holes on the floor. If that fails, the two merge into **not confirmed**.
+  - Known answers come from a perturbed copy of the IFC, with its changes listed in a JSON manifest:
+    - walls moved perpendicular to their face by 1 cm (control: stays OK), 3 cm and 10 cm;
+    - one door and one column deleted;
+    - one wall deleted where clutter hides it (expects not visible / not confirmed).
+- **Carbon (04):** ÖKOBAUDAT A1-A3 factors, downloaded at runtime into `data/`. Only the project's own
+  mapping (IFC material → dataset UUID) is committed. See [data-sources.md](data-sources.md#carbon-factors).
+- **Gate, fixed before 05 runs.** These thresholds are judgement calls, not taken from a standard:
+  - Registration success per PC2Model sample, after ICP: rotation error ≤ 2°, translation error ≤ 5 cm,
+    and scale error ≤ 1% on scaled samples. At least 6 of the 9 must succeed.
+  - Perturbed CRAS model: every injected change beyond tolerance gets the right verdict, and at most 10%
+    of untouched elements are falsely flagged shifted or missing.
+  - Hand check of 20 random real CRAS elements: at least 80% agree with the verdict.
+- **If 05 fails:** at most one week of tuning inside 0.5. If it still fails, write it up as a negative
+  result and continue; it motivates the learned registration under Later.
+- **Done when:** 00-05 run top to bottom and 05 meets the gate (or the negative result is written up).
 
-## 1. Align (weeks 1-3)
+## 1. Align (weeks 2-3)
+
+Notebook 02's code moves into the package and runs on all 31 building/indoor samples, then the rest.
+
 
 - Coarse: voxel downsample, FPFH features, RANSAC global registration (Open3D).
 - Fine: point-to-plane ICP.
@@ -40,7 +74,7 @@ with rendered outputs committed so it reads on GitHub. The clean version goes in
 - Score on PC2Model with its ground-truth transforms: rotation error, translation error, success rate,
   per category. Start with the building categories (houses, indoor), then run the rest.
 - PC2Model applies random scaling to half its samples, so the baseline needs a scale estimate
-  (or must report those samples separately). Decide after the first run.
+  (or must report those samples separately). Notebook 02 tries one estimate; decide from its result.
 - **Done when:** a reproducible results table, with the exact command that produced it.
 
 ## 2. Compare (weeks 3-5)
@@ -63,7 +97,8 @@ with rendered outputs committed so it reads on GitHub. The clean version goes in
 
 - Static web page: That Open viewer loading the annotated IFC, coloured by verdict.
 - Georeference: write the site location into the IFC (IfcMapConversion) and place the building on a
-  MapLibre map, as the rooftop project does for cities.
+  MapLibre map, as the rooftop project does for cities. Blocked as written: the CRAS IFC is IFC2X3 and
+  its site location is Revit's default ([#2](https://github.com/Dhruv-Kapri/scan-vs-bim/issues/2)).
 - **Done when:** a public GitHub Pages link.
 
 ## 5. Carbon (week 7)
@@ -76,8 +111,8 @@ The sustainability layer: what does the as-built building contain, in carbon ter
   missing or not visible. The carbon cost of the deviations is the difference.
 - Why it matters: a scan-verified inventory of what is in an existing building is the input to
   material passports and component reuse, which design-model numbers alone can't support.
-- Carbon factor source: see [data-sources.md](data-sources.md#carbon-factors). The licence decides
-  whether factors can be shipped in the repo or must be downloaded by the user.
+- Carbon factor source: ÖKOBAUDAT, downloaded at runtime (its terms allow only unmodified copies);
+  see [data-sources.md](data-sources.md#carbon-factors). Only the material mapping is committed.
 - **Done when:** a carbon table for the CRAS lab with every factor's source cited, labelled as an
   estimate (A1-A3 product stage only).
 
