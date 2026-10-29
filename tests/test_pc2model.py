@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from scan_vs_bim.fetch import data_start
-from scan_vs_bim.pc2model import group_samples, parse_transform, pick_smallest_scaled, read_member, scale_of
+from scan_vs_bim.pc2model import Sample, group_samples, parse_transform, pick_gate_samples, pick_smallest_scaled, read_member, scale_of
 
 
 def matrix_text(scale=1.0, rotate=False):
@@ -120,3 +120,55 @@ def test_pick_smallest_scaled_raises_when_none_scaled():
     samples = group_samples(z.infolist())
     with pytest.raises(ValueError, match="no scaled sample"):
         pick_smallest_scaled(samples, {"Root/cat/a": 1.0})
+
+
+def fake_samples(spec):
+    """spec: {sample name: (category, compressed bytes, scale)} -> (samples, scales) with PC2Model-style folders."""
+    samples, scales = [], {}
+    for name, (category, size, scale) in spec.items():
+        folder = f"Root/{category}/{name}"
+        samples.append(Sample(folder, size, zipfile.ZipInfo("t.txt")))
+        scales[folder] = scale
+    return samples, scales
+
+
+def test_pick_gate_samples_takes_smallest_scaled_smallest_unscaled_then_next_smallest():
+    samples, scales = fake_samples({
+        "a": ("cat", 10, 1.0),   # smallest unscaled
+        "b": ("cat", 20, 1.0),   # next smallest remaining
+        "c": ("cat", 30, 1.4),   # smallest scaled
+        "d": ("cat", 40, 0.7),
+    })
+    picked = pick_gate_samples(samples, scales, categories=["cat"])
+    assert [s.folder.rsplit("/", 1)[-1] for s in picked] == ["c", "a", "b"]
+
+
+def test_pick_gate_samples_follows_category_order_and_ignores_other_categories():
+    samples, scales = fake_samples({
+        "x1": ("other", 1, 1.0), "x2": ("other", 2, 2.0), "x3": ("other", 3, 1.0),
+        "h1": ("house", 10, 1.0), "h2": ("house", 20, 1.5), "h3": ("house", 30, 1.0),
+        "i1": ("indoor", 11, 1.0), "i2": ("indoor", 22, 0.8), "i3": ("indoor", 33, 1.0),
+    })
+    picked = pick_gate_samples(samples, scales, categories=["indoor", "house"])
+    assert [s.folder.rsplit("/", 1)[-1] for s in picked] == ["i2", "i1", "i3", "h2", "h1", "h3"]
+
+
+def test_pick_gate_samples_is_independent_of_input_order_and_breaks_size_ties_by_folder():
+    samples, scales = fake_samples({
+        "b": ("cat", 10, 1.0), "a": ("cat", 10, 1.0), "c": ("cat", 10, 1.3), "d": ("cat", 99, 1.0),
+    })
+    names = lambda ss: [s.folder.rsplit("/", 1)[-1] for s in ss]
+    forward = names(pick_gate_samples(samples, scales, categories=["cat"]))
+    backward = names(pick_gate_samples(samples[::-1], scales, categories=["cat"]))
+    assert forward == backward == ["c", "a", "b"]
+
+
+@pytest.mark.parametrize("spec, message", [
+    ({"a": ("cat", 1, 1.0), "b": ("cat", 2, 1.0), "c": ("cat", 3, 1.0)}, "no scaled sample"),
+    ({"a": ("cat", 1, 1.5), "b": ("cat", 2, 1.4), "c": ("cat", 3, 1.3)}, "no unscaled sample"),
+    ({"a": ("cat", 1, 1.5), "b": ("cat", 2, 1.0)}, "fewer than 3"),
+])
+def test_pick_gate_samples_raises_when_a_category_cannot_give_three(spec, message):
+    samples, scales = fake_samples(spec)
+    with pytest.raises(ValueError, match=message):
+        pick_gate_samples(samples, scales, categories=["cat"])

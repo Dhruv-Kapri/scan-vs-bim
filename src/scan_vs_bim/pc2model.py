@@ -3,6 +3,7 @@
 import zipfile
 import zlib
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -61,3 +62,39 @@ def pick_smallest_scaled(samples: list[Sample], scales: dict[str, float], tol: f
     if not scaled:
         raise ValueError("no scaled sample found")
     return min(scaled, key=lambda s: s.compressed_size)
+
+
+def pick_gate_samples(
+    samples: list[Sample], scales: dict[str, float], categories: list[str], tol: float = 1e-3
+) -> list[Sample]:
+    """Per category: the smallest scaled sample, the smallest unscaled one, then the next smallest remaining.
+
+    Size ties break by folder name, so the result does not depend on input order.
+    """
+    picked = []
+    for category in categories:
+        mine = sorted((s for s in samples if s.folder.split("/")[1] == category), key=lambda s: (s.compressed_size, s.folder))
+        if len(mine) < 3:
+            raise ValueError(f"category {category!r} has fewer than 3 samples")
+        scaled = next((s for s in mine if abs(scales[s.folder] - 1) > tol), None)
+        unscaled = next((s for s in mine if abs(scales[s.folder] - 1) <= tol), None)
+        if scaled is None:
+            raise ValueError(f"category {category!r} has no scaled sample")
+        if unscaled is None:
+            raise ValueError(f"category {category!r} has no unscaled sample")
+        rest = next(s for s in mine if s not in (scaled, unscaled))
+        picked += [scaled, unscaled, rest]
+    return picked
+
+
+def cached_scales(read_range: ReadRange, samples: list[Sample], cache: Path) -> dict[str, float]:
+    """Scale of every sample's ground-truth transform; transform texts are cached in `cache`, missing ones fetched."""
+    cache.mkdir(parents=True, exist_ok=True)
+    scales = {}
+    for n, s in enumerate(samples, 1):
+        f = cache / (s.folder.replace("/", "__") + ".txt")
+        if not f.exists():
+            f.write_bytes(read_member(read_range, s.transform))
+            print(f"[{n}/{len(samples)}] {s.folder}", flush=True)
+        scales[s.folder] = scale_of(parse_transform(f.read_text()))
+    return scales
