@@ -70,6 +70,17 @@ the model is wrong. In 03b it differs from the frozen frame by the ICP pull.
 The shift of the refined registration caused by injected moves of walls: ICP fits the moved walls
 and moves the whole scan with them (13.2 mm along y in 03b). Not an error in the scan.
 
+**Stress model**:
+A perturbed model with several moves and deletions at once (03b: three walls moved 1, 3 and 10 cm,
+plus the three deletions), used for what only appears when changes coexist: the leak and the ICP
+pull. The known-answer runs are separate perturbed models, one change each.
+
+**Pure shift**:
+What the unchanged verdict logic gives on a wall's own baseline offsets shifted by an injected
+change, with no perturbed model involved. A move is a **fair verdict test** for a variant only if
+its pure shift gives the expected verdict; the run can then differ from it only through what the
+move does to which points enter the band.
+
 ## Alignment
 
 **Registration**:
