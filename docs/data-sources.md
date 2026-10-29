@@ -125,6 +125,17 @@ marked unverified and must be checked before use.
   for values; BMWSB/BBSR take no liability. "ÖKOBAUDAT is not designed for performing life cycle
   assessment of building products." The page gives a service-interface base URL for software tools,
   `https://www.oekobaudat.de/OEKOBAU.DAT/resource`.
+- **Verified 2026-10-28 (soda4LCA endpoints, used by `scripts/fetch_oekobaudat.py` and notebook 04b):** under
+  `https://www.oekobaudat.de/OEKOBAU.DAT/resource`, `processes?search=true&name=<term>&format=json&pageSize=50`
+  returns JSON (uuid, name, version, `subType` such as "generic dataset" or "average dataset", compliance,
+  `validUntil`); `processes/<uuid>?format=xml` returns the ILCD+EPD process dataset (latest version by uuid) and
+  `flows/<uuid>?format=xml` a flow dataset, no login. In the process XML the GWP-total result is the `LCIAResult` of
+  method UUID `6a37f984-a4b3-458a-a20a-64418c145fa2` ("GWP-total", EN 15804+A2) or `a7ea142a-9749-11ed-a8fc-0242ac120002`
+  ("Climate change", EF 3.1 datasets), with `epd:amount` per module (`A1-A3`); the reference flow's flow properties
+  (ILCD Mass / Volume / Area property UUIDs) give kg and m3 or m2 per declared unit, but only sometimes: cement mortar
+  (per m3) has no mass, paint and cement screed (per kg) have no volume. Generic datasets exist for building
+  materials; whole windows and doors are mostly industry-average (VFF) or manufacturer EPDs. In probing, search
+  by English name found datasets; German terms ("Fenster", "Tür", "Ziegel") found few or none.
 - Reading of those terms (2026-10-28): runtime download into gitignored `data/` is use, which is
   unrestricted, and redistributes nothing. The committed IFC-material → dataset-UUID mapping holds
   identifiers, not data values. Both appear allowed; not confirmed with BBSR. Name ÖKOBAUDAT as the
