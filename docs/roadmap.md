@@ -47,10 +47,24 @@ Terms (verdict, element, clutter, perturbed model, ...) are defined in [CONTEXT.
     segmentation would be worth.
   - Missing vs not visible needs scanner positions. CRAS gives none, so 01 tries to recover them from
     the shadow holes on the floor. If that fails, the two merge into **not confirmed**.
-  - Known answers come from a perturbed copy of the IFC, with its changes listed in a JSON manifest:
-    - walls moved perpendicular to their face by 1 cm (control: stays OK), 3 cm and 10 cm;
-    - one door and one column deleted;
-    - one wall deleted where clutter hides it (expects not visible / not confirmed).
+  - Known answers come from perturbed copies of the IFC, each change its own perturbed model and run, scored
+    in the real model's refined frame (refining against a perturbed model lets moved walls drag the frame by
+    13 mm), with the changes listed in a JSON manifest:
+    - one wall moved perpendicular to its face by 1 cm (both ways), 3 cm and 10 cm, one IFC per move. The wall
+      must be OK in the baseline, one-sided and inside the box; in the CRAS room only `Drywall:973242` is, and
+      only with labels. Expected verdict: LOA30 on the true deviation of the wall's plane (1 cm away: OK,
+      3 and 10 cm: shifted). 1 cm into the room puts the plane 1 mm inside the 15 mm edge, where the 95 %
+      rule on the points cannot say OK (predicted 73.6 %, read 73.5 %): a result about the rule, not a
+      failed control;
+    - one door, one element that is OK in the baseline (the floor slab) and one wall where clutter hides it
+      deleted, as scan masks by geometry (element-class points within BAND), not IFC changes; the room's only
+      column has 0 scan points, so it was dropped; with labels all three read "too few points" by construction;
+    - occlusion control: the hidden wall, and a second wall with more clutter inside the band, deleted and
+      present, with the clutter in front removed too. Occlusion moves the share within tolerance by up to 7
+      points and flips no verdict (a deleted wall never reads OK or shifted from its leftover points).
+  - Recorded negative result (03b): with labels the moves get the expected verdict, except the 1 cm edge
+    case; without labels none does. No wall is OK without labels, and for 3 and 10 cm the counted points
+    rise (clutter enters the band) and the one-cluster share falls to 79 % against the 80 % rule.
 - **Carbon (04):** ÖKOBAUDAT A1-A3 factors, downloaded at runtime into `data/`. Only the project's own
   mapping (IFC material → dataset UUID) is committed. See [data-sources.md](data-sources.md#carbon-factors).
 - **Gate, fixed before 05 runs.** These thresholds are judgement calls, not taken from a standard:
