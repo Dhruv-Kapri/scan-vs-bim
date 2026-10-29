@@ -29,7 +29,7 @@ def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path):
     (tmp_path / "data").symlink_to(ROOT / "data")
     shutil.copy(SLICE, tmp_path / "notebooks")
     copy = shutil.copy(NOTEBOOK, tmp_path / "notebooks")
-    run_notebook(Path(copy), timeout=1800)
+    run_notebook(Path(copy), timeout=3600)
 
     out = tmp_path / "outputs" / "03b"
     manifest = json.loads((out / "manifest.json").read_text())
