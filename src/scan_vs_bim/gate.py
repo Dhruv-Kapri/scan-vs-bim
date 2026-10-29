@@ -3,6 +3,8 @@
 import csv
 from pathlib import Path
 
+# The verdicts the hand check can name. "missing" and "not visible" are unreachable in this phase: notebook 01 recovered no scanner
+# positions, so 03a cannot tell an unseen element from an absent one, and CONTEXT.md merges both into "not confirmed".
 VERDICTS = ("OK", "shifted", "not confirmed")
 HAND_COLUMNS = ["n", "global_id", "ifc_class", "name", "verdict", "judgement", "note"]
 PASS, FAIL, PENDING = "PASS", "FAIL", "PENDING"
@@ -14,7 +16,11 @@ def read_hand_check(path: Path) -> list[dict]:
         reader = csv.DictReader(f)
         if reader.fieldnames != HAND_COLUMNS:
             raise ValueError(f"{path}: columns must be {HAND_COLUMNS}, found {reader.fieldnames}")
-        rows = [{k: (v or "").strip() for k, v in r.items()} for r in reader]
+        rows = []
+        for r in reader:
+            if None in r:
+                raise ValueError(f"{path}: row n={r.get('n')}: extra fields {r[None]} (a comma in a note must be quoted)")
+            rows.append({k: (v or "").strip() for k, v in r.items()})
     for r in rows:
         if r["judgement"] not in ("", *VERDICTS):
             raise ValueError(f"{path}: row n={r['n']}: judgement {r['judgement']!r} is not one of {', '.join(VERDICTS)} (or empty)")
@@ -23,9 +29,11 @@ def read_hand_check(path: Path) -> list[dict]:
 
 def write_hand_check_template(path: Path, rows: list[dict]) -> bool:
     """Write the CSV only if it does not exist yet (the author's entries are never overwritten). Returns whether it wrote."""
-    if Path(path).exists():
+    try:
+        f = open(path, "x", newline="")   # exclusive create: no exists/open race
+    except FileExistsError:
         return False
-    with open(path, "w", newline="") as f:
+    with f:
         w = csv.DictWriter(f, HAND_COLUMNS)
         w.writeheader()
         w.writerows({k: r.get(k, "") for k in HAND_COLUMNS} for r in rows)
@@ -48,11 +56,18 @@ def perturbed_result(rows: list[dict], tol_mm: float, max_false_share: float = 0
     """The roadmap's perturbed-model criterion from 03b's score rows (columns change, injected_offset_mm, expected, actual).
 
     Beyond tolerance: a move larger than tol_mm, or an element not built. Control: a move within tol_mm (reported, not part of the criterion).
-    False flag: an untouched element (empty `change`) whose verdict is shifted or missing."""
+    False flag: an untouched element (empty `change`) whose verdict is shifted or missing; "missing" is unreachable in this phase
+    (see VERDICTS), so in practice shifted only. "not confirmed" untouched elements are counted separately, as context.
+    Raises ValueError on an unknown `change`, or when no change is beyond tolerance (the criterion would pass vacuously)."""
     def moved_mm(r):
-        return abs(float(r["injected_offset_mm"])) if r["change"] == "moved" else None
+        return abs(float(r["injected_offset_mm"]))
+    for r in rows:
+        if r["change"] not in ("", "moved", "not_built"):
+            raise ValueError(f"unknown change {r['change']!r}; expected '', 'moved' or 'not_built'")
     changed = [r for r in rows if r["change"]]
     beyond = [r for r in changed if r["change"] == "not_built" or moved_mm(r) > tol_mm]
+    if not beyond:
+        raise ValueError("no change beyond tolerance in the rows: the criterion would pass vacuously")
     control = [r for r in changed if r["change"] == "moved" and moved_mm(r) <= tol_mm]
     untouched = [r for r in rows if not r["change"]]
     false = [r for r in untouched if r["actual"] in ("shifted", "missing")]
@@ -60,13 +75,17 @@ def perturbed_result(rows: list[dict], tol_mm: float, max_false_share: float = 0
     changes_ok = n_right == len(beyond)
     share = len(false) / len(untouched) if untouched else 0.0
     false_ok = share <= max_false_share
-    return dict(status=PASS if changes_ok and false_ok else FAIL, n_beyond=len(beyond), n_beyond_right=n_right, changes_ok=changes_ok,
+    return dict(status=PASS if changes_ok and false_ok else FAIL, beyond_rows=beyond, false_rows=false,
+                n_untouched_not_confirmed=sum(r["actual"] == "not confirmed" for r in untouched), n_beyond=len(beyond), n_beyond_right=n_right, changes_ok=changes_ok,
                 n_control=len(control), n_control_right=sum(r["actual"] == r["expected"] for r in control),
                 n_untouched=len(untouched), n_false=len(false), share_false=share, false_ok=false_ok, max_false_share=max_false_share)
 
 
 def registration_result(rows: list[dict], min_success: int) -> dict:
     """05a's registration.csv: `success` is 'True' or 'False'."""
+    for r in rows:
+        if r["success"] not in ("True", "False"):
+            raise ValueError(f"success must be 'True' or 'False', found {r['success']!r}")
     n_success = sum(r["success"] == "True" for r in rows)
     return dict(status=PASS if n_success >= min_success else FAIL, n_success=n_success, n_total=len(rows), min_success=min_success)
 

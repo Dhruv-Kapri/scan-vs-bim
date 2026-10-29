@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from run_notebook import run_notebook
+from scan_vs_bim.gate import HAND_COLUMNS
 
 ROOT = Path(__file__).parents[1]
 NOTEBOOK = ROOT / "notebooks" / "05b_hand_check.ipynb"
@@ -13,7 +14,6 @@ SLICE = ROOT / "notebooks" / "01_cras_slice.json"
 NEEDS = [ROOT / "data" / "cras" / "cras_voxel_1cm.npz", ROOT / "data" / "cras" / "craslabbim.ifc",
          ROOT / "outputs" / "03a" / "verdicts_no_labels.csv", ROOT / "outputs" / "03a" / "frame.json",
          ROOT / "outputs" / "03b" / "scores_no_labels.csv", ROOT / "outputs" / "03b" / "manifest.json", ROOT / "outputs" / "05a" / "registration.csv"]
-COLUMNS = ["n", "global_id", "ifc_class", "name", "verdict", "judgement", "note"]
 
 
 def setup_copy(tmp_path):
@@ -38,7 +38,7 @@ def test_notebook_05b_pending_then_scored_from_filled_judgements(tmp_path):
     run_notebook(nb, timeout=3600)
     hand_csv = tmp_path / "notebooks" / "05b_hand_check.csv"
     rows = list(csv.DictReader(open(hand_csv)))
-    assert list(rows[0]) == COLUMNS and len(rows) == 20 and len({r["global_id"] for r in rows}) == 20
+    assert list(rows[0]) == HAND_COLUMNS and len(rows) == 20 and len({r["global_id"] for r in rows}) == 20
     assert all(r["judgement"] == "" for r in rows) and [int(r["n"]) for r in rows] == list(range(1, 21))
     assert len(list((tmp_path / "outputs" / "05b" / "closeups").glob("*.png"))) == 20
     gate = json.loads((tmp_path / "outputs" / "05b" / "gate.json").read_text())
@@ -49,7 +49,7 @@ def test_notebook_05b_pending_then_scored_from_filled_judgements(tmp_path):
     for i, r in enumerate(rows):
         r["judgement"] = wrong[r["verdict"]] if i < 3 else r["verdict"]
     with open(hand_csv, "w", newline="") as f:
-        w = csv.DictWriter(f, COLUMNS)
+        w = csv.DictWriter(f, HAND_COLUMNS)
         w.writeheader()
         w.writerows(rows)
     run_notebook(nb, timeout=3600)

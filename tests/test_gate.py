@@ -59,6 +59,14 @@ def test_read_hand_check_strips_blanks_and_rejects_bad_columns(tmp_path):
         read_hand_check(p)
 
 
+def test_read_hand_check_rejects_rows_with_extra_fields(tmp_path):
+    p = tmp_path / "h.csv"
+    write_csv(p, hand_rows(["OK"], [""]))
+    p.write_text(p.read_text().rstrip("\n") + ",oops\n")
+    with pytest.raises(ValueError, match="extra"):
+        read_hand_check(p)
+
+
 def test_write_hand_check_template_never_overwrites(tmp_path):
     p = tmp_path / "h.csv"
     rows = hand_rows(["OK", "shifted"], ["", ""])
@@ -95,8 +103,29 @@ def test_perturbed_criterion_passes_when_all_right_and_false_rate_at_most_10_per
 
 
 def test_perturbed_criterion_not_confirmed_is_not_a_false_flag():
-    rows = [score_row(actual="not confirmed")] * 10
-    assert perturbed_result(rows, tol_mm=15.0)["n_false"] == 0
+    rows = [score_row("not_built", "", "not confirmed", "not confirmed")] + [score_row(actual="not confirmed")] * 10
+    r = perturbed_result(rows, tol_mm=15.0)
+    assert r["n_false"] == 0 and r["n_untouched_not_confirmed"] == 10
+
+
+def test_perturbed_returns_the_flagged_untouched_rows():
+    flagged = score_row(actual="shifted")
+    rows = [score_row("not_built", "", "not confirmed", "not confirmed"), flagged, score_row()]
+    r = perturbed_result(rows, tol_mm=15.0)
+    assert r["false_rows"] == [flagged] and r["beyond_rows"] == [rows[0]]
+
+
+def test_perturbed_without_changes_beyond_tolerance_raises_not_passes_vacuously():
+    rows = [score_row("moved", "10.0", "OK", "OK")] + [score_row() for _ in range(5)]   # only the within-tolerance control
+    with pytest.raises(ValueError, match="beyond"):
+        perturbed_result(rows, tol_mm=15.0)
+    with pytest.raises(ValueError, match="beyond"):
+        perturbed_result([score_row() for _ in range(5)], tol_mm=15.0)
+
+
+def test_perturbed_unknown_change_raises_naming_it():
+    with pytest.raises(ValueError, match="'rotated'"):
+        perturbed_result([score_row("rotated", "50.0", "shifted", "shifted")], tol_mm=15.0)
 
 
 def test_registration_criterion_counts_success_flags():
@@ -104,6 +133,12 @@ def test_registration_criterion_counts_success_flags():
     r = registration_result(rows, min_success=6)
     assert (r["n_success"], r["n_total"], r["status"]) == (4, 9, "FAIL")
     assert registration_result([{"success": "True"}] * 6 + [{"success": "False"}] * 3, 6)["status"] == "PASS"
+
+
+def test_registration_rejects_other_success_values():
+    for bad in ("", "true", "1", "yes"):
+        with pytest.raises(ValueError, match="success"):
+            registration_result([{"success": "True"}, {"success": bad}], min_success=1)
 
 
 def test_combine_overall():
