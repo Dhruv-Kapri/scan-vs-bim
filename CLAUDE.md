@@ -25,6 +25,12 @@ uv run python scripts/find_scaled_sample.py # reads only PC2Model's 137 transfor
 uv run jupyter nbconvert --to notebook --execute --inplace notebooks/02_align.ipynb
                                           # notebook 02 (UVigo + fur_010; ~2 min, <1 GB RSS; needs fetch_data.py and
                                           # find_scaled_sample.py first)
+uv run python scripts/pick_gate_samples.py  # the 9 PC2Model samples for notebook 05a (zip directory + transform files
+                                          # only, no point clouds) -> outputs/05a/gate_samples.csv
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05a_registration_gate.ipynb
+                                          # notebook 05a (registration gate, 9 PC2Model samples; downloads ~1.3 GB of
+                                          # them on first run, resumable; ~5-7 min after, peak RSS 0.6 GB; needs
+                                          # find_scaled_sample.py + pick_gate_samples.py; writes outputs/05a/)
 uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, unaligned; writes
                                           # docs/images/stage0-unaligned{,-scan,-ifc}.png (overview + close-ups;
                                           # --no-interactive: PNGs only)
