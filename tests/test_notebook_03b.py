@@ -25,7 +25,7 @@ def placements(model):
 def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path):
     """Known answers are asserted inside 03b; here: every move has its own perturbed IFC, each differs from the original only by that move (same elements, same
     GUIDs, only the moved wall and the opening elements it carries have a changed placement, each by the manifest's offset), the deletions are scan masks (no IFC), and
-    the score tables hold, for each of the six runs, all 35 elements with an expected and an actual verdict on the changed one."""
+    the score tables hold, for each of the seven runs, all 35 elements with an expected and an actual verdict on the changed one."""
     for p in NEEDS:
         if not p.exists():
             pytest.skip(f"{p.relative_to(ROOT)} not downloaded (see scripts/fetch_data.py and CLAUDE.md)")
@@ -42,9 +42,9 @@ def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path):
     changes = manifest["changes"]
     moves = [c for c in changes if c["change"] == "moved"]
     masks = [c for c in changes if c["change"] == "not_built"]
-    assert sorted(round(sum(v * v for v in c["offset_m"]) ** 0.5, 3) for c in moves) == [0.01, 0.03, 0.10]
+    assert sorted(round(sum(v * v for v in c["offset_m"]) ** 0.5, 3) for c in moves) == [0.01, 0.01, 0.03, 0.10]  # the 1 cm move is run both ways
     assert len(masks) == 3 and all(c["offset_m"] is None and c["perturbed_ifc"] is None for c in masks)
-    assert len({c["run"] for c in changes}) == 6 and len({c["perturbed_ifc"] for c in moves}) == 3
+    assert len({c["run"] for c in changes}) == 7 and len({c["perturbed_ifc"] for c in moves}) == 4
     assert all(c["expected_verdict"] in VERDICTS for c in changes)
 
     original = ifcopenshell.open(str(IFC))
@@ -76,5 +76,13 @@ def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path):
             changed_rows = [r for r in run_rows if r["change"]]
             assert [r["global_id"] for r in changed_rows] == [c["global_id"]]
             assert changed_rows[0]["expected"] == c["expected_verdict"] and changed_rows[0]["expected"] in VERDICTS
+            assert changed_rows[0]["fair"] in ("yes", "no")
+            if variant == "oracle_labels" and changed_rows[0]["fair"] == "yes":  # a fair known answer (the pure shift gives the expected verdict) must be met with labels
+                assert changed_rows[0]["actual"] == changed_rows[0]["expected"], f"{run}: expected {changed_rows[0]['expected']}, got {changed_rows[0]['actual']}"
+        assert {r["run"] for r in rows if r["fair"] == "yes" and r["change"] == "moved"} >= {"move_1cm_away", "move_3cm_in", "move_10cm_in"} if variant == "oracle_labels" else True
     with open(out / "occlusion_control.csv", newline="") as f:
-        assert len(list(csv.DictReader(f))) == 8  # four configurations, two variants
+        reader = csv.DictReader(f)
+        control = list(reader)
+        assert reader.fieldnames == ["wall", "configuration", "variant", "verdict", "reason", "point_count", "median_mm", "share_within_tol", "share_near_median"]
+    assert len(control) == 8 and len({r["configuration"] for r in control}) == 4 and {r["variant"] for r in control} == {"oracle_labels", "no_labels"}  # four configurations, two variants
+    assert {r["verdict"] for r in control} <= VERDICTS
