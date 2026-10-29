@@ -89,3 +89,5 @@ def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path):
     assert len(control) == 16 and len({r["configuration"] for r in control}) == 4 and {r["variant"] for r in control} == {"oracle_labels", "no_labels"}  # two walls x four configurations x two variants
     assert all(sum(r["wall"] == w for r in control) == 8 for w in walls)
     assert {r["verdict"] for r in control} <= VERDICTS
+    assert any(w.endswith("961571") for w in walls)  # the second wall, picked by the notebook's in-band clutter rule
+    assert all(r["verdict"] == "not confirmed" for r in control if r["configuration"].startswith("deleted"))  # a deleted wall never reads OK or shifted from its leftover points

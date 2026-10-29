@@ -60,8 +60,10 @@ Terms (verdict, element, clutter, perturbed model, ...) are defined in [CONTEXT.
       deleted, as scan masks by geometry (element-class points within BAND), not IFC changes; the room's only
       column has 0 scan points, so it was dropped; with labels all three read "too few points" by construction;
     - occlusion control: the hidden wall, and a second wall with more clutter inside the band, deleted and
-      present, with the clutter in front removed too. Occlusion moves the share within tolerance by up to 7
-      points and flips no verdict (a deleted wall never reads OK or shifted from its leftover points).
+      present, with the clutter-class points in front removed too (unassigned points stay). Without labels,
+      occlusion moves the share within tolerance by up to 7 points; with labels by 0. Both walls are not
+      confirmed in the baseline, so the control cannot show occlusion costing an OK; it shows only that a
+      deleted wall never reads OK or shifted from its leftover points.
   - Recorded negative result (03b): with labels the moves get the expected verdict, except the 1 cm edge
     case; without labels none does. No wall is OK without labels, and for 3 and 10 cm the counted points
     rise (clutter enters the band) and the one-cluster share falls to 79 % against the 80 % rule.
