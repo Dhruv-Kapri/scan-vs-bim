@@ -38,8 +38,37 @@ upper bound, not something a new scan would have.
 
 **Perturbed model**:
 A copy of the model with deliberately injected, recorded deviations (elements moved by known
-offsets or deleted), used as known answers for verdicts.
+offsets, or deleted: a deleted element stays in the IFC and the scan points on it are masked out,
+see **Deleted element**), used as known answers for verdicts.
 _Avoid_: synthetic model, fake model
+
+**Deleted element**:
+In a perturbed model, an element declared not to exist: it stays in the IFC, and the scan points
+on it are masked out of the comparison, as if it had not been built. The perturbed-model word; "not built" is kept for what a Missing verdict is evidence of.
+_Avoid_: not built (for the injected change), removed
+
+**Geometric mask**:
+The mask of a deleted element: the element-class scan points within BAND of its surface, whoever
+the baseline assigned them to. It also removes the points of neighbours that lie within BAND of it.
+_Avoid_: mask by assignment (the first version of 03b, which leaks)
+
+**Leak**:
+Element-class scan points that still land on a deleted element in the perturbed run, because they
+belonged to a neighbour in the baseline and the neighbour has moved. A mask by assignment leaks; a
+geometric mask does not, in a frozen frame.
+
+**Frozen frame**:
+The perturbed run scored with the real model's refined registration, so that the only differences
+from the baseline are the injected changes (the known-answer test is about the comparison, not the
+registration).
+
+**Dragged frame**:
+The registration refined against the perturbed model, which is what a real pipeline would get when
+the model is wrong. In 03b it differs from the frozen frame by the ICP pull.
+
+**ICP pull**:
+The shift of the refined registration caused by injected moves of walls: ICP fits the moved walls
+and moves the whole scan with them (13.2 mm along y in 03b). Not an error in the scan.
 
 ## Alignment
 
