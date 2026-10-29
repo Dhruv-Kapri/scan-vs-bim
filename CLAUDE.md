@@ -53,6 +53,12 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   notebooks/04a_report.ipynb              # notebook 04a (03a's no-labels verdicts as a ScanVsBim_Verdict pset in an IFC
                                           # copy, plus a BCF 2.1 file with one issue per non-OK element; ~10 s; needs
                                           # the CRAS IFC and outputs/03a/*.csv from 03a; writes outputs/04a/)
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3000 notebooks/05b_hand_check.ipynb
+                                          # notebook 05b (20 random CRAS verdicts as close-ups + the overall Phase 0.5
+                                          # gate; ~30-80 s, peak RSS ~1.5 GB; needs outputs/03a, outputs/03b (run 03a
+                                          # then 03b first; re-run both if either changes) and outputs/05a; writes
+                                          # outputs/05b/ and, only if absent, notebooks/05b_hand_check.csv, whose
+                                          # `judgement` column the author fills; re-run after filling)
 uv run python scripts/fetch_oekobaudat.py # the ÖKOBAUDAT process + flow datasets named in
                                           # notebooks/04b_material_mapping.csv, unmodified, into data/oekobaudat/
                                           # (never committed; idempotent; seconds)
