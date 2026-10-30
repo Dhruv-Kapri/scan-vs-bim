@@ -35,8 +35,8 @@ def over_own_face(points: np.ndarray, vertices: np.ndarray, faces: np.ndarray, m
     `margin` is the edge allowance: 0 keeps only points that project onto the face; a few mm keeps the edge itself in spite of scan noise.
     """
     points = np.asarray(points)
-    if len(points) == 0:
-        return np.zeros(0, bool)
+    if len(points) == 0 or len(faces) == 0:
+        return np.zeros(len(points), bool)
     sub = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(np.asarray(vertices, np.float64)), o3d.utility.Vector3iVector(np.asarray(faces, np.int32)))
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(sub))

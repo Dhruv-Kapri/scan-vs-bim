@@ -84,3 +84,9 @@ def test_aligned_faces_picks_triangles_whose_normal_is_along_the_axis():
     assert np.allclose(np.abs(np.asarray(o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v), o3d.utility.Vector3iVector(f[m])).compute_triangle_normals().triangle_normals)[:, 1]), 1)
     only = aligned_faces(v, f, axis=1, among=np.isin(np.arange(len(f)), np.flatnonzero(m)[:2]))
     assert only.sum() == 2
+
+
+def test_over_own_face_with_no_faces_keeps_no_point():
+    # An element with no selected face has nothing to be over; no closest-point lookup on an empty scene.
+    pts = np.array([[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]])
+    assert not over_own_face(pts, np.zeros((0, 3)), np.zeros((0, 3), int)).any()

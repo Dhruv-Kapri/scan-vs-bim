@@ -29,8 +29,12 @@ uv run python scripts/pick_gate_samples.py  # the 9 PC2Model samples for noteboo
                                           # only, no point clouds) -> outputs/05a/gate_samples.csv
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05a_registration_gate.ipynb
                                           # notebook 05a (registration gate, 9 PC2Model samples; downloads ~1.3 GB of
-                                          # them on first run, resumable; ~25 min after on a shared machine (#20 refinement included), peak RSS 0.43 GB; needs
-                                          # find_scaled_sample.py + pick_gate_samples.py; writes outputs/05a/)
+                                          # them on first run, resumable; ~25 min after, measured on a loaded machine,
+                                          # #20 refinement included; peak RSS 0.43 GB; needs find_scaled_sample.py +
+                                          # pick_gate_samples.py; writes outputs/05a/)
+uv run python scripts/fetch_tuning_samples.py # the 3 held-out PC2Model samples for 05c (house_6, indoor_modelling_5-GM,
+                                          # real-indoor_modelling_5-GM; ~700 MB, no gate sample or gate building; resumable,
+                                          # idempotent; ~1-2 h at Zenodo speeds, run it detached)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05c_registration_tuning.ipynb
                                           # notebook 05c (tunes 05a's registration refinement on held-out PC2Model samples:
                                           # fur_010, house_6, indoor_modelling_5-GM, real-indoor_modelling_5-GM and a
