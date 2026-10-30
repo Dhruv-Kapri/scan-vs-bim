@@ -10,6 +10,7 @@ SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "fetch_data.py"
 @pytest.fixture
 def fetch_data(monkeypatch):
     spec = importlib.util.spec_from_file_location("fetch_data", SCRIPT)
+    assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     fetched, extracted = [], []
