@@ -45,7 +45,7 @@ def hand_check_result(rows: list[dict], n_required: int = 20, min_share: float =
     filled = [r for r in rows if r["judgement"]]
     n_agree = sum(r["judgement"] == r["verdict"] for r in filled)
     share = n_agree / len(filled) if filled else None
-    if len(filled) < n_required:
+    if share is None or len(filled) < n_required:
         status = PENDING
     else:
         status = PASS if share >= min_share else FAIL

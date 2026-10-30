@@ -43,6 +43,10 @@ def test_hand_check_with_nothing_filled_is_pending():
     assert r["status"] == "PENDING" and r["n_filled"] == 0 and r["share"] is None
 
 
+def test_hand_check_with_nothing_filled_is_pending_even_when_none_are_required():
+    assert hand_check_result(hand_rows(["OK"], [""]), n_required=0)["status"] == "PENDING"
+
+
 def test_read_hand_check_rejects_unknown_judgement(tmp_path):
     p = tmp_path / "h.csv"
     write_csv(p, hand_rows(["OK", "OK"], ["OK", "okay"]))
