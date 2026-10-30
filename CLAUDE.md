@@ -29,8 +29,14 @@ uv run python scripts/pick_gate_samples.py  # the 9 PC2Model samples for noteboo
                                           # only, no point clouds) -> outputs/05a/gate_samples.csv
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05a_registration_gate.ipynb
                                           # notebook 05a (registration gate, 9 PC2Model samples; downloads ~1.3 GB of
-                                          # them on first run, resumable; ~5-7 min after, peak RSS 0.6 GB; needs
+                                          # them on first run, resumable; ~25 min after on a shared machine (#20 refinement included), peak RSS 0.43 GB; needs
                                           # find_scaled_sample.py + pick_gate_samples.py; writes outputs/05a/)
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05c_registration_tuning.ipynb
+                                          # notebook 05c (tunes 05a's registration refinement on held-out PC2Model samples:
+                                          # fur_010, house_6, indoor_modelling_5-GM, real-indoor_modelling_5-GM and a
+                                          # synthetically scaled GM; ~30 min measured on a shared machine, peak RSS 0.37 GB;
+                                          # needs find_scaled_sample.py + fetch_data.py (fur_010) + fetch_tuning_samples.py;
+                                          # writes outputs/05c/). Run it detached (see the 03b/cras-cache pattern).
 uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, unaligned; writes
                                           # docs/images/stage0-unaligned{,-scan,-ifc}.png (overview + close-ups;
                                           # --no-interactive: PNGs only)
@@ -78,6 +84,9 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   English name, GWP-total A1-A3 per declared unit (A1-A3 combined, or A1+A2+A3 summed; EN 15804+A2 "GWP-total" and
   EF 3.1 "Climate change" method UUIDs), and kg/m3/m2 per declared unit from the flow properties. `Dataset.carbon()`
   returns None when nothing converts: no densities are ever guessed.
+- `src/scan_vs_bim/register.py`: `refine_icp` (scale-fitting point-to-point ICP stages, then rigid point-to-plane
+  stages, coarse to fine, after the coarse RANSAC + ICP), `refine_plan` (the stages 05a runs; chosen in 05c, issue #20)
+  and `voxel_schedule`.
 - `src/scan_vs_bim/fetch.py`: chunked, retried, resumable HTTP range downloads and single-member zip
   extraction (Zenodo is slow and returns 504s; a long `remotezip` stream died).
 - `src/scan_vs_bim/cras_cache.py`: streams the 26.8 GB ASCII zip member in 64 MB blocks (never extracted
