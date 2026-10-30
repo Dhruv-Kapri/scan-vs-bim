@@ -3,7 +3,7 @@ import open3d as o3d
 import pytest
 
 from scan_vs_bim.pc2model import scale_of
-from scan_vs_bim.register import refine_icp, voxel_schedule
+from scan_vs_bim.register import FINE_FLOOR_M, refine_icp, refine_plan, voxel_schedule
 
 # Gate thresholds (docs/roadmap.md) are 2 deg, 5 cm, 1 %; these tests ask for clearly tighter.
 ROT_DEG, CENTROID_M, SCALE_REL = 0.3, 0.01, 0.003
@@ -94,3 +94,10 @@ def test_voxel_schedule_halves_down_to_the_floor():
     assert voxel_schedule(0.4, 0.05) == pytest.approx([0.2, 0.1, 0.05])
     assert voxel_schedule(0.4, 0.06) == pytest.approx([0.2, 0.1, 0.06])   # the last stage is the floor, never below it
     assert voxel_schedule(0.04, 0.05) == []   # already finer than the floor: no stage
+
+
+def test_refine_plan_scale_stages_only_on_scaled_samples():
+    plain, scaled = refine_plan(0.4, scaled=False), refine_plan(0.4, scaled=True)
+    assert plain["scale_voxels"] == [] and plain["rigid_voxels"][-1] == FINE_FLOOR_M
+    assert len(scaled["scale_voxels"]) == 2 and scaled["rigid_voxels"][-1] == FINE_FLOOR_M
+    assert scaled["scale_voxels"][-1] == scaled["rigid_voxels"][0]   # rigid stages continue from where the scale stages stop

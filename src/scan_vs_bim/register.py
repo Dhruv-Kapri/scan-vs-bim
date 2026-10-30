@@ -32,6 +32,19 @@ def voxel_schedule(start, floor):
     return out + [floor] if start > floor else []
 
 
+# Chosen on held-out PC2Model samples (notebook 05c, issue #20). Judgement calls, the gate's samples were not used.
+FINE_FLOOR_M = 0.025   # finest ICP voxel: half the gate's 5 cm centroid threshold
+SCALE_STAGES = 2       # scale-fitting stages (voxel/2, voxel/4); finer stages are rigid, at the scale those found
+
+
+def refine_plan(voxel, scaled):
+    """The stages notebook 05a runs after the coarse ICP at `voxel`: scale stages only on a sample flagged scaled."""
+    schedule = voxel_schedule(voxel, FINE_FLOOR_M)
+    if not scaled:
+        return dict(scale_voxels=[], rigid_voxels=schedule)
+    return dict(scale_voxels=schedule[:SCALE_STAGES], rigid_voxels=schedule[SCALE_STAGES - 1:])
+
+
 def _stage(src, tgt, T, voxel, dist_x, max_iter, estimation, normals=False):
     s, t = src.voxel_down_sample(voxel), tgt.voxel_down_sample(voxel)
     if normals:
