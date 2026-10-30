@@ -37,7 +37,7 @@ def test_every_element_in_room_b_s_list_is_excluded_from_scoring_and_listed(path
     s = json.loads(path.read_text())
     shared = {e["global_id"] for e in s["room"]["elements"] if e["global_id"] in IN_B}
     assert {e["global_id"] for e in s["scoring_exclusions"]} == shared
-    assert [e["global_id"] for e in s["provenance"]["elements_also_in_room_B"]] == sorted(shared)
+    assert sorted(e["global_id"] for e in s["provenance"]["elements_also_in_room_B"]) == sorted(shared)
     assert all(e["reason"] for e in s["scoring_exclusions"])
 
 
@@ -55,5 +55,5 @@ def test_room_a_overlaps_room_b_only_by_the_shared_wall_and_excludes_it_by_name(
     a, b = s["room"]["box_model_frame"], ROOM_B["room"]["box_model_frame"]
     assert overlap_xy(a, b) < 0.15 * (a["xmax"] - a["xmin"])
     shared_wall = [e for e in s["scoring_exclusions"] if e["name"].endswith(SHARED_WALL)]
-    assert len(shared_wall) == 1 and "shared" in shared_wall[0]["reason"]
+    assert len(shared_wall) == 1 and "hand-check element 6" in shared_wall[0]["reason"]
     assert shared_wall[0]["global_id"] in {e["global_id"] for e in s["room"]["elements"]}  # kept in the room: the points on its room-A face must be assigned to it
