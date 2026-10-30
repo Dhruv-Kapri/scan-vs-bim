@@ -17,7 +17,8 @@ COLUMNS = ["global_id", "ifc_class", "verdict", "point_count", "median_signed_of
 
 def test_notebook_03a_writes_per_element_verdicts(tmp_path):
     """Known answers are asserted inside 03a; here: both CSVs (with and without oracle labels) hold one row per room
-    element, only element classes, only the three verdicts reachable here (OK, shifted, not confirmed), and the top-down PNG is written."""
+    element, only element classes, only the three verdicts reachable here (OK, shifted, not confirmed), a zero-point element reads "no points", and the
+    top-down PNG is written."""
     for p in NEEDS:
         if not p.exists():
             pytest.skip(f"{p.relative_to(ROOT)} not downloaded (see scripts/fetch_data.py and CLAUDE.md)")
@@ -37,4 +38,7 @@ def test_notebook_03a_writes_per_element_verdicts(tmp_path):
         assert len(rows) == 35 and len({r["global_id"] for r in rows}) == 35
         assert {r["ifc_class"] for r in rows} <= ELEMENT_CLASSES
         assert {r["verdict"] for r in rows} <= VERDICTS
+        # an element with no points at all says "no points", not "too few points" (issue #19)
+        assert all(int(r["point_count"]) > 0 for r in rows if r["reason"] == "too few points")
+        assert {r["reason"] for r in rows if r["point_count"] == "0"} <= {"no points", "mostly outside the room box"}
     assert (out / "verdicts_top_down.png").stat().st_size > 0
