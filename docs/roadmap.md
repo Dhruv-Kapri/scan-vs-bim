@@ -36,7 +36,8 @@ Terms (verdict, element, clutter, perturbed model, ...) are defined in [CONTEXT.
 - Static PNG snapshots (Open3D offscreen rendering), not interactive 3D widgets, so the outputs render on GitHub.
 - **CRAS data:** download the zip once, never extract it; stream its single member locally into a
   ~1 cm voxel cache of the whole lab, keeping RGB and scan class. The IFC has no `IfcSpace`, so the
-  room is a hand-picked box bounded by IFC walls.
+  room is a hand-picked box bounded by IFC walls. The box only picks the elements to judge; each element
+  is judged on its own patch, the scan points near its surface wherever they lie (issue #23), not on a crop.
 - **CRAS frame:** whatever 01 finds, 03 starts from a recorded transform: always ICP-refine (and report
   the correction); coarse-register with 02's method first if the scan is far off.
 - **Compare (03):**
@@ -56,17 +57,18 @@ Terms (verdict, element, clutter, perturbed model, ...) are defined in [CONTEXT.
       3 and 10 cm: shifted). 1 cm into the room puts the plane 1 mm inside the 15 mm edge, where the 95 %
       rule on the points cannot say OK (predicted 73.6 %, read 73.5 %): a result about the rule, not a
       failed control;
-    - one door, one element that is OK in the baseline (the floor slab) and one wall where clutter hides it
+    - one door, one element that is OK in the baseline (the east wall `919433`; the floor slab before #23) and one wall where clutter hides it (`979093`; `919433` before #23)
       deleted, as scan masks by geometry (element-class points within BAND), not IFC changes; the room's only
       column has 0 scan points, so it was dropped; with labels all three read "too few points" by construction;
     - occlusion control: the hidden wall, and a second wall with more clutter inside the band, deleted and
       present, with the clutter-class points in front removed too (unassigned points stay). Without labels,
-      occlusion moves the share within tolerance by up to 7 points; with labels by 0. Both walls are not
-      confirmed in the baseline, so the control cannot show occlusion costing an OK; it shows only that a
+      occlusion moves the share within tolerance by up to 7 points; with labels by 0. Neither wall is
+      OK in the baseline (the hidden wall is shifted with labels, not confirmed without; the other is not
+      confirmed), so the control cannot show occlusion costing an OK; it shows only that a
       deleted wall never reads OK or shifted from its leftover points.
   - Recorded negative result (03b): with labels the moves get the expected verdict, except the 1 cm edge
-    case; without labels none does. No wall is OK without labels, and for 3 and 10 cm the counted points
-    rise (clutter enters the band) and the one-cluster share falls to 79 % against the 80 % rule.
+    case; without labels none does. No wall is OK without labels, and for 3 and 10 cm the one-cluster
+    share is 78 % against the 80 % rule (79 % before #23's patches; the counted points rise only at 10 cm).
 - **Carbon (04):** ÖKOBAUDAT A1-A3 factors, downloaded at runtime into `data/`. Only the project's own
   mapping (IFC material → dataset UUID) is committed. See [data-sources.md](data-sources.md#carbon-factors).
 - **Gate, fixed before 05 runs.** These thresholds are judgement calls, not taken from a standard:
