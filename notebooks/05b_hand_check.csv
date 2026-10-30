@@ -1,0 +1,21 @@
+n,global_id,ifc_class,name,verdict,judgement,note
+1,054HMVvnL1EOSZl$bniLeG,IfcColumn,M_Concrete-Rectangular-Column:150 x 350mm:1164179,not confirmed,not confirmed,
+2,2unE$VYSL2OPIL$6LYYccT,IfcCovering,Compound Ceiling:Forro de gesso:1428995,not confirmed,OK,
+3,2unE$VYSL2OPIL$6LYYdVk,IfcCovering,Compound Ceiling:Forro de gesso:1429616,not confirmed,not confirmed,
+4,33gtcvddH7cec8$WOT4fKs,IfcCovering,Forros 1:Forros 1:1537527,not confirmed,not confirmed,
+5,0WU0DUvgT6tu4IXFc9kNX5,IfcDoor,Doors_Door-sets_Swedoor_JELD-WEN_Exterior_Steel_4210_GS1T_Unequal_Double_40:SDE30 - M15 (M10) x M20 - EI30:1044681,not confirmed,shifted,wide leaf no points (likely open); narrow leaf two parallel surfaces ~2 cm and ~6 cm off the model face
+6,1gsZ4XbYD0qRhfvwOUEI1z,IfcWallStandardCase,Basic Wall:(10cm) Drywall:961571,not confirmed,OK,
+7,1gsZ4XbYD0qRhfvwOUEIAE,IfcWallStandardCase,Basic Wall:(10cm) Drywall:962256,not confirmed,not confirmed,
+8,3qeiF73TD1uOeHIcNGcTy8,IfcWallStandardCase,Basic Wall:(10cm) Drywall:973242,not confirmed,OK,
+9,3qeiF73TD1uOeHIcNGcU5f,IfcWallStandardCase,Basic Wall:(10cm) Drywall:976859,not confirmed,not confirmed,
+10,3qeiF73TD1uOeHIcNGcUXS,IfcWallStandardCase,Basic Wall:(10cm) Drywall:978670,not confirmed,not confirmed,
+11,3qeiF73TD1uOeHIcNGcUyj,IfcWallStandardCase,Basic Wall:(10cm) Drywall:977311,not confirmed,not confirmed,
+12,1L1ux2$dP8WO2wsydYGc16,IfcWindow,Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1470160,OK,OK,
+13,1L1ux2$dP8WO2wsydYGc73,IfcWindow,Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1470293,OK,OK,
+14,1L1ux2$dP8WO2wsydYGdZX,IfcWindow,Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1472119,OK,OK,
+15,1L1ux2$dP8WO2wsydYGddh,IfcWindow,Aluprof_MB-86-ST_E_Alu_Window-1sash-FIX_ENG_R-00037:1200 x 480:1472381,not confirmed,OK,
+16,1clZEeY_LECBal6NIv_ikZ,IfcWindow,Window-Westcoas_Windows-FKG-Fixed-Frame_Option_115mm:FKG Triple Glazed 36mm:1134771,not confirmed,not confirmed,"frame barely scanned; flat surface ~4 cm in front of the glass across the opening (likely a blind), not the window"
+17,1clZEeY_LECBal6NIv_ikp,IfcWindow,Window-Westcoas_Windows-FKG-Fixed-Frame_Option_115mm:FKG Triple Glazed 36mm:1134755,not confirmed,not confirmed,
+18,1clZEeY_LECBal6NIv_ikx,IfcWindow,Window-Westcoas_Windows-FKG-Fixed-Frame_Option_115mm:FKG Triple Glazed 36mm:1134763,not confirmed,not confirmed,"frame barely scanned; flat surface ~4 cm in front of the glass across the opening (likely a blind), not the window"
+19,1clZEeY_LECBal6NIv_jTu,IfcWindow,Window-Westcoas_Windows-FKG-Fixed-Frame_Option_115mm:FKG Triple Glazed 36mm:1133672,not confirmed,not confirmed,"frame barely scanned; flat surface ~4 cm in front of the glass across the opening (likely a blind), not the window"
+20,3iJGmd4gX4uwx4ku7SqaZ_,IfcWindow,Window-Westcoas_Windows-FKG-Fixed-Frame_Option_115mm:FKG Triple Glazed 36mm:1134873,not confirmed,not confirmed,

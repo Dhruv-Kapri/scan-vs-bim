@@ -10,7 +10,7 @@ from pathlib import Path
 from remotezip import RemoteZip
 
 from scan_vs_bim.fetch import extract_zip_member, http_range_reader
-from scan_vs_bim.pc2model import URL as PC2MODEL_URL, group_samples, parse_transform, pick_smallest_scaled, read_member, scale_of
+from scan_vs_bim.pc2model import URL as PC2MODEL_URL, cached_scales, group_samples, pick_smallest_scaled
 
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "data" / "pc2model"
@@ -26,15 +26,7 @@ def main() -> None:
     samples = group_samples(infos)
     reader = http_range_reader(PC2MODEL_URL)
 
-    cache = DATA / "transforms"
-    cache.mkdir(parents=True, exist_ok=True)
-    scales = {}
-    for n, s in enumerate(samples, 1):
-        f = cache / (s.folder.replace("/", "__") + ".txt")
-        if not f.exists():
-            f.write_bytes(read_member(reader, s.transform))
-            print(f"[{n}/{len(samples)}] {s.folder}", flush=True)
-        scales[s.folder] = scale_of(parse_transform(f.read_text()))
+    scales = cached_scales(reader, samples, DATA / "transforms")
 
     out = REPO / "outputs" / "pc2model_scales.csv"
     out.parent.mkdir(exist_ok=True)

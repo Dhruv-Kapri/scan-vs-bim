@@ -25,6 +25,12 @@ uv run python scripts/find_scaled_sample.py # reads only PC2Model's 137 transfor
 uv run jupyter nbconvert --to notebook --execute --inplace notebooks/02_align.ipynb
                                           # notebook 02 (UVigo + fur_010; ~2 min, <1 GB RSS; needs fetch_data.py and
                                           # find_scaled_sample.py first)
+uv run python scripts/pick_gate_samples.py  # the 9 PC2Model samples for notebook 05a (zip directory + transform files
+                                          # only, no point clouds) -> outputs/05a/gate_samples.csv
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05a_registration_gate.ipynb
+                                          # notebook 05a (registration gate, 9 PC2Model samples; downloads ~1.3 GB of
+                                          # them on first run, resumable; ~5-7 min after, peak RSS 0.6 GB; needs
+                                          # find_scaled_sample.py + pick_gate_samples.py; writes outputs/05a/)
 uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, unaligned; writes
                                           # docs/images/stage0-unaligned{,-scan,-ifc}.png (overview + close-ups;
                                           # --no-interactive: PNGs only)
@@ -47,6 +53,12 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   notebooks/04a_report.ipynb              # notebook 04a (03a's no-labels verdicts as a ScanVsBim_Verdict pset in an IFC
                                           # copy, plus a BCF 2.1 file with one issue per non-OK element; ~10 s; needs
                                           # the CRAS IFC and outputs/03a/*.csv from 03a; writes outputs/04a/)
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3000 notebooks/05b_hand_check.ipynb
+                                          # notebook 05b (20 random CRAS verdicts as close-ups + the overall Phase 0.5
+                                          # gate; ~30-80 s, peak RSS ~1.5 GB; needs outputs/03a, outputs/03b (run 03a
+                                          # then 03b first; re-run both if either changes) and outputs/05a; writes
+                                          # outputs/05b/ and, only if absent, notebooks/05b_hand_check.csv, whose
+                                          # `judgement` column the author fills; re-run after filling)
 uv run python scripts/fetch_oekobaudat.py # the ÖKOBAUDAT process + flow datasets named in
                                           # notebooks/04b_material_mapping.csv, unmodified, into data/oekobaudat/
                                           # (never committed; idempotent; seconds)

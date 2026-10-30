@@ -3,7 +3,7 @@ import ifcopenshell.api
 import numpy as np
 import pytest
 
-from scan_vs_bim.load import ElementMesh, load_e57, load_ifc, load_ifc_elements, merge_meshes
+from scan_vs_bim.load import ElementMesh, load_e57, load_e57_chunked, load_ifc, load_ifc_elements, merge_meshes
 
 OFFSET = (10.0, 20.0, 3.0)
 
@@ -114,3 +114,12 @@ def test_e57_poses_proportional_and_seeded(tmp_path):
     assert (pts[near_a, 0] < 101).all()
     np.testing.assert_array_equal(pts, np.asarray(load_e57(path, max_points=100).points))
     assert not np.array_equal(pts, np.asarray(load_e57(path, max_points=100, seed=1).points))
+
+
+def test_e57_chunked_gives_the_same_points_as_load_e57_with_chunks_smaller_than_a_scan(tmp_path):
+    path = tmp_path / "t.e57"
+    write_e57(path, [(300, (100, 0, 0)), (100, (0, 200, 0))])
+    whole = np.asarray(load_e57(path, max_points=100).points)
+    chunked = np.asarray(load_e57_chunked(path, max_points=100, chunk_points=70).points)
+    assert chunked.shape == whole.shape
+    np.testing.assert_allclose(chunked, whole)

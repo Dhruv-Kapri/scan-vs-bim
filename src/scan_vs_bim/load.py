@@ -42,6 +42,34 @@ def load_e57(path: Path, max_points: int, seed: int = 0) -> o3d.geometry.PointCl
     return o3d.geometry.PointCloud(o3d.utility.Vector3dVector(np.concatenate(xyz_parts)))
 
 
+def load_e57_chunked(path: Path, max_points: int, seed: int = 0, chunk_points: int = 1_000_000) -> o3d.geometry.PointCloud:
+    """Same points as `load_e57`, read `chunk_points` at a time so memory stays flat (load_e57 holds a whole scan,
+    about 100 bytes per point at its peak). Files with invalid-point flags are not supported."""
+    rng = np.random.default_rng(seed)
+    e57 = pye57.E57(str(path))
+    n_scans = e57.scan_count
+    counts = [e57.get_header(i).point_count for i in range(n_scans)]
+    total = sum(counts)
+    parts = []
+    for i, n in enumerate(counts):
+        header = e57.get_header(i)
+        if "cartesianInvalidState" in header.point_fields:
+            raise NotImplementedError(f"{path}: invalid-point flags are not supported, use load_e57")
+        keep_idx = np.sort(rng.choice(n, min(n, round(max_points * n / total)), replace=False))
+        data, buffers = e57.make_buffers(["cartesianX", "cartesianY", "cartesianZ"], chunk_points)
+        reader = header.points.reader(buffers)
+        start = 0
+        while (m := reader.read()) > 0:
+            lo, hi = np.searchsorted(keep_idx, [start, start + m])
+            rows = keep_idx[lo:hi] - start
+            xyz = np.stack([data["cartesianX"][rows], data["cartesianY"][rows], data["cartesianZ"][rows]], 1)
+            parts.append(e57.to_global(xyz, header.rotation, header.translation) if header.has_pose() else xyz)
+            start += m
+        reader.close()
+        log.info(f"  scan {i}: kept {len(keep_idx):,}/{n:,}")
+    return o3d.geometry.PointCloud(o3d.utility.Vector3dVector(np.concatenate(parts)))
+
+
 def load_ifc_elements(path: Path, exclude=None, only_guids=None) -> list[ElementMesh]:
     """Tessellate the model, leaving out the IFC classes in `exclude` (default: IfcSpace, IfcOpeningElement).
     `only_guids` limits it to those GlobalIds (much faster on a big model); it cannot be combined with `exclude`."""
