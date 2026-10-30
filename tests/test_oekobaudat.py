@@ -100,3 +100,15 @@ def test_a_total_indicator_without_a1_a3_is_skipped():
     p = process(results=[(GWP_TOTAL_A2, {"C2": 5}), (CLIMATE_CHANGE_EF31, {"A1": 1, "A2": 1})])
     with pytest.raises(ValueError, match="GWP-total"):
         parse_dataset(p, flow(MASS, {MASS: 1}))
+
+
+def test_reference_flow_missing_from_the_exchanges_is_an_error():
+    xml = process().replace("<referenceToReferenceFlow>7<", "<referenceToReferenceFlow>99<")
+    with pytest.raises(ValueError, match="99 not among the exchanges"):
+        reference_flow_uuid(xml)
+
+
+def test_dataset_without_an_english_name_is_an_error():
+    xml = process(results=[(GWP_TOTAL_A2, {"A1-A3": 1})]).replace('<baseName xml:lang="en">Test material</baseName>', "")
+    with pytest.raises(ValueError, match="English name"):
+        parse_dataset(xml, flow(MASS, {MASS: 1}))
