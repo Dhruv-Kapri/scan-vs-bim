@@ -66,7 +66,7 @@ uv run python scripts/fetch_oekobaudat.py # the ÖKOBAUDAT process + flow datase
 uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
   notebooks/04b_carbon.ipynb              # notebook 04b (A1-A3 embodied carbon of the 35 room elements, confirmed (OK +
                                           # shifted) vs the rest; ~40 s; needs the CRAS IFC, outputs/03a/*.csv and
-                                          # data/oekobaudat/; writes outputs/04b/; prints no factor values)
+                                          # data/oekobaudat/; writes outputs/04b/ incl. stand_ins.csv; prints no factor values)
 ```
 
 - `src/scan_vs_bim/load.py`: E57 loader (seeded subsample, poses applied) and IFC loaders (per-element meshes

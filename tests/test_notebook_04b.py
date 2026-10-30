@@ -69,5 +69,24 @@ def test_notebook_04b_carbon_table_adds_up(tmp_path):
     mapped = {r["oekobaudat_uuid"] for r in read(MAPPING) if r["oekobaudat_uuid"]}
     assert mapped <= {r["oekobaudat_uuid"] for r in layers}  # each mapped dataset is counted or reported as not quantifiable
 
+    # Stand-ins: each counted one's kg is the sum of its rows in carbon_layers.csv; the zero ones are named.
+    uuid_of = {r["ifc_material"]: r["oekobaudat_uuid"] for r in read(MAPPING)}
+    stand_ins = {r["stand_in"]: r for r in read(out / "stand_ins.csv")}
+    matches = {"screed": lambda r: r["ifc_material"] == "Contrapiso",
+               "brick": lambda r: r["ifc_material"] == "Bloco cerâmico (9cm)",
+               "windows": lambda r: r["oekobaudat_uuid"] == uuid_of["Alumínio"],
+               "door": lambda r: r["oekobaudat_uuid"] == uuid_of["RAL 5005"]}
+    for key, match in matches.items():
+        (row,) = [r for name, r in stand_ins.items() if key in name.lower()]
+        assert row["treatment"] == "counted"
+        expected = sum(float(r["kg_co2e_a1_a3"]) for r in layers if match(r) and r["quantification"] == "counted")
+        assert expected > 0 and float(row["kg_co2e_a1_a3"]) == pytest.approx(expected, abs=0.01)
+        assert float(row["no_labels_confirmed_kg"]) + float(row["no_labels_rest_kg"]) == pytest.approx(expected, abs=0.01)
+        assert float(row["oracle_labels_confirmed_kg"]) + float(row["oracle_labels_rest_kg"]) == pytest.approx(expected, abs=0.01)
+        assert float(row["share_of_total"]) == pytest.approx(expected / sum(kg.values()), abs=1e-3)
+    assert sum(r["treatment"] == "counted" for r in stand_ins.values()) == 4
+    assert [n for n, r in stand_ins.items() if r["treatment"] == "zero"] and all(float(r["kg_co2e_a1_a3"]) == 0 for r in stand_ins.values() if r["treatment"] == "zero")
+    assert any("paint" in n.lower() or "pintura" in n.lower() for n in stand_ins) and any("column" in n.lower() for n in stand_ins)
+
     assert {p.name for p in tmp_path.iterdir()} == {"data", "notebooks", "outputs"}
     assert {p.name for p in (tmp_path / "outputs").iterdir()} == {"03a", "04b"}  # only outputs/04b/ is new
