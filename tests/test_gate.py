@@ -170,6 +170,13 @@ def test_perturbed_unknown_change_raises_naming_it():
         perturbed_result([score_row("a", "rotated", "shifted", "shifted")])
 
 
+def test_perturbed_changed_row_without_a_verdict_as_expected_raises():
+    # an empty or misspelt `expected` must not silently count as beyond tolerance
+    for bad in ("", "Shifted"):
+        with pytest.raises(ValueError, match="expected"):
+            perturbed_result(run_rows("a", score_row("a", "moved", bad, "shifted")))
+
+
 def test_registration_criterion_counts_success_flags():
     rows = [{"success": s} for s in ["True"] * 4 + ["False"] * 5]
     r = registration_result(rows, min_success=6)

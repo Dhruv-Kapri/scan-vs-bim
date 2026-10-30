@@ -55,7 +55,8 @@ def hand_check_result(rows: list[dict], n_required: int = 20, min_share: float =
 def perturbed_result(rows: list[dict], max_false_share: float = 0.10) -> dict:
     """The roadmap's perturbed-model criterion from 03b's score rows (columns run, change, expected, actual; one run per perturbation).
 
-    Each run must hold exactly one changed row (empty `change` = untouched); ValueError otherwise, and on an unknown `change`.
+    Each run must hold exactly one changed row (empty `change` = untouched); ValueError otherwise, on an unknown `change`, and on a changed
+    row whose `expected` is not one of VERDICTS.
     Beyond tolerance: a changed row whose `expected` is not 'OK'. 03b derives `expected` (LOA30 on the true deviation of the wall's plane,
     so the 3 and 10 cm moves and the deletions are beyond tolerance), and this function does not recompute it. Control: a changed row
     expected OK (the 1 cm moves), reported but not part of the criterion. ValueError when no change is beyond tolerance (vacuous pass).
@@ -75,6 +76,9 @@ def perturbed_result(rows: list[dict], max_false_share: float = 0.10) -> dict:
         if n != 1:
             raise ValueError(f"run {run!r} has {n} changed rows; each run must have exactly one")
     changed = [r for r in rows if r["change"]]
+    for r in changed:
+        if r["expected"] not in VERDICTS:
+            raise ValueError(f"run {r['run']!r}: expected {r['expected']!r} is not one of {', '.join(VERDICTS)}")
     beyond = [r for r in changed if r["expected"] != "OK"]
     if not beyond:
         raise ValueError("no change beyond tolerance in the rows: the criterion would pass vacuously")
@@ -82,15 +86,15 @@ def perturbed_result(rows: list[dict], max_false_share: float = 0.10) -> dict:
     n_right = sum(r["actual"] == r["expected"] for r in beyond)
     changes_ok = n_right == len(beyond)
 
+    false_rows = [r for r in rows if not r["change"] and r["actual"] in ("shifted", "missing")]
     per_run = {}
     for run in runs:
         untouched = [r for r in rows if r["run"] == run and not r["change"]]
-        n_false = sum(r["actual"] in ("shifted", "missing") for r in untouched)
+        n_false = sum(r["run"] == run for r in false_rows)
         per_run[run] = dict(n_untouched=len(untouched), n_false=n_false, share_false=n_false / len(untouched) if untouched else 0.0,
                             n_untouched_not_confirmed=sum(r["actual"] == "not confirmed" for r in untouched))
     worst_run = max(per_run, key=lambda run: per_run[run]["share_false"])
     worst_share = per_run[worst_run]["share_false"]
-    false_rows = [r for r in rows if not r["change"] and r["actual"] in ("shifted", "missing")]
     n_untouched = sum(p["n_untouched"] for p in per_run.values())
     false_ok = worst_share <= max_false_share
     return dict(status=PASS if changes_ok and false_ok else FAIL, beyond_rows=beyond, false_rows=false_rows, n_beyond=len(beyond), n_beyond_right=n_right,
