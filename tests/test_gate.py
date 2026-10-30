@@ -95,7 +95,7 @@ def test_perturbed_run_must_have_exactly_one_changed_row():
     good = run_rows("r1", score_row("r1", "moved", "shifted", "shifted"))
     with pytest.raises(ValueError, match="r2.*exactly one"):   # no changed row in r2
         perturbed_result(good + [score_row("r2") for _ in range(5)])
-    two = run_rows("r2", score_row("r2", "moved", "shifted", "shifted")) + [score_row("r2", "not_built", "not confirmed", "not confirmed")]
+    two = run_rows("r2", score_row("r2", "moved", "shifted", "shifted")) + [score_row("r2", "deleted", "not confirmed", "not confirmed")]
     with pytest.raises(ValueError, match="r2.*exactly one"):   # two changed rows in r2
         perturbed_result(good + two)
 
@@ -103,7 +103,7 @@ def test_perturbed_run_must_have_exactly_one_changed_row():
 def seven_runs(**actual_by_run):
     """Seven runs shaped like 03b's: two 1 cm moves (control), 3 and 10 cm moves, three deletions; `actual_by_run` overrides the changed row's actual."""
     spec = [("move_1cm_away", "moved", "OK"), ("move_1cm_in", "moved", "OK"), ("move_3cm_in", "moved", "shifted"), ("move_10cm_in", "moved", "shifted"),
-            ("delete_door", "not_built", "not confirmed"), ("delete_slab", "not_built", "not confirmed"), ("delete_wall", "not_built", "not confirmed")]
+            ("delete_door", "deleted", "not confirmed"), ("delete_slab", "deleted", "not confirmed"), ("delete_wall", "deleted", "not confirmed")]
     return [row for run, change, expected in spec
             for row in run_rows(run, score_row(run, change, expected, actual_by_run.get(run, expected)))]
 
@@ -139,23 +139,23 @@ def test_perturbed_false_flag_clause_is_judged_per_run_on_the_worst_run():
 
 
 def test_perturbed_false_flag_threshold_is_at_most_10_percent_and_counts_missing_too():
-    ten = run_rows("a", score_row("a", "not_built", "not confirmed", "not confirmed"), n_untouched=30, shifted=2, missing=1)   # 3 of 30 = 10 %
+    ten = run_rows("a", score_row("a", "deleted", "not confirmed", "not confirmed"), n_untouched=30, shifted=2, missing=1)   # 3 of 30 = 10 %
     r = perturbed_result(ten)
     assert r["status"] == "PASS" and r["worst_share_false"] == pytest.approx(0.10)
-    over = run_rows("a", score_row("a", "not_built", "not confirmed", "not confirmed"), n_untouched=30, shifted=3, missing=1)
+    over = run_rows("a", score_row("a", "deleted", "not confirmed", "not confirmed"), n_untouched=30, shifted=3, missing=1)
     assert perturbed_result(over)["status"] == "FAIL"
 
 
 def test_perturbed_not_confirmed_is_not_a_false_flag():
-    rows = run_rows("a", score_row("a", "not_built", "not confirmed", "not confirmed"), n_untouched=10, **{"not confirmed": 10}) + \
-           run_rows("b", score_row("b", "not_built", "not confirmed", "not confirmed"), n_untouched=10, **{"not confirmed": 4})
+    rows = run_rows("a", score_row("a", "deleted", "not confirmed", "not confirmed"), n_untouched=10, **{"not confirmed": 10}) + \
+           run_rows("b", score_row("b", "deleted", "not confirmed", "not confirmed"), n_untouched=10, **{"not confirmed": 4})
     r = perturbed_result(rows)
     assert r["n_false"] == 0 and r["n_untouched_not_confirmed"] == 14 and r["per_run"]["b"]["n_untouched_not_confirmed"] == 4
 
 
 def test_perturbed_returns_the_flagged_untouched_rows():
     flagged = score_row("a", actual="shifted")
-    rows = [score_row("a", "not_built", "not confirmed", "not confirmed"), flagged, score_row("a")]
+    rows = [score_row("a", "deleted", "not confirmed", "not confirmed"), flagged, score_row("a")]
     r = perturbed_result(rows)
     assert r["false_rows"] == [flagged] and r["beyond_rows"] == [rows[0]]
 
@@ -172,6 +172,12 @@ def test_perturbed_without_changes_beyond_tolerance_raises_not_passes_vacuously(
 def test_perturbed_unknown_change_raises_naming_it():
     with pytest.raises(ValueError, match="'rotated'"):
         perturbed_result([score_row("a", "rotated", "shifted", "shifted")])
+
+
+def test_perturbed_old_not_built_change_raises():
+    # renamed to "deleted" (CONTEXT.md); scores from a 03b run before the rename must fail loudly, not be read
+    with pytest.raises(ValueError, match="'not_built'"):
+        perturbed_result([score_row("a", "not_built", "not confirmed", "not confirmed")])
 
 
 def test_perturbed_changed_row_without_a_verdict_as_expected_raises():

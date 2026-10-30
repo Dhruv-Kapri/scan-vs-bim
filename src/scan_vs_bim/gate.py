@@ -68,8 +68,8 @@ def perturbed_result(rows: list[dict], max_false_share: float = 0.10) -> dict:
     n_untouched, n_false, share_false and n_untouched_not_confirmed; `pooled_share_false` (all runs together) is context only.
     `n_untouched_not_confirmed` is pooled over the runs (context; "not confirmed" is not a false flag)."""
     for r in rows:
-        if r["change"] not in ("", "moved", "not_built"):
-            raise ValueError(f"unknown change {r['change']!r}; expected '', 'moved' or 'not_built'")
+        if r["change"] not in ("", "moved", "deleted"):
+            raise ValueError(f"unknown change {r['change']!r}; expected '', 'moved' or 'deleted'")
     runs = list(dict.fromkeys(r["run"] for r in rows))
     for run in runs:
         n = sum(bool(r["change"]) for r in rows if r["run"] == run)
