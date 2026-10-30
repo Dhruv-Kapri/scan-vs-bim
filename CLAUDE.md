@@ -51,13 +51,16 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # inputs as 03a; writes outputs/03b/: perturbed IFCs, manifest.json,
                                           # scores_*.csv, occlusion_control.csv, figures)
 uv run python scripts/make_tuning_slice.py
-                                          # writes notebooks/03c_tuning_slice.json: the held-out CRAS room for tuning 03a
-                                          # (south part of the west hall; same schema as 01_cras_slice.json; ~10 min)
+                                          # writes notebooks/03c_tuning_slice.json (south part of the west hall) and
+                                          # 03c_tuning_slice_room_a.json (room A): the held-out CRAS rooms for tuning 03a, in
+                                          # 01_cras_slice.json's schema plus `scoring_exclusions` (elements that room B's list also
+                                          # holds: kept in the room, never scored or tuned on); ~10 min
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room.ipynb
-                                          # notebook 03c (a copy of 03a's logic on the held-out room: baseline, proxy for
-                                          # the hand check, diagnosis, known answers; ~15 min, peak RSS 1.1 GB; writes
-                                          # outputs/03c/). SLICE_JSON=01_cras_slice.json runs it on room B instead (the
-                                          # test uses that to check the copy against outputs/03a)
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room_a.ipynb
+                                          # notebooks 03c (a copy of 03a's logic on a held-out room: baseline, hand-check proxy,
+                                          # diagnosis, the own-face patch, known answers; ~15 and ~10 min, peak RSS 1.7 GB; write
+                                          # outputs/03c/ and outputs/03c_room_a/). SLICE_JSON=01_cras_slice.json runs one on room B
+                                          # instead (tests/test_notebook_03c.py uses that to check the copy against outputs/03a)
 uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
   notebooks/04a_report.ipynb              # notebook 04a (03a's no-labels verdicts as a ScanVsBim_Verdict pset in an IFC
                                           # copy, plus a BCF 2.1 file with one issue per non-OK element; ~10 s; needs
@@ -82,6 +85,8 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   elements, 17 s instead of minutes for the 35 room elements (measured 2026-10-28); it cannot be combined with
   `exclude=`). `tests/run_notebook.py`: `run_notebook(path)`
   executes a notebook top to bottom for tests (nbclient; raises on any cell error).
+- `src/scan_vs_bim/compare.py`: `over_own_face(points, vertices, faces, margin)` (which scan points lie over an element's
+  own face; points past its edges do not) and `aligned_faces`: the geometry of the own-face patch in 03a/03b/03c (#20).
 - `src/scan_vs_bim/oekobaudat.py`: reads one ÖKOBAUDAT process dataset + its reference-flow XML: UUID, version,
   English name, GWP-total A1-A3 per declared unit (A1-A3 combined, or A1+A2+A3 summed; EN 15804+A2 "GWP-total" and
   EF 3.1 "Climate change" method UUIDs), and kg/m3/m2 per declared unit from the flow properties. `Dataset.carbon()`
