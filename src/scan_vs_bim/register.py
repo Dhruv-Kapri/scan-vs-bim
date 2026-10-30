@@ -37,12 +37,17 @@ FINE_FLOOR_M = 0.025   # finest ICP voxel: half the gate's 5 cm centroid thresho
 SCALE_STAGES = 2       # scale-fitting stages (voxel/2, voxel/4); finer stages are rigid, at the scale those found
 
 
-def refine_plan(voxel, scaled):
-    """The stages notebook 05a runs after the coarse ICP at `voxel`: scale stages only on a sample flagged scaled."""
-    schedule = voxel_schedule(voxel, FINE_FLOOR_M)
-    if not scaled:
+def refine_plan(voxel, scaled, n_scale=SCALE_STAGES, floor=FINE_FLOOR_M):
+    """The stages notebook 05a runs after the coarse ICP at `voxel`: scale stages only on a sample flagged scaled.
+
+    n_scale scale stages (the coarsest of the schedule), then rigid stages from the last of them down to `floor`;
+    n_scale=0 or an unscaled sample gives rigid stages only.
+    """
+    schedule = voxel_schedule(voxel, floor)
+    if not scaled or n_scale == 0:
         return dict(scale_voxels=[], rigid_voxels=schedule)
-    return dict(scale_voxels=schedule[:SCALE_STAGES], rigid_voxels=schedule[SCALE_STAGES - 1:])
+    n = min(n_scale, len(schedule))
+    return dict(scale_voxels=schedule[:n], rigid_voxels=schedule[max(n - 1, 0):])
 
 
 def _stage(src, tgt, T, voxel, dist_x, max_iter, estimation, normals=False):

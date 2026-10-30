@@ -101,3 +101,9 @@ def test_refine_plan_scale_stages_only_on_scaled_samples():
     assert plain["scale_voxels"] == [] and plain["rigid_voxels"][-1] == FINE_FLOOR_M
     assert len(scaled["scale_voxels"]) == 2 and scaled["rigid_voxels"][-1] == FINE_FLOOR_M
     assert scaled["scale_voxels"][-1] == scaled["rigid_voxels"][0]   # rigid stages continue from where the scale stages stop
+
+
+def test_refine_plan_variants():
+    assert refine_plan(0.4, scaled=True, n_scale=0)["scale_voxels"] == []
+    every = refine_plan(0.4, scaled=True, n_scale=99, floor=0.05)   # scale stages at every voxel, one rigid stage at the floor
+    assert every["scale_voxels"] == pytest.approx([0.2, 0.1, 0.05]) and every["rigid_voxels"] == pytest.approx([0.05])
