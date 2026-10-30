@@ -38,8 +38,48 @@ upper bound, not something a new scan would have.
 
 **Perturbed model**:
 A copy of the model with deliberately injected, recorded deviations (elements moved by known
-offsets or deleted), used as known answers for verdicts.
+offsets, or deleted: a deleted element stays in the IFC and the scan points on it are masked out,
+see **Deleted element**), used as known answers for verdicts.
 _Avoid_: synthetic model, fake model
+
+**Deleted element**:
+In a perturbed model, an element declared not to exist: it stays in the IFC, and the scan points
+on it are masked out of the comparison, as if it had not been built. The perturbed-model word; "not built" is kept for what a Missing verdict is evidence of.
+_Avoid_: not built (for the injected change), removed
+
+**Geometric mask**:
+The mask of a deleted element: the element-class scan points within BAND of its surface, whoever
+the baseline assigned them to. It also removes the points of neighbours that lie within BAND of it.
+_Avoid_: mask by assignment (the first version of 03b, which leaks)
+
+**Leak**:
+Element-class scan points that still land on a deleted element in the perturbed run, because they
+belonged to a neighbour in the baseline and the neighbour has moved. A mask by assignment leaks; a
+geometric mask does not, in a frozen frame.
+
+**Frozen frame**:
+The perturbed run scored with the real model's refined registration, so that the only differences
+from the baseline are the injected changes (the known-answer test is about the comparison, not the
+registration).
+
+**Dragged frame**:
+The registration refined against the perturbed model, which is what a real pipeline would get when
+the model is wrong. In 03b it differs from the frozen frame by the ICP pull.
+
+**ICP pull**:
+The shift of the refined registration caused by injected moves of walls: ICP fits the moved walls
+and moves the whole scan with them (13.2 mm along y in 03b). Not an error in the scan.
+
+**Stress model**:
+A perturbed model with several moves and deletions at once (03b: three walls moved 1, 3 and 10 cm,
+plus the three deletions), used for what only appears when changes coexist: the leak and the ICP
+pull. The known-answer runs are separate perturbed models, one change each.
+
+**Pure shift**:
+What the unchanged verdict logic gives on a wall's own baseline offsets shifted by an injected
+change, with no perturbed model involved. A move is a **fair verdict test** for a variant only if
+its pure shift gives the expected verdict; the run can then differ from it only through what the
+move does to which points enter the band.
 
 ## Alignment
 
@@ -62,6 +102,39 @@ _Avoid_: LOA (on its own, ambiguous with PC2Model's metric), precision
 **Tolerance**:
 The largest deviation at which an element still counts as built as modelled; taken from the
 accuracy level, never invented.
+
+**Room-facing face**:
+A wall face whose outward normal points into the room. A wall on the room's boundary has one
+room-facing side, a partition standing inside it has two.
+
+**Wall side test**:
+Deciding, per scan point on a wall, which side of the wall it was seen from, using free space in
+the scan itself (no scanner positions are needed). A point seen from a room-facing side counts for
+that side's face; a point seen from the other side is the back of the wall. Where the scan cannot
+tell, see ambiguous side.
+_Avoid_: normal test (unoriented point normals cannot tell the two faces of a thin wall apart)
+
+**Back of the wall**:
+Scan points on a wall's far face, seen from the neighbouring room. They are left out of the wall's
+verdict. A wall moved out of the room by its own thickness would put its scan surface in the same
+place; only the scan around it can tell them apart.
+
+**Ambiguous side**:
+A scan point whose side of the wall the scan cannot tell (free or occupied on both sides, or the
+other face not scanned behind it). It is measured to the nearest room-facing face, and the share of
+such points is reported per wall. A wall that is mostly ambiguous keeps the nearest-face reading,
+including its folding.
+
+**Reference side**:
+For a wall with two room-facing sides, the side (outward normal) with more scan points. All of the
+wall's offsets are expressed along it, so a moved partition reads one offset, not +d and -d. For a
+wall with one room-facing side the offset is positive towards the room, as for every other
+element; for a two-sided wall it is positive along the reference side's normal.
+
+**Junction margin**:
+A wall's scan points within a set distance (10 cm in 03a) of any other element's surface (ceiling,
+floor, window, door, another wall) are left out of that wall's verdict: at a junction a point could
+belong to either element. The verdict of a wall is then about its plain area.
 
 **Verdict**:
 The outcome for one element: OK, shifted, missing, not visible, or not confirmed.
