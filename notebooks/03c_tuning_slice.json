@@ -315,10 +315,24 @@
   "use_not_confirmed": true,
   "note": "Too few to decide line of sight: 03 treats missing vs not visible as not confirmed."
  },
+ "scoring_exclusions": [
+  {
+   "global_id": "2unE$VYSL2OPIL$6LYYd$b",
+   "name": "Compound Ceiling:Forro de gesso:1431675",
+   "ifc_class": "IfcCovering",
+   "reason": "in room B's element list (the gate's slice)"
+  },
+  {
+   "global_id": "3XP_HdJcfD9xJPuaOu_0Jb",
+   "name": "Floor:(15cm) Piso + Porcelanato cinza claro 60 X 60:911079",
+   "ifc_class": "IfcSlab",
+   "reason": "in room B's element list (the gate's slice)"
+  }
+ ],
  "provenance": {
   "script": "scripts/make_tuning_slice.py",
   "room": "south part of the west hall",
-  "why": "held out from room B (the gate's slice): no shared wall, no shared box face; the other candidates share a wall with room B (A: its south wall, C: its north wall)",
+  "why": "held out from room B (the gate's slice): no shared wall, no shared box face; rooms A and C each share a wall with room B (A its south wall, C its north wall)",
   "north_cut": {
    "ymax": 8.8,
    "walls_windows_columns_cut_through": 0,
