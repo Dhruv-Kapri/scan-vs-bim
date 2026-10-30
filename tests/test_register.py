@@ -3,7 +3,7 @@ import open3d as o3d
 import pytest
 
 from scan_vs_bim.pc2model import scale_of
-from scan_vs_bim.register import refine_icp
+from scan_vs_bim.register import refine_icp, voxel_schedule
 
 # Gate thresholds (docs/roadmap.md) are 2 deg, 5 cm, 1 %; these tests ask for clearly tighter.
 ROT_DEG, CENTROID_M, SCALE_REL = 0.3, 0.01, 0.003
@@ -88,3 +88,9 @@ def test_no_stages_is_a_no_op(scene):
     model, scan, T_gt, _ = scene
     T0 = coarse_error(T_gt, 0.02)
     assert np.array_equal(refine_icp(scan, model, T0), T0)
+
+
+def test_voxel_schedule_halves_down_to_the_floor():
+    assert voxel_schedule(0.4, 0.05) == pytest.approx([0.2, 0.1, 0.05])
+    assert voxel_schedule(0.4, 0.06) == pytest.approx([0.2, 0.1, 0.06])   # the last stage is the floor, never below it
+    assert voxel_schedule(0.04, 0.05) == []   # already finer than the floor: no stage

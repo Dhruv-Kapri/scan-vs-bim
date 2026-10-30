@@ -23,6 +23,15 @@ def refine_icp(src, tgt, T, scale_voxels=(), rigid_voxels=(), dist_x=2.0, max_it
     return T
 
 
+def voxel_schedule(start, floor):
+    """Voxel sizes start/2, start/4, ... down to `floor`; the last stage is the floor itself. Empty if start is already <= floor."""
+    out, v = [], start
+    while v / 2 > floor:
+        v /= 2
+        out.append(v)
+    return out + [floor] if start > floor else []
+
+
 def _stage(src, tgt, T, voxel, dist_x, max_iter, estimation, normals=False):
     s, t = src.voxel_down_sample(voxel), tgt.voxel_down_sample(voxel)
     if normals:
