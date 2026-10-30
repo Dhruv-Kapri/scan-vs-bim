@@ -123,8 +123,8 @@ class _KeptVoxels:
         self.keys = np.concatenate([self.keys, pk])
         self.keys.sort(kind="stable")  # timsort: merges the two sorted runs in O(N)
 
-    def concatenate(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """The (xyz, rgb, cls) columns, one array at a time, freeing each column's segments."""
+    def drain(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """The (xyz, rgb, cls) columns, one array at a time, freeing each column's segments. Single use."""
         del self.keys
         if not self.parts[0]:
             raise ValueError("member has no points")
@@ -182,4 +182,4 @@ def _stream(f, voxel: float, chunk_bytes: int) -> _Streamed:
     if pending:
         kept.fold(pending)
     del pending  # free before the final concatenations
-    return _Streamed(*kept.concatenate(), points_read, declared)
+    return _Streamed(*kept.drain(), points_read, declared)

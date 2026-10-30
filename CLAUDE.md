@@ -17,8 +17,9 @@ uv run pytest                             # tests
 uv run python scripts/fetch_data.py       # CRAS IFC + PC2Model real-indoor_modelling_3 (UVigo) into data/ (~5-10 min);
                                           # resumable, idempotent. --with-scan also fetches the CRAS scan zip (4.27 GB,
                                           # never extracted; measured 2026-10-28: 0.1-0.5 MB/s on one connection, ~3.5 h)
-uv run python scripts/build_cras_cache.py # needs fetch_data.py --with-scan; stream the CRAS zip into data/cras/cras_voxel_1cm.npz (first point per
-                                          # 1 cm voxel; xyz/rgb/cls + meta; idempotent; --zip/--out/--voxel)
+uv run python scripts/build_cras_cache.py # stream the CRAS zip into data/cras/cras_voxel_1cm.npz (first point per
+                                          # 1 cm voxel; xyz/rgb/cls + meta; idempotent; --zip/--out/--voxel; needs
+                                          # fetch_data.py --with-scan first)
 uv run python scripts/find_scaled_sample.py # reads only PC2Model's 137 transform files (cached in data/pc2model/
                                           # transforms/), writes outputs/pc2model_scales.csv, fetches the smallest
                                           # scaled sample; --no-fetch to list only

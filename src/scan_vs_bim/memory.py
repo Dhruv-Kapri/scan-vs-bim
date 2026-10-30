@@ -1,3 +1,5 @@
+"""Peak resident memory of this process, for the memory reports of scripts and notebooks."""
+
 import resource
 import sys
 
