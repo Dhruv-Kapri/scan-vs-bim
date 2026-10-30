@@ -45,17 +45,18 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # labels; ~1.5 min, peak RSS 1.1 GB; needs the CRAS cache + IFC and
                                           # notebooks/01_cras_slice.json; writes outputs/03a/)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03b_perturbed.ipynb
-                                          # notebook 03b (03a's verdicts on a perturbed copy of the CRAS model: three
-                                          # walls moved 1/3/10 cm in an IFC copy, door/column/wall masked in the scan;
-                                          # ~2-3 min, peak RSS 1.8 GB; needs the same inputs as 03a; writes
-                                          # outputs/03b/: perturbed IFC, manifest.json, scores_*.csv, figure)
+                                          # notebook 03b (03a's verdicts on perturbed copies of the CRAS model, 7 runs:
+                                          # one wall moved 1 cm both ways, 3 and 10 cm, one IFC copy each; door, slab
+                                          # and wall deleted as scan masks; ~18 min, peak RSS 1.2 GB; needs the same
+                                          # inputs as 03a; writes outputs/03b/: perturbed IFCs, manifest.json,
+                                          # scores_*.csv, occlusion_control.csv, figures)
 uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
   notebooks/04a_report.ipynb              # notebook 04a (03a's no-labels verdicts as a ScanVsBim_Verdict pset in an IFC
                                           # copy, plus a BCF 2.1 file with one issue per non-OK element; ~10 s; needs
                                           # the CRAS IFC and outputs/03a/*.csv from 03a; writes outputs/04a/)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3000 notebooks/05b_hand_check.ipynb
                                           # notebook 05b (20 random CRAS verdicts as close-ups + the overall Phase 0.5
-                                          # gate; ~30-80 s, peak RSS ~1.5 GB; needs outputs/03a, outputs/03b (run 03a
+                                          # gate; ~1.5 min, peak RSS ~1.5 GB; needs outputs/03a, outputs/03b (run 03a
                                           # then 03b first; re-run both if either changes) and outputs/05a; writes
                                           # outputs/05b/ and, only if absent, notebooks/05b_hand_check.csv, whose
                                           # `judgement` column the author fills; re-run after filling)
