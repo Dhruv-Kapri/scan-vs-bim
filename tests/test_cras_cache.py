@@ -101,7 +101,7 @@ def test_rebuilds_when_voxel_changes(tmp_path):
 
 def test_dedupe_across_many_blocks_keeps_stream_first(tmp_path, monkeypatch):
     """Consolidation must let earlier rows win, across blocks and merges."""
-    monkeypatch.setattr(cras_cache, "MIN_PENDING", 4)
+    monkeypatch.setattr(cras_cache, "MIN_PENDING_ROWS", 4)
     rng = np.random.default_rng(0)
     xyz = rng.uniform(-1, 1, (3000, 3)).round(4)
     rows = [(*p, i % 256, 0, 0, 0.0, float(i % 34)) for i, p in enumerate(xyz)]

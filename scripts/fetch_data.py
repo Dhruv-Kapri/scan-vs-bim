@@ -1,5 +1,10 @@
-"""Fetch the Stage 0 data: the CRAS IFC and annotated scan zip (not extracted) and one PC2Model indoor sample."""
+"""Fetch the Stage 0 data: the CRAS IFC and one PC2Model indoor sample (~5-10 min).
 
+--with-scan also fetches the 4.27 GB CRAS annotated scan zip (not extracted; hours at Zenodo speeds).
+"""
+
+import argparse
+import logging
 from pathlib import Path
 
 from remotezip import RemoteZip
@@ -20,12 +25,17 @@ CRAS_SCAN_MD5 = "e5ecedab8f2a1d1f91861a3aec028a72"
 SAMPLE_DIR = "PC2Model_v1.4/ISPRS_indoor_modeling_benchmark/real-indoor_modelling_3-ISPRS_indoor_modelling-UVigo/"
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--with-scan", action="store_true", help="also fetch the 4.27 GB CRAS scan zip")
+    args = ap.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     fetch_file(http_range_reader(CRAS_URL), CRAS_SIZE, CRAS_MD5, ROOT / "cras" / "craslabbim.ifc")
-    # 26.8 GB unzipped: never extract; scripts/build_cras_cache.py streams it.
-    fetch_file(
-        http_range_reader(CRAS_SCAN_URL), CRAS_SCAN_SIZE, CRAS_SCAN_MD5, ROOT / "cras" / "craslabannotated.zip"
-    )
+    if args.with_scan:  # 26.8 GB unzipped: never extract; scripts/build_cras_cache.py streams it.
+        fetch_file(
+            http_range_reader(CRAS_SCAN_URL), CRAS_SCAN_SIZE, CRAS_SCAN_MD5, ROOT / "cras" / "craslabannotated.zip"
+        )
 
     with RemoteZip(PC2MODEL_URL) as z:  # reads only the central directory
         members = [i for i in z.infolist() if i.filename.startswith(SAMPLE_DIR) and not i.is_dir()]

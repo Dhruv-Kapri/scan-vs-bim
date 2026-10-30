@@ -29,15 +29,15 @@ def load_e57(path: Path, max_points: int, seed: int = 0) -> o3d.geometry.PointCl
     n_scans = e57.scan_count
     counts = [e57.get_header(i).point_count for i in range(n_scans)]
     total = sum(counts)
-    log.info(f"E57: {n_scans} scan(s), {total:,} points; poses: "
-             f"{[e57.get_header(i).has_pose() for i in range(n_scans)]}")
+    log.info("E57: %d scan(s), %s points; poses: %s", n_scans, f"{total:,}",
+             [e57.get_header(i).has_pose() for i in range(n_scans)])
     xyz_parts = []
     for i, n in enumerate(counts):
         scan = e57.read_scan(i, ignore_missing_fields=True, transform=True)
         keep = min(len(scan["cartesianX"]), round(max_points * n / total))
         idx = np.sort(rng.choice(len(scan["cartesianX"]), keep, replace=False))
         xyz_parts.append(np.stack([scan["cartesianX"][idx], scan["cartesianY"][idx], scan["cartesianZ"][idx]], 1))
-        log.info(f"  scan {i}: kept {keep:,}/{n:,}")
+        log.info("  scan %d: kept %s/%s", i, f"{keep:,}", f"{n:,}")
         del scan
     return o3d.geometry.PointCloud(o3d.utility.Vector3dVector(np.concatenate(xyz_parts)))
 
@@ -66,7 +66,7 @@ def load_e57_chunked(path: Path, max_points: int, seed: int = 0, chunk_points: i
             parts.append(e57.to_global(xyz, header.rotation, header.translation) if header.has_pose() else xyz)
             start += m
         reader.close()
-        log.info(f"  scan {i}: kept {len(keep_idx):,}/{n:,}")
+        log.info("  scan %d: kept %s/%s", i, f"{len(keep_idx):,}", f"{n:,}")
     return o3d.geometry.PointCloud(o3d.utility.Vector3dVector(np.concatenate(parts)))
 
 

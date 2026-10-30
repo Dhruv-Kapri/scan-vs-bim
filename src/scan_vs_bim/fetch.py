@@ -5,6 +5,7 @@ logic can be tested against an in-memory zip.
 """
 
 import hashlib
+import logging
 import struct
 import time
 import zlib
@@ -13,6 +14,8 @@ from pathlib import Path
 from typing import Callable
 
 import requests
+
+log = logging.getLogger(__name__)
 
 ReadRange = Callable[[int, int], bytes]
 CHUNK = 6 * 1024 * 1024
@@ -35,7 +38,7 @@ def http_range_reader(url: str, retries: int = 8, timeout: int = 60) -> ReadRang
             except requests.RequestException as e:
                 err = repr(e)
             wait = min(2**attempt, 60)
-            print(f"  retry {attempt + 1}/{retries} for bytes {start}-{end} ({err}); sleep {wait}s")
+            log.info("  retry %d/%d for bytes %d-%d (%s); sleep %ds", attempt + 1, retries, start, end, err, wait)
             time.sleep(wait)
         raise RuntimeError(f"giving up on bytes {start}-{end} of {url}")
 
@@ -60,7 +63,7 @@ def download_range(
             f.write(data)
             f.flush()
             have += len(data)
-            print(f"  {label} {have / 1e6:.1f}/{length / 1e6:.1f} MB", flush=True)
+            log.info("  %s %.1f/%.1f MB", label, have / 1e6, length / 1e6)
 
 
 def data_start(read_range: ReadRange, info: zipfile.ZipInfo) -> int:
@@ -78,7 +81,7 @@ def extract_zip_member(
     """Extract one zip member to `dest` using only ranged reads; verifies size and CRC32."""
     dest = Path(dest)
     if dest.exists() and dest.stat().st_size == info.file_size:
-        print(f"skip {dest} (exists)")
+        log.info("skip %s (exists)", dest)
         return
     part = dest.with_name(dest.name + ".part")
     download_range(read_range, data_start(read_range, info), info.compress_size, part, chunk_size, dest.name)
@@ -109,7 +112,7 @@ def extract_zip_member(
         raise ValueError(f"CRC/size mismatch for {dest.name}: crc {crc:#x} vs {info.CRC:#x}, size {size} vs {info.file_size}")
     out.replace(dest)
     part.unlink()
-    print(f"ok   {dest} ({size / 1e6:.1f} MB)")
+    log.info("ok   %s (%.1f MB)", dest, size / 1e6)
 
 
 def md5_of(path: Path) -> str:
@@ -124,7 +127,7 @@ def fetch_file(read_range: ReadRange, size: int, md5: str, dest: Path, chunk_siz
     """Download a whole file in ranged chunks (resumable), verifying md5."""
     dest = Path(dest)
     if dest.exists() and dest.stat().st_size == size and md5_of(dest) == md5:
-        print(f"skip {dest} (md5 ok)")
+        log.info("skip %s (md5 ok)", dest)
         return
     part = dest.with_name(dest.name + ".part")
     download_range(read_range, 0, size, part, chunk_size, dest.name)
@@ -132,4 +135,4 @@ def fetch_file(read_range: ReadRange, size: int, md5: str, dest: Path, chunk_siz
         part.unlink()
         raise ValueError(f"md5 mismatch for {dest.name}")
     part.replace(dest)
-    print(f"ok   {dest}")
+    log.info("ok   %s", dest)

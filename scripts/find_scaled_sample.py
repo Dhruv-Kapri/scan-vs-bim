@@ -5,6 +5,7 @@ Writes outputs/pc2model_scales.csv. Transform texts are cached in data/pc2model/
 
 import argparse
 import csv
+import logging
 from pathlib import Path
 
 from remotezip import RemoteZip
@@ -20,6 +21,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-fetch", action="store_true", help="only list scales, skip the download")
     args = ap.parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     with RemoteZip(PC2MODEL_URL) as z:  # reads only the central directory
         infos = z.infolist()

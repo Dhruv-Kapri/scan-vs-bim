@@ -1,5 +1,6 @@
 """PC2Model data prep: find samples by their transform file without downloading the 10 GB zip."""
 
+import logging
 import zipfile
 import zlib
 from dataclasses import dataclass
@@ -8,6 +9,8 @@ from pathlib import Path
 import numpy as np
 
 from scan_vs_bim.fetch import ReadRange, data_start
+
+log = logging.getLogger(__name__)
 
 URL = "https://zenodo.org/api/records/17581812/files/PC2Model_v1.4.zip/content"
 
@@ -95,6 +98,6 @@ def cached_scales(read_range: ReadRange, samples: list[Sample], cache: Path) -> 
         f = cache / (s.folder.replace("/", "__") + ".txt")
         if not f.exists():
             f.write_bytes(read_member(read_range, s.transform))
-            print(f"[{n}/{len(samples)}] {s.folder}", flush=True)
+            log.info("[%d/%d] %s", n, len(samples), s.folder)
         scales[s.folder] = scale_of(parse_transform(f.read_text()))
     return scales
