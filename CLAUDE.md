@@ -42,7 +42,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
                                           # metadata so re-runs give no diff
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03a_compare.ipynb
                                           # notebook 03a (CRAS room, per-element verdicts with and without oracle
-                                          # labels, on per-element patches; ~14 min measured on a busy machine
+                                          # labels, on per-element patches; ~5 min (272 s), up to ~14 min on a busy machine
                                           # (tessellating the 135 element-class elements is ~6 of them), peak RSS
                                           # 1.6 GB; needs the CRAS cache + IFC and notebooks/01_cras_slice.json;
                                           # writes outputs/03a/, incl. crop_check.csv)
