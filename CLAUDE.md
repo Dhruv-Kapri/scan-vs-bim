@@ -50,6 +50,14 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # and wall deleted as scan masks; ~18 min, peak RSS 1.2 GB; needs the same
                                           # inputs as 03a; writes outputs/03b/: perturbed IFCs, manifest.json,
                                           # scores_*.csv, occlusion_control.csv, figures)
+uv run python scripts/make_tuning_slice.py
+                                          # writes notebooks/03c_tuning_slice.json: the held-out CRAS room for tuning 03a
+                                          # (south part of the west hall; same schema as 01_cras_slice.json; ~10 min)
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room.ipynb
+                                          # notebook 03c (a copy of 03a's logic on the held-out room: baseline, proxy for
+                                          # the hand check, diagnosis, known answers; ~15 min, peak RSS 1.1 GB; writes
+                                          # outputs/03c/). SLICE_JSON=01_cras_slice.json runs it on room B instead (the
+                                          # test uses that to check the copy against outputs/03a)
 uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
   notebooks/04a_report.ipynb              # notebook 04a (03a's no-labels verdicts as a ScanVsBim_Verdict pset in an IFC
                                           # copy, plus a BCF 2.1 file with one issue per non-OK element; ~10 s; needs
