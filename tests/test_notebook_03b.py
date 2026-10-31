@@ -91,3 +91,13 @@ def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path):
     assert {r["verdict"] for r in control} <= VERDICTS
     assert any(w.endswith("961571") for w in walls)  # the second wall, picked by the notebook's in-band clutter rule
     assert all(r["verdict"] == "not confirmed" for r in control if r["configuration"].startswith("deleted"))  # a deleted wall never reads OK or shifted from its leftover points
+    for variant in ("oracle_labels", "no_labels"):
+        with open(out / f"scores_{variant}.csv", newline="") as f:
+            assert_zero_points_read_no_points(list(csv.DictReader(f)))
+    assert_zero_points_read_no_points(control)
+
+
+def assert_zero_points_read_no_points(rows):
+    """An element with no points at all says "no points", not "too few points", as in 03a (issue #19)."""
+    assert all(int(r["point_count"]) > 0 for r in rows if r["reason"] == "too few points")
+    assert {r["reason"] for r in rows if int(r["point_count"]) == 0} <= {"no points", "mostly outside the room box"}
