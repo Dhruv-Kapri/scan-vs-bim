@@ -109,6 +109,8 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
 - `src/scan_vs_bim/register.py`: `refine_icp` (scale-fitting point-to-point ICP stages, then rigid point-to-plane
   stages, coarse to fine, after the coarse RANSAC + ICP), `refine_plan` (the stages 05a runs; chosen in 05c, issue #20)
   and `voxel_schedule`.
+- In a git worktree, uv warns that `VIRTUAL_ENV` (the main checkout's venv, exported by the shell) "does not match the
+  project environment". Run `unset VIRTUAL_ENV` in the worktree shell to silence it; each worktree has its own `.venv`.
 - `src/scan_vs_bim/fetch.py`: chunked, retried, resumable HTTP range downloads and single-member zip
   extraction (Zenodo is slow and returns 504s; a long `remotezip` stream died).
 - `src/scan_vs_bim/cras_cache.py`: streams the 26.8 GB ASCII zip member in 64 MB blocks (never extracted
