@@ -5,6 +5,7 @@ the next smallest remaining. Writes outputs/05a/gate_samples.csv. Downloads no p
 """
 
 import csv
+import logging
 from pathlib import Path
 
 from remotezip import RemoteZip
@@ -21,6 +22,7 @@ GROUPS = {  # PC2Model category folder -> label used in the notebook
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     with RemoteZip(PC2MODEL_URL) as z:  # reads only the central directory
         samples = group_samples(z.infolist())
     scales = cached_scales(http_range_reader(PC2MODEL_URL), samples, REPO / "data" / "pc2model" / "transforms")

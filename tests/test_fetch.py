@@ -1,6 +1,8 @@
 import io
+import logging
 import os
 import zipfile
+from types import SimpleNamespace
 
 import pytest
 
@@ -79,3 +81,24 @@ def test_corruption_fails_crc(tmp_path):
     with pytest.raises(ValueError, match="CRC"):
         extract_zip_member(reader_for(bytes(blob)), info, dest, chunk_size=100)
     assert not dest.exists()
+
+
+def test_retry_is_logged_on_the_fetch_logger(monkeypatch, caplog):
+    # Notebook 05a counts retries from the records of the "scan_vs_bim.fetch" logger.
+    import requests
+
+    from scan_vs_bim import fetch
+
+    responses = iter([requests.ConnectionError("boom"), SimpleNamespace(status_code=206, content=b"abcd")])
+
+    def get(*args, **kwargs):
+        r = next(responses)
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+    monkeypatch.setattr(fetch.requests, "get", get)
+    monkeypatch.setattr(fetch.time, "sleep", lambda s: None)
+    with caplog.at_level(logging.INFO, logger="scan_vs_bim.fetch"):
+        assert fetch.http_range_reader("http://x")(0, 3) == b"abcd"
+    assert [r.name for r in caplog.records if "retry" in r.getMessage()] == ["scan_vs_bim.fetch"]

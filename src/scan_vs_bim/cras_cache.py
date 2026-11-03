@@ -9,16 +9,19 @@ and class (uint8); intensity is dropped.
 
 import io
 import json
+import logging
 import zipfile
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, NamedTuple
 
 import numpy as np
 
-MIN_PENDING = 2_000_000  # rows of deduped blocks buffered before the next consolidation
-BITS = 21  # per voxel axis index; 2**21 cells (21 km at 1 cm)
-OFFSET = 1 << (BITS - 1)
-REPORT_EVERY = 1 << 30
+log = logging.getLogger(__name__)
+
+MIN_PENDING_ROWS = 2_000_000  # rows of deduped blocks buffered before the next consolidation
+VOXEL_AXIS_BITS = 21  # per voxel axis index; 2**21 cells (21 km at 1 cm)
+VOXEL_AXIS_OFFSET = 1 << (VOXEL_AXIS_BITS - 1)
+REPORT_EVERY_BYTES = 1 << 30
 
 
 def read_blocks(f, chunk_bytes: int) -> Iterator[bytes]:
@@ -35,10 +38,10 @@ def read_blocks(f, chunk_bytes: int) -> Iterator[bytes]:
 
 
 def voxel_keys(xyz: np.ndarray, voxel: float) -> np.ndarray:
-    idx = np.floor(xyz / voxel).astype(np.int64) + OFFSET
-    if idx.min() < 0 or idx.max() >= 1 << BITS:
+    idx = np.floor(xyz / voxel).astype(np.int64) + VOXEL_AXIS_OFFSET
+    if idx.min() < 0 or idx.max() >= 1 << VOXEL_AXIS_BITS:
         raise ValueError(f"voxel index out of range for voxel size {voxel}")
-    return (idx[:, 0] << (2 * BITS)) | (idx[:, 1] << BITS) | idx[:, 2]
+    return (idx[:, 0] << (2 * VOXEL_AXIS_BITS)) | (idx[:, 1] << VOXEL_AXIS_BITS) | idx[:, 2]
 
 
 def _read_meta(path: Path) -> dict | None:
@@ -60,20 +63,21 @@ def build_cache(zip_path, cache_path, voxel: float = 0.01, chunk_bytes: int = 64
 
         old = _read_meta(cache_path) if cache_path.exists() else None
         if old and (old["voxel_size"], old["member"], old["member_size"]) == (voxel, info.filename, info.file_size):
-            print(f"skip {cache_path} (up to date)")
+            log.info("skip %s (up to date)", cache_path)
             return old
 
         with z.open(info) as f:
-            xyz, rgb, cls, read, declared = _stream(f, voxel, chunk_bytes)
+            streamed = _stream(f, voxel, chunk_bytes)
 
-    if read != declared:
-        raise ValueError(f"read {read} points but the header declares {declared}; truncated or corrupt")
+    xyz, rgb, cls, points_read, points_declared = streamed
+    if points_read != points_declared:
+        raise ValueError(f"read {points_read} points but the header declares {points_declared}; truncated or corrupt")
     meta = {
         "voxel_size": voxel,
         "member": info.filename,
         "member_size": info.file_size,
-        "points_read": read,
-        "points_declared": declared,
+        "points_read": points_read,
+        "points_declared": points_declared,
         "points_kept": len(xyz),
         "extent_min": xyz.min(axis=0).tolist(),
         "extent_max": xyz.max(axis=0).tolist(),
@@ -83,35 +87,60 @@ def build_cache(zip_path, cache_path, voxel: float = 0.01, chunk_bytes: int = 64
     with open(tmp, "wb") as out:
         np.savez(out, xyz=xyz, rgb=rgb, cls=cls, meta=json.dumps(meta))
     tmp.replace(cache_path)
-    print(f"ok   {cache_path} ({len(xyz)} points)")
+    log.info("ok   %s (%d points)", cache_path, len(xyz))
     return meta
 
 
-def _consolidate(keys, parts, pending):
-    """Fold pending (keys, xyz, rgb, cls) blocks into `keys` (sorted, unique) and the data `parts`.
-
-    Earlier rows win; only rows whose voxel is new are appended, as one segment, never re-copied.
-    """
-    pk, xyz, rgb, cls = (np.concatenate(c) for c in zip(*pending))
-    pk, first = np.unique(pk, return_index=True)  # stable: earlier rows win
-    if len(keys):
-        pos = np.minimum(np.searchsorted(keys, pk), len(keys) - 1)
-        new = keys[pos] != pk
-        pk, first = pk[new], first[new]
-    for part, col in zip(parts, (xyz, rgb, cls)):
-        part.append(col[first])
-    keys = np.concatenate([keys, pk])
-    keys.sort(kind="stable")  # timsort: merges the two sorted runs in O(N)
-    return keys
+class _Streamed(NamedTuple):
+    xyz: np.ndarray
+    rgb: np.ndarray
+    cls: np.ndarray
+    points_read: int
+    points_declared: int
 
 
-def _stream(f, voxel: float, chunk_bytes: int):
-    """Parse blocks, keep the first point per voxel; returns (xyz, rgb, cls, points_read, points_declared)."""
-    keys = np.empty(0, np.int64)
-    parts: tuple[list, list, list] = ([], [], [])
+class _KeptVoxels:
+    """Voxels kept so far: sorted unique `keys` and, per column, append-only data segments."""
+
+    def __init__(self):
+        self.keys = np.empty(0, np.int64)
+        self.parts: tuple[list, list, list] = ([], [], [])
+
+    def __len__(self) -> int:
+        return len(self.keys)
+
+    def fold(self, pending) -> None:
+        """Fold pending (keys, xyz, rgb, cls) blocks in. Earlier rows win; only rows whose voxel is new
+        are appended, as one segment, never re-copied."""
+        pk, xyz, rgb, cls = (np.concatenate(c) for c in zip(*pending))
+        pk, first = np.unique(pk, return_index=True)  # stable: earlier rows win
+        if len(self.keys):
+            pos = np.minimum(np.searchsorted(self.keys, pk), len(self.keys) - 1)
+            new = self.keys[pos] != pk
+            pk, first = pk[new], first[new]
+        for part, col in zip(self.parts, (xyz, rgb, cls)):
+            part.append(col[first])
+        self.keys = np.concatenate([self.keys, pk])
+        self.keys.sort(kind="stable")  # timsort: merges the two sorted runs in O(N)
+
+    def drain(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """The (xyz, rgb, cls) columns, one array at a time, freeing each column's segments. Single use."""
+        del self.keys
+        if not self.parts[0]:
+            raise ValueError("member has no points")
+        out = []
+        for part in self.parts:
+            out.append(np.concatenate(part))
+            part.clear()
+        return tuple(out)  # type: ignore[return-value]
+
+
+def _stream(f, voxel: float, chunk_bytes: int) -> _Streamed:
+    """Parse blocks, keep the first point per voxel."""
+    kept = _KeptVoxels()
     pending: list[tuple[np.ndarray, ...]] = []
     pending_rows = bytes_read = points_read = 0
-    next_report = REPORT_EVERY
+    next_report = REPORT_EVERY_BYTES
     head = b""  # until the header and count lines are complete
     declared = None
 
@@ -141,25 +170,16 @@ def _stream(f, voxel: float, chunk_bytes: int):
             (bkeys, data[:, :3].astype(np.float32), data[:, 3:6].astype(np.uint8), np.rint(data[:, 7]).astype(np.uint8))
         )
         pending_rows += len(bkeys)
-        if pending_rows >= MIN_PENDING:
-            keys = _consolidate(keys, parts, pending)
+        if pending_rows >= MIN_PENDING_ROWS:
+            kept.fold(pending)
             pending, pending_rows = [], 0
         if bytes_read >= next_report:
-            next_report += REPORT_EVERY
-            print(
-                f"  {bytes_read / 1e9:.1f} GB read, {points_read} points, <= {len(keys) + pending_rows} voxels",
-                flush=True,
-            )
+            next_report += REPORT_EVERY_BYTES
+            log.info("  %.1f GB read, %d points, <= %d voxels", bytes_read / 1e9, points_read, len(kept) + pending_rows)
 
     if declared is None:
         raise ValueError("member ended before the header and count lines")
     if pending:
-        keys = _consolidate(keys, parts, pending)
-    del keys, pending  # free before the final concatenations
-    if not parts[0]:
-        raise ValueError("member has no points")
-    out = []
-    for part in parts:  # one array at a time
-        out.append(np.concatenate(part))
-        part.clear()
-    return (*out, points_read, declared)
+        kept.fold(pending)
+    del pending  # free before the final concatenations
+    return _Streamed(*kept.drain(), points_read, declared)

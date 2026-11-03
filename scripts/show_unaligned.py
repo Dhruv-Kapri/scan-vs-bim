@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import resource
 import time
 from pathlib import Path
 
@@ -10,6 +9,7 @@ import numpy as np
 import open3d as o3d
 
 from scan_vs_bim.load import load_e57, load_ifc_elements, merge_meshes
+from scan_vs_bim.memory import peak_rss_gb
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_E57 = (
@@ -17,10 +17,6 @@ DEFAULT_E57 = (
     / "pointcloud_real-indoor_modelling_3-ISPRS_indoor_modelling-UVigo_transformed.e57"
 )
 DEFAULT_IFC = ROOT / "data/cras/craslabbim.ifc"
-
-
-def peak_rss_gb() -> float:
-    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1e9  # bytes on macOS
 
 
 def bbox_str(pts: np.ndarray) -> str:
