@@ -2,7 +2,7 @@ import csv
 
 import pytest
 
-from scan_vs_bim.gate import combine, hand_check_result, perturbed_result, read_hand_check, registration_result, write_hand_check_template
+from scan_vs_bim.gate import combine, hand_check_result as _hand_check_result, perturbed_result as _perturbed_result, read_hand_check, registration_result, write_hand_check_template
 
 COLUMNS = ["n", "global_id", "ifc_class", "name", "verdict", "judgement", "note"]
 
@@ -10,6 +10,14 @@ COLUMNS = ["n", "global_id", "ifc_class", "name", "verdict", "judgement", "note"
 def hand_rows(verdicts, judgements):
     return [dict(n=i + 1, global_id=f"g{i}", ifc_class="IfcWall", name=f"w{i}", verdict=v, judgement=j, note="")
             for i, (v, j) in enumerate(zip(verdicts, judgements))]
+
+
+def hand_check_result(rows: list[dict], n_required: int = 20, min_share: float = 0.8) -> dict:
+    return _hand_check_result(rows, n_required=n_required, min_share=min_share)
+
+
+def perturbed_result(rows: list[dict], max_false_share: float = 0.10) -> dict:
+    return _perturbed_result(rows, max_false_share=max_false_share)
 
 
 def write_csv(path, rows):

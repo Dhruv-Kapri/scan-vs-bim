@@ -40,7 +40,7 @@ def write_hand_check_template(path: Path, rows: list[dict]) -> bool:
     return True
 
 
-def hand_check_result(rows: list[dict], n_required: int = 20, min_share: float = 0.8) -> dict:
+def hand_check_result(rows: list[dict], *, n_required: int, min_share: float) -> dict:
     """Agreement = judgement equals the verdict, over the filled rows. PENDING until `n_required` rows are filled."""
     filled = [r for r in rows if r["judgement"]]
     n_agree = sum(r["judgement"] == r["verdict"] for r in filled)
@@ -52,7 +52,7 @@ def hand_check_result(rows: list[dict], n_required: int = 20, min_share: float =
     return dict(status=status, n_filled=len(filled), n_agree=n_agree, share=share, n_required=n_required, min_share=min_share)
 
 
-def perturbed_result(rows: list[dict], max_false_share: float = 0.10) -> dict:
+def perturbed_result(rows: list[dict], *, max_false_share: float) -> dict:
     """The roadmap's perturbed-model criterion from 03b's score rows (columns run, change, expected, actual; one run per perturbation).
 
     Each run must hold exactly one changed row (empty `change` = untouched); ValueError otherwise, on an unknown `change`, and on a changed
