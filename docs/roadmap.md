@@ -59,7 +59,7 @@ Terms (verdict, element, clutter, perturbed model, ...) are defined in [CONTEXT.
       failed control;
     - one door, one element that is OK in the baseline (the east wall `919433`; the floor slab before #23) and one wall where clutter hides it (`979093`; `919433` before #23)
       deleted, as scan masks by geometry (element-class points within BAND), not IFC changes; the room's only
-      column has 0 scan points, so it was dropped; with labels all three read "too few points" by construction;
+      column has 0 scan points, so it was dropped; with labels all three read "no points" by construction;
     - occlusion control: the hidden wall, and a second wall with more clutter inside the band, deleted and
       present, with the clutter-class points in front removed too (unassigned points stay). Without labels,
       occlusion moves the share within tolerance by up to 7 points; with labels by 0. Neither wall is

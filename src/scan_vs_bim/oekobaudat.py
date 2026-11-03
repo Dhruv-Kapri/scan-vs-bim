@@ -64,7 +64,9 @@ def _gwp_total_a1_a3(root: ET.Element) -> float:
 
 def parse_dataset(process_xml: str, flow_xml: str) -> Dataset:
     root = ET.fromstring(process_xml)
-    name = next(n.text for n in root.iterfind("p:processInformation/p:dataSetInformation/p:name/p:baseName", NS) if n.get(XML_LANG) == "en")
+    name = next((n.text for n in root.iterfind("p:processInformation/p:dataSetInformation/p:name/p:baseName", NS) if n.get(XML_LANG) == "en"), None)
+    if name is None:
+        raise ValueError("no English name in the dataset")
     flow = ET.fromstring(flow_xml)
     reference = flow.findtext("f:flowInformation/f:quantitativeReference/f:referenceToReferenceFlowProperty", namespaces=NS)
     per_unit, declared = {}, "other"
