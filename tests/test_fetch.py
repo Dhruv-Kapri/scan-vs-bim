@@ -3,6 +3,7 @@ import logging
 import os
 import zipfile
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -83,7 +84,7 @@ def test_corruption_fails_crc(tmp_path):
     assert not dest.exists()
 
 
-def test_retry_is_logged_on_the_fetch_logger(monkeypatch, caplog):
+def test_retry_is_logged_on_the_fetch_logger(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     # Notebook 05a counts retries from the records of the "scan_vs_bim.fetch" logger.
     import requests
 
@@ -91,7 +92,7 @@ def test_retry_is_logged_on_the_fetch_logger(monkeypatch, caplog):
 
     responses = iter([requests.ConnectionError("boom"), SimpleNamespace(status_code=206, content=b"abcd")])
 
-    def get(*args, **kwargs):
+    def get(*args: Any, **kwargs: Any) -> Any:
         r = next(responses)
         if isinstance(r, Exception):
             raise r

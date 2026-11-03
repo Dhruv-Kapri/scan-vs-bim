@@ -11,7 +11,7 @@ SHARED_WALL = "Drywall:961571"  # room A and room B's common wall (hand-check el
 IN_B = {e["global_id"] for e in ROOM_B["room"]["elements"]}
 
 
-def overlap_xy(a, b):
+def overlap_xy(a: dict[str, float], b: dict[str, float]) -> float:
     """Area (m2) of the plan-view overlap of two boxes given as dicts with xmin..ymax."""
     dx = min(a["xmax"], b["xmax"]) - max(a["xmin"], b["xmin"])
     dy = min(a["ymax"], b["ymax"]) - max(a["ymin"], b["ymin"])
@@ -19,7 +19,7 @@ def overlap_xy(a, b):
 
 
 @pytest.mark.parametrize("path", [HALL, ROOM_A], ids=["west hall", "room A"])
-def test_tuning_slice_has_the_schema_03a_reads(path):
+def test_tuning_slice_has_the_schema_03a_reads(path: Path) -> None:
     s = json.loads(path.read_text())
     assert set(s) >= {"frame", "room", "scanner_positions", "scoring_exclusions"}
     assert s["frame"]["scan_to_model_4x4"] == ROOM_B["frame"]["scan_to_model_4x4"]  # the lab's recorded transform, reused as it is
@@ -32,7 +32,7 @@ def test_tuning_slice_has_the_schema_03a_reads(path):
 
 
 @pytest.mark.parametrize("path", [HALL, ROOM_A], ids=["west hall", "room A"])
-def test_every_element_in_room_b_s_list_is_excluded_from_scoring_and_listed(path):
+def test_every_element_in_room_b_s_list_is_excluded_from_scoring_and_listed(path: Path) -> None:
     """Elements that room B (the gate's slice) also lists are kept in the room (their points must be assigned to something) but never scored or tuned on."""
     s = json.loads(path.read_text())
     shared = {e["global_id"] for e in s["room"]["elements"] if e["global_id"] in IN_B}
@@ -41,14 +41,14 @@ def test_every_element_in_room_b_s_list_is_excluded_from_scoring_and_listed(path
     assert all(e["reason"] for e in s["scoring_exclusions"])
 
 
-def test_west_hall_is_held_out_from_room_b():
+def test_west_hall_is_held_out_from_room_b() -> None:
     """No overlap with room B's box; the only shared elements are the building-wide slab and covering."""
     s = json.loads(HALL.read_text())
     assert overlap_xy(s["room"]["box_model_frame"], ROOM_B["room"]["box_model_frame"]) == 0
     assert {e["ifc_class"] for e in s["scoring_exclusions"]} <= {"IfcSlab", "IfcCovering"}
 
 
-def test_room_a_overlaps_room_b_only_by_the_shared_wall_and_excludes_it_by_name():
+def test_room_a_overlaps_room_b_only_by_the_shared_wall_and_excludes_it_by_name() -> None:
     """Room A's box overlaps room B's only by the shared wall's thickness (a strip under 0.15 m deep), and that wall is excluded from scoring with its own reason; the other excluded
     elements are the ones room B's list also holds (building-wide slab, coverings and east wall, B's west walls, the windows on the boundary strip)."""
     s = json.loads(ROOM_A.read_text())

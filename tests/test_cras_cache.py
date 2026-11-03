@@ -1,6 +1,7 @@
 import json
 import os
 import zipfile
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -99,7 +100,7 @@ def test_rebuilds_when_voxel_changes(tmp_path):
     assert build_cache(zpath, out, voxel=0.0001)["points_kept"] == len(ROWS)
 
 
-def test_dedupe_across_many_blocks_keeps_stream_first(tmp_path, monkeypatch):
+def test_dedupe_across_many_blocks_keeps_stream_first(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Consolidation must let earlier rows win, across blocks and merges."""
     monkeypatch.setattr(cras_cache, "MIN_PENDING_ROWS", 4)
     rng = np.random.default_rng(0)
@@ -110,7 +111,7 @@ def test_dedupe_across_many_blocks_keeps_stream_first(tmp_path, monkeypatch):
     build_cache(zpath, out, voxel=0.25, chunk_bytes=500)
     got, rgb, _, _ = load(out)
 
-    first = {}
+    first: dict[tuple[int, ...], int] = {}
     for p, r in zip(xyz, rows):
         first.setdefault(tuple(np.floor(p / 0.25).astype(int)), r[3])
     assert len(got) == len(first)

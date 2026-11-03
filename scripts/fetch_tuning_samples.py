@@ -6,6 +6,7 @@ same building has the same model. So the simulated indoor pick is GM (unscaled),
 indoor pick. house_6 is the smallest scaled house outside the gate. Resumable and idempotent, like fetch_data.py.
 """
 
+import logging
 from pathlib import Path
 
 from remotezip import RemoteZip
@@ -15,7 +16,7 @@ from scan_vs_bim.pc2model import URL as PC2MODEL_URL
 
 DATA = Path(__file__).resolve().parent.parent / "data" / "pc2model"
 
-TUNING_SAMPLES = [
+TUNING_SAMPLES: list[str] = [
     "PC2Model_v1.4/house/house_6-sketchfab",  # 172 MB, scale 1.789
     "PC2Model_v1.4/indoor_modelling/indoor_modelling_5-ISPRS_indoor_modelling-GM",  # 222 MB, scale 1
     "PC2Model_v1.4/ISPRS_indoor_modeling_benchmark/real-indoor_modelling_5-ISPRS_indoor_modelling-GM",  # 311 MB, 1.984
@@ -23,6 +24,7 @@ TUNING_SAMPLES = [
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     with RemoteZip(PC2MODEL_URL) as z:  # reads only the central directory
         infos = z.infolist()
     reader = http_range_reader(PC2MODEL_URL)

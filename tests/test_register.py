@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 import numpy as np
 import open3d as o3d
 import pytest
@@ -6,10 +8,12 @@ from scan_vs_bim.pc2model import scale_of
 from scan_vs_bim.register import FINE_FLOOR_M, refine_icp, refine_plan, voxel_schedule
 
 # Gate thresholds (docs/roadmap.md) are 2 deg, 5 cm, 1 %; these tests ask for clearly tighter.
-ROT_DEG, CENTROID_M, SCALE_REL = 0.3, 0.01, 0.003
+ROT_DEG: float = 0.3
+CENTROID_M: float = 0.01
+SCALE_REL: float = 0.003
 
 
-def box_faces(lo, hi, n, rng):
+def box_faces(lo: Sequence[float] | np.ndarray, hi: Sequence[float] | np.ndarray, n: int, rng: np.random.Generator) -> np.ndarray:
     """n points spread over the six faces of the box [lo, hi]."""
     lo, hi = np.asarray(lo, float), np.asarray(hi, float)
     size = hi - lo
@@ -21,7 +25,7 @@ def box_faces(lo, hi, n, rng):
     return pts
 
 
-def room_points(n, rng):
+def room_points(n: int, rng: np.random.Generator) -> np.ndarray:
     """A 8 x 5 x 3 m room (inside faces) with two boxes of furniture, so no plane or axis is left free to slide along."""
     parts = [box_faces((0, 0, 0), (8, 5, 3), n // 2, rng),
              box_faces((1.0, 0.5, 0), (3.0, 1.5, 1.0), n // 4, rng),
@@ -29,7 +33,7 @@ def room_points(n, rng):
     return np.concatenate(parts)
 
 
-def similarity(scale, rot_deg, axis, t):
+def similarity(scale: float, rot_deg: float, axis: Sequence[float], t: Sequence[float]) -> np.ndarray:
     a = np.radians(rot_deg)
     k = np.asarray(axis, float) / np.linalg.norm(axis)
     K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
@@ -39,11 +43,11 @@ def similarity(scale, rot_deg, axis, t):
     return T
 
 
-def cloud(pts):
+def cloud(pts: np.ndarray) -> o3d.geometry.PointCloud:
     return o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pts))
 
 
-def errors(T, T_gt, pts):
+def errors(T: np.ndarray, T_gt: np.ndarray, pts: np.ndarray) -> tuple[float, float, float]:
     A, B = T[:3, :3] / scale_of(T), T_gt[:3, :3] / scale_of(T_gt)
     rot = np.degrees(np.arccos(np.clip((np.trace(A.T @ B) - 1) / 2, -1, 1)))
     c = pts.mean(0)
@@ -52,7 +56,7 @@ def errors(T, T_gt, pts):
 
 
 @pytest.fixture
-def scene():
+def scene() -> tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray, np.ndarray]:
     """model: the room; scan: an independent noisy sample of it, moved by inv(T_gt) so that T_gt maps the scan onto the model."""
     rng = np.random.default_rng(0)
     model = room_points(120_000, rng)
@@ -62,19 +66,19 @@ def scene():
     return cloud(model), cloud(scan), T_gt, scan
 
 
-def coarse_error(T_gt, scale_off):
+def coarse_error(T_gt: np.ndarray, scale_off: float) -> np.ndarray:
     """What a coarse stage leaves: a pose a little off, the scale off by `scale_off` (relative)."""
     return similarity(1 + scale_off, 1.5, (1.0, 0.5, 0.2), (0.12, -0.08, 0.05)) @ T_gt
 
 
-def test_scale_stage_recovers_a_scaled_scan(scene):
+def test_scale_stage_recovers_a_scaled_scan(scene: tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray, np.ndarray]) -> None:
     model, scan, T_gt, pts = scene
     T = refine_icp(scan, model, coarse_error(T_gt, 0.05), scale_voxels=(0.4, 0.2, 0.1), rigid_voxels=(0.1, 0.05))
     rot, cen, scale = errors(T, T_gt, pts)
     assert rot <= ROT_DEG and cen <= CENTROID_M and scale <= SCALE_REL, (rot, cen, scale)
 
 
-def test_rigid_stages_leave_the_scale_alone_and_fix_the_pose(scene):
+def test_rigid_stages_leave_the_scale_alone_and_fix_the_pose(scene: tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray, np.ndarray]) -> None:
     model, scan, T_gt, pts = scene
     T0 = coarse_error(T_gt, 0.0)
     T = refine_icp(scan, model, T0, rigid_voxels=(0.2, 0.1, 0.05))
@@ -84,26 +88,26 @@ def test_rigid_stages_leave_the_scale_alone_and_fix_the_pose(scene):
     assert cen < errors(T0, T_gt, pts)[1] / 5   # the stages did the work: the start was ~15 cm off
 
 
-def test_no_stages_is_a_no_op(scene):
+def test_no_stages_is_a_no_op(scene: tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray, np.ndarray]) -> None:
     model, scan, T_gt, _ = scene
     T0 = coarse_error(T_gt, 0.02)
     assert np.array_equal(refine_icp(scan, model, T0), T0)
 
 
-def test_voxel_schedule_halves_down_to_the_floor():
+def test_voxel_schedule_halves_down_to_the_floor() -> None:
     assert voxel_schedule(0.4, 0.05) == pytest.approx([0.2, 0.1, 0.05])
     assert voxel_schedule(0.4, 0.06) == pytest.approx([0.2, 0.1, 0.06])   # the last stage is the floor, never below it
     assert voxel_schedule(0.04, 0.05) == []   # already finer than the floor: no stage
 
 
-def test_refine_plan_scale_stages_only_on_scaled_samples():
+def test_refine_plan_scale_stages_only_on_scaled_samples() -> None:
     plain, scaled = refine_plan(0.4, scaled=False), refine_plan(0.4, scaled=True)
     assert plain["scale_voxels"] == [] and plain["rigid_voxels"][-1] == FINE_FLOOR_M
     assert len(scaled["scale_voxels"]) == 2 and scaled["rigid_voxels"][-1] == FINE_FLOOR_M
     assert scaled["scale_voxels"][-1] == scaled["rigid_voxels"][0]   # rigid stages continue from where the scale stages stop
 
 
-def test_refine_plan_variants():
+def test_refine_plan_variants() -> None:
     assert refine_plan(0.4, scaled=True, n_scale=0)["scale_voxels"] == []
     every = refine_plan(0.4, scaled=True, n_scale=99, floor=0.05)   # scale stages at every voxel, one rigid stage at the floor
     assert every["scale_voxels"] == pytest.approx([0.2, 0.1, 0.05]) and every["rigid_voxels"] == pytest.approx([0.05])

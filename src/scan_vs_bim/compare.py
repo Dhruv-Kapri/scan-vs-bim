@@ -9,7 +9,7 @@ onto the element's own face lies on that face (issue #20: the own-face patch).
 import numpy as np
 import open3d as o3d
 
-NUMERIC_TOL = 1e-4  # m: float32 closest-point noise; a point that projects onto the face is within this of its foot point's plane
+NUMERIC_TOL: float = 1e-4  # m: float32 closest-point noise; a point that projects onto the face is within this of its foot point's plane
 
 
 def _unit_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:

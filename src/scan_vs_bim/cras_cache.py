@@ -12,16 +12,16 @@ import json
 import logging
 import zipfile
 from pathlib import Path
-from typing import Iterator, NamedTuple
+from typing import IO, Iterator, NamedTuple
 
 import numpy as np
 
 log = logging.getLogger(__name__)
 
-MIN_PENDING_ROWS = 2_000_000  # rows of deduped blocks buffered before the next consolidation
-VOXEL_AXIS_BITS = 21  # per voxel axis index; 2**21 cells (21 km at 1 cm)
-VOXEL_AXIS_OFFSET = 1 << (VOXEL_AXIS_BITS - 1)
-REPORT_EVERY_BYTES = 1 << 30
+MIN_PENDING_ROWS: int = 2_000_000  # rows of deduped blocks buffered before the next consolidation
+VOXEL_AXIS_BITS: int = 21  # per voxel axis index; 2**21 cells (21 km at 1 cm)
+VOXEL_AXIS_OFFSET: int = 1 << (VOXEL_AXIS_BITS - 1)
+REPORT_EVERY_BYTES: int = 1 << 30
 
 
 def read_blocks(f, chunk_bytes: int) -> Iterator[bytes]:
@@ -52,7 +52,7 @@ def _read_meta(path: Path) -> dict | None:
         return None
 
 
-def build_cache(zip_path, cache_path, voxel: float = 0.01, chunk_bytes: int = 64 << 20) -> dict:
+def build_cache(zip_path: str | Path, cache_path: str | Path, voxel: float = 0.01, chunk_bytes: int = 64 << 20) -> dict:
     """Voxel-subsample the single member of `zip_path` into an `.npz` at `cache_path`."""
     cache_path = Path(cache_path)
     with zipfile.ZipFile(zip_path) as z:
@@ -102,14 +102,14 @@ class _Streamed(NamedTuple):
 class _KeptVoxels:
     """Voxels kept so far: sorted unique `keys` and, per column, append-only data segments."""
 
-    def __init__(self):
-        self.keys = np.empty(0, np.int64)
-        self.parts: tuple[list, list, list] = ([], [], [])
+    def __init__(self) -> None:
+        self.keys: np.ndarray = np.empty(0, np.int64)
+        self.parts: tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray]] = ([], [], [])
 
     def __len__(self) -> int:
         return len(self.keys)
 
-    def fold(self, pending) -> None:
+    def fold(self, pending: list[tuple[np.ndarray, ...]]) -> None:
         """Fold pending (keys, xyz, rgb, cls) blocks in. Earlier rows win; only rows whose voxel is new
         are appended, as one segment, never re-copied."""
         pk, xyz, rgb, cls = (np.concatenate(c) for c in zip(*pending))
@@ -128,14 +128,14 @@ class _KeptVoxels:
         del self.keys
         if not self.parts[0]:
             raise ValueError("member has no points")
-        out = []
+        out: list[np.ndarray] = []
         for part in self.parts:
             out.append(np.concatenate(part))
             part.clear()
-        return tuple(out)  # type: ignore[return-value]
+        return out[0], out[1], out[2]
 
 
-def _stream(f, voxel: float, chunk_bytes: int) -> _Streamed:
+def _stream(f: IO[bytes], voxel: float, chunk_bytes: int) -> _Streamed:
     """Parse blocks, keep the first point per voxel."""
     kept = _KeptVoxels()
     pending: list[tuple[np.ndarray, ...]] = []
