@@ -41,7 +41,7 @@ def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path):
     manifest = json.loads((out / "manifest.json").read_text())
     changes = manifest["changes"]
     moves = [c for c in changes if c["change"] == "moved"]
-    masks = [c for c in changes if c["change"] == "not_built"]
+    masks = [c for c in changes if c["change"] == "deleted"]
     assert sorted(round(sum(v * v for v in c["offset_m"]) ** 0.5, 3) for c in moves) == [0.01, 0.01, 0.03, 0.10]  # the 1 cm move is run both ways
     assert len(masks) == 3 and all(c["offset_m"] is None and c["perturbed_ifc"] is None for c in masks)
     assert len({c["run"] for c in changes}) == 7 and len({c["perturbed_ifc"] for c in moves}) == 4

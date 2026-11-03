@@ -24,7 +24,14 @@ def setup_copy(tmp_path):
     for d in ("03a", "03b", "05a"):
         (tmp_path / "outputs" / d).symlink_to(ROOT / "outputs" / d)
     shutil.copy(SLICE, tmp_path / "notebooks")
-    return Path(shutil.copy(NOTEBOOK, tmp_path / "notebooks"))
+    # Without the Answer's check cell: it checks the numbers the Answer quotes, which describe the author's judgements; this test feeds its own.
+    nb = json.loads(NOTEBOOK.read_text())
+    n_cells = len(nb["cells"])
+    nb["cells"] = [c for c in nb["cells"] if "Answer numbers checked" not in "".join(c["source"])]
+    assert len(nb["cells"]) == n_cells - 1
+    copy = tmp_path / "notebooks" / NOTEBOOK.name
+    copy.write_text(json.dumps(nb))
+    return copy
 
 
 def test_notebook_05b_pending_then_scored_from_filled_judgements(tmp_path):
