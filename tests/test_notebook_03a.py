@@ -1,4 +1,5 @@
 import csv
+import json
 import shutil
 from pathlib import Path
 
@@ -35,6 +36,9 @@ def test_notebook_03a_writes_per_element_verdicts(tmp_path):
         with open(out / f"verdicts_{variant}.csv", newline="") as f:
             rows = list(csv.DictReader(f))
         assert list(rows[0])[:len(COLUMNS)] == COLUMNS
+        assert "points_past_edge" in rows[0] and all(int(r["points_past_edge"]) >= 0 for r in rows)  # the own-face patch (#20) counts what it leaves out
+        with open(SLICE) as sf:  # 05b draws by 03a's row order: the patch must not change it (rows follow the slice's element list)
+            assert [r["global_id"] for r in rows] == json.load(sf)["room"]["element_global_ids"]
         assert len(rows) == 35 and len({r["global_id"] for r in rows}) == 35
         assert {r["ifc_class"] for r in rows} <= ELEMENT_CLASSES
         assert {r["verdict"] for r in rows} <= VERDICTS

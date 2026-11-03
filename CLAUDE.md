@@ -30,8 +30,18 @@ uv run python scripts/pick_gate_samples.py  # the 9 PC2Model samples for noteboo
                                           # only, no point clouds) -> outputs/05a/gate_samples.csv
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05a_registration_gate.ipynb
                                           # notebook 05a (registration gate, 9 PC2Model samples; downloads ~1.3 GB of
-                                          # them on first run, resumable; ~5-7 min after, peak RSS 0.6 GB; needs
-                                          # find_scaled_sample.py + pick_gate_samples.py; writes outputs/05a/)
+                                          # them on first run, resumable; ~25 min after, measured on a loaded machine,
+                                          # #20 refinement included; peak RSS 0.43 GB; needs find_scaled_sample.py +
+                                          # pick_gate_samples.py; writes outputs/05a/)
+uv run python scripts/fetch_tuning_samples.py # the 3 held-out PC2Model samples for 05c (house_6, indoor_modelling_5-GM,
+                                          # real-indoor_modelling_5-GM; ~700 MB, no gate sample or gate building; resumable,
+                                          # idempotent; ~1-2 h at Zenodo speeds, run it detached)
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05c_registration_tuning.ipynb
+                                          # notebook 05c (tunes 05a's registration refinement on held-out PC2Model samples:
+                                          # fur_010, house_6, indoor_modelling_5-GM, real-indoor_modelling_5-GM and a
+                                          # synthetically scaled GM; ~30 min measured on a shared machine, peak RSS 0.37 GB;
+                                          # needs find_scaled_sample.py + fetch_data.py (fur_010) + fetch_tuning_samples.py;
+                                          # writes outputs/05c/). Run it detached (see the 03b/cras-cache pattern).
 uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, unaligned; writes
                                           # docs/images/stage0-unaligned{,-scan,-ifc}.png (overview + close-ups;
                                           # --no-interactive: PNGs only)
@@ -55,6 +65,17 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # other jobs running), peak RSS 1.65 GB; needs the same inputs as 03a; writes
                                           # outputs/03b/: perturbed IFCs, manifest.json, scores_*.csv,
                                           # occlusion_control.csv, figures)
+uv run python scripts/make_tuning_slice.py
+                                          # writes notebooks/03c_tuning_slice.json (south part of the west hall) and
+                                          # 03c_tuning_slice_room_a.json (room A): the held-out CRAS rooms for tuning 03a, in
+                                          # 01_cras_slice.json's schema plus `scoring_exclusions` (elements that room B's list also
+                                          # holds: kept in the room, never scored or tuned on); ~10 min
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room.ipynb
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room_a.ipynb
+                                          # notebooks 03c (a copy of 03a's logic on a held-out room: baseline, hand-check proxy,
+                                          # diagnosis, the own-face patch, known answers; ~15 and ~10 min, peak RSS 1.7 GB; write
+                                          # outputs/03c/ and outputs/03c_room_a/). SLICE_JSON=01_cras_slice.json runs one on room B
+                                          # instead (tests/test_notebook_03c.py uses that to check the copy against outputs/03a)
 uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
   notebooks/04a_report.ipynb              # notebook 04a (03a's no-labels verdicts as a ScanVsBim_Verdict pset in an IFC
                                           # copy, plus a BCF 2.1 file with one issue per non-OK element; ~10 s; needs
@@ -79,10 +100,15 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   elements, 17 s instead of minutes for the 35 room elements (measured 2026-10-28); it cannot be combined with
   `exclude=`). `tests/run_notebook.py`: `run_notebook(path)`
   executes a notebook top to bottom for tests (nbclient; raises on any cell error).
+- `src/scan_vs_bim/compare.py`: `over_own_face(points, vertices, faces, margin)` (which scan points lie over an element's
+  own face; points past its edges do not) and `aligned_faces`: the geometry of the own-face patch in 03a/03b/03c (#20).
 - `src/scan_vs_bim/oekobaudat.py`: reads one ÖKOBAUDAT process dataset + its reference-flow XML: UUID, version,
   English name, GWP-total A1-A3 per declared unit (A1-A3 combined, or A1+A2+A3 summed; EN 15804+A2 "GWP-total" and
   EF 3.1 "Climate change" method UUIDs), and kg/m3/m2 per declared unit from the flow properties. `Dataset.carbon()`
   returns None when nothing converts: no densities are ever guessed.
+- `src/scan_vs_bim/register.py`: `refine_icp` (scale-fitting point-to-point ICP stages, then rigid point-to-plane
+  stages, coarse to fine, after the coarse RANSAC + ICP), `refine_plan` (the stages 05a runs; chosen in 05c, issue #20)
+  and `voxel_schedule`.
 - `src/scan_vs_bim/fetch.py`: chunked, retried, resumable HTTP range downloads and single-member zip
   extraction (Zenodo is slow and returns 504s; a long `remotezip` stream died).
 - `src/scan_vs_bim/cras_cache.py`: streams the 26.8 GB ASCII zip member in 64 MB blocks (never extracted
