@@ -17,7 +17,8 @@ COLUMNS = ["global_id", "ifc_class", "verdict", "point_count", "median_signed_of
 
 def test_notebook_03a_writes_per_element_verdicts(tmp_path):
     """Known answers are asserted inside 03a; here: both CSVs (with and without oracle labels) hold one row per room
-    element, only element classes, only the three verdicts reachable here (OK, shifted, not confirmed), and the top-down PNG is written."""
+    element, only element classes, only the three verdicts reachable here (OK, shifted, not confirmed), and the top-down PNG is written;
+    the strict and the padded box give the same verdicts (crop_check.csv, issue #23)."""
     for p in NEEDS:
         if not p.exists():
             pytest.skip(f"{p.relative_to(ROOT)} not downloaded (see scripts/fetch_data.py and CLAUDE.md)")
@@ -37,4 +38,15 @@ def test_notebook_03a_writes_per_element_verdicts(tmp_path):
         assert len(rows) == 35 and len({r["global_id"] for r in rows}) == 35
         assert {r["ifc_class"] for r in rows} <= ELEMENT_CLASSES
         assert {r["verdict"] for r in rows} <= VERDICTS
+        assert "mostly outside the room box" not in {r["reason"] for r in rows}  # #23: elements are judged on their whole patch, the box only sets scope
     assert (out / "verdicts_top_down.png").stat().st_size > 0
+
+    # #23: the scope taken from the strict box and from the padded box (frozen frame) gives the same verdict for every one of the 35 elements, in both variants
+    with open(out / "crop_check.csv", newline="") as f:
+        check = list(csv.DictReader(f))
+    assert {r["variant"] for r in check} == {"oracle_labels", "no_labels"}
+    for variant in ("oracle_labels", "no_labels"):
+        rows = [r for r in check if r["variant"] == variant]
+        assert len(rows) == 35 and len({r["global_id"] for r in rows}) == 35
+        assert all(r["verdict_strict"] in VERDICTS and r["verdict_strict"] == r["verdict_padded"] for r in rows)
+        assert all(r["point_count_strict"] == r["point_count_padded"] for r in rows)

@@ -43,21 +43,25 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
                                           # metadata so re-runs give no diff
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03a_compare.ipynb
                                           # notebook 03a (CRAS room, per-element verdicts with and without oracle
-                                          # labels; ~1.5 min, peak RSS 1.1 GB; needs the CRAS cache + IFC and
-                                          # notebooks/01_cras_slice.json; writes outputs/03a/)
+                                          # labels, on per-element patches; ~5 min (272 s), up to ~14 min on a busy machine
+                                          # (tessellating the 135 element-class elements is ~6 of them), peak RSS
+                                          # 1.6 GB; needs the CRAS cache + IFC and notebooks/01_cras_slice.json;
+                                          # writes outputs/03a/, incl. crop_check.csv)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03b_perturbed.ipynb
-                                          # notebook 03b (03a's verdicts on perturbed copies of the CRAS model, 7 runs:
-                                          # one wall moved 1 cm both ways, 3 and 10 cm, one IFC copy each; door, slab
-                                          # and wall deleted as scan masks; 5-36 min by load, peak RSS 1.2-1.6 GB; needs the same
-                                          # inputs as 03a; writes outputs/03b/: perturbed IFCs, manifest.json,
-                                          # scores_*.csv, occlusion_control.csv, figures)
+                                          # notebook 03b (03a's verdicts, on per-element patches, for perturbed copies of the
+                                          # CRAS model, 7 runs: one wall moved 1 cm both ways, 3 and 10 cm, one IFC copy
+                                          # each; the door, the baseline-OK element and a clutter-hidden wall deleted as
+                                          # scan masks; ~16 min measured (966 s, tessellating the 135 elements included,
+                                          # other jobs running), peak RSS 1.65 GB; needs the same inputs as 03a; writes
+                                          # outputs/03b/: perturbed IFCs, manifest.json, scores_*.csv,
+                                          # occlusion_control.csv, figures)
 uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
   notebooks/04a_report.ipynb              # notebook 04a (03a's no-labels verdicts as a ScanVsBim_Verdict pset in an IFC
                                           # copy, plus a BCF 2.1 file with one issue per non-OK element; ~10 s; needs
                                           # the CRAS IFC and outputs/03a/*.csv from 03a; writes outputs/04a/)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3000 notebooks/05b_hand_check.ipynb
                                           # notebook 05b (20 random CRAS verdicts as close-ups + the overall Phase 0.5
-                                          # gate; 0.5-3.5 min, peak RSS 1.1-1.6 GB; needs outputs/03a, outputs/03b (run 03a
+                                          # gate; ~4 min measured (250 and 263 s in two runs, other jobs running; the close-ups rebuild 03a's element patches over all 135 elements), peak RSS 1.6 GB; needs outputs/03a, outputs/03b (run 03a
                                           # then 03b first; re-run both if either changes) and outputs/05a; writes
                                           # outputs/05b/ and, only if absent, notebooks/05b_hand_check.csv, whose
                                           # `judgement` column the author fills; re-run after filling)

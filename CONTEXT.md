@@ -103,6 +103,13 @@ _Avoid_: LOA (on its own, ambiguous with PC2Model's metric), precision
 The largest deviation at which an element still counts as built as modelled; taken from the
 accuracy level, never invented.
 
+**Element patch**:
+The scan points that an element is judged on: those within BAND (10 cm in 03a) of its own surface, taken
+from the whole scan whatever the room box, and for which it is the nearest of all the model's elements,
+neighbours that are not judged included. The room box only chooses which elements are in scope. A
+point further from every element, or nearer to a neighbour, is in no patch.
+_Avoid_: crop (the room box no longer cuts the scan for the verdict), region
+
 **Room-facing face**:
 A wall face whose outward normal points into the room. A wall on the room's boundary has one
 room-facing side, a partition standing inside it has two.
@@ -133,8 +140,9 @@ element; for a two-sided wall it is positive along the reference side's normal.
 
 **Junction margin**:
 A wall's scan points within a set distance (10 cm in 03a) of any other element's surface (ceiling,
-floor, window, door, another wall) are left out of that wall's verdict: at a junction a point could
-belong to either element. The verdict of a wall is then about its plain area.
+floor, window, door, another wall, and neighbours outside the scope) are left out of that wall's
+verdict: at a junction a point could belong to either element. The verdict of a wall is then about its
+plain area.
 
 **Verdict**:
 The outcome for one element: OK, shifted, missing, not visible, or not confirmed.
