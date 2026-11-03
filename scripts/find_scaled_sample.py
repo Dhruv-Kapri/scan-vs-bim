@@ -36,7 +36,7 @@ def main() -> None:
         w = csv.writer(fh)
         w.writerow(["sample", "category", "compressed_mb", "scale"])
         for s in sorted(samples, key=lambda s: s.compressed_size):
-            category = s.folder.split("/")[1]  # PC2Model_v1.4/<category>/<sample>
+            category = s.category
             w.writerow([s.folder, category, f"{s.compressed_size / 1e6:.2f}", f"{scales[s.folder]:.6f}"])
     print(f"wrote {out}")
 

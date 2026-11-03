@@ -132,6 +132,10 @@ def fake_samples(spec):
     return samples, scales
 
 
+def test_sample_category_is_the_folder_segment_under_the_root() -> None:
+    assert Sample("PC2Model_v1.4/house/house_23-sketchfab", 1, zipfile.ZipInfo("t.txt")).category == "house"
+
+
 def test_pick_gate_samples_takes_smallest_scaled_smallest_unscaled_then_next_smallest():
     samples, scales = fake_samples({
         "a": ("cat", 10, 1.0),   # smallest unscaled

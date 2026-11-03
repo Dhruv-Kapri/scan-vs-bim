@@ -21,6 +21,11 @@ class Sample:
     compressed_size: int  # total compressed bytes of all members
     transform: zipfile.ZipInfo
 
+    @property
+    def category(self) -> str:
+        """The zip folder segment: PC2Model_v1.4/<category>/<sample>."""
+        return self.folder.split("/")[1]
+
 
 def parse_transform(text: str) -> np.ndarray:
     rows = [line.split() for line in text.strip().splitlines()]
@@ -76,7 +81,7 @@ def pick_gate_samples(
     """
     picked = []
     for category in categories:
-        mine = sorted((s for s in samples if s.folder.split("/")[1] == category), key=lambda s: (s.compressed_size, s.folder))
+        mine = sorted((s for s in samples if s.category == category), key=lambda s: (s.compressed_size, s.folder))
         if len(mine) < 3:
             raise ValueError(f"category {category!r} has fewer than 3 samples")
         scaled = next((s for s in mine if abs(scales[s.folder] - 1) > tol), None)

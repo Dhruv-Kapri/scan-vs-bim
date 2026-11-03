@@ -32,9 +32,9 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", newline="") as fh:
         w = csv.writer(fh)
-        w.writerow(["sample", "category", "label", "compressed_mb", "scale"])
+        w.writerow(["sample", "folder_category", "label", "compressed_mb", "scale"])
         for s in chosen:
-            category = s.folder.split("/")[1]
+            category = s.category
             w.writerow([s.folder, category, GROUPS[category], f"{s.compressed_size / 1e6:.2f}", f"{scales[s.folder]:.6f}"])
             print(f"{GROUPS[category]:17s}{Path(s.folder).name:70s}{s.compressed_size / 1e6:8.1f} MB  scale {scales[s.folder]:.4f}")
     print(f"wrote {out}")
