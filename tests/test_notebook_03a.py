@@ -37,6 +37,7 @@ def test_notebook_03a_writes_per_element_verdicts(tmp_path):
             rows = list(csv.DictReader(f))
         assert list(rows[0])[:len(COLUMNS)] == COLUMNS
         assert "points_past_edge" in rows[0] and all(int(r["points_past_edge"]) >= 0 for r in rows)  # the own-face patch (#20) counts what it leaves out
+        assert sum(int(r["points_past_edge"]) for r in rows) > 0  # and it is on: room B has points past the edge of a covering's or a slab's own face
         with open(SLICE) as sf:  # 05b draws by 03a's row order: the patch must not change it (rows follow the slice's element list)
             assert [r["global_id"] for r in rows] == json.load(sf)["room"]["element_global_ids"]
         assert len(rows) == 35 and len({r["global_id"] for r in rows}) == 35
