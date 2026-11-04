@@ -55,14 +55,15 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # notebook 03a (CRAS room, per-element verdicts with and without oracle
                                           # labels, on per-element patches and the own-face patch (#20); ~4 min (252 s, 109 s
                                           # of it tessellating the 135 element-class elements; measured 2026-11-03), up to
-                                          # ~14 min on a busy machine, peak RSS 1.6 GB; needs the CRAS cache + IFC and notebooks/01_cras_slice.json;
+                                          # ~19 min on a busy machine (1156 s, 2026-11-04), peak RSS 0.9 GB since #31 (the verdict cloud is cut after ICP,
+                                          # a second pass over the cache); needs the CRAS cache + IFC and notebooks/01_cras_slice.json;
                                           # writes outputs/03a/, incl. crop_check.csv)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03b_perturbed.ipynb
                                           # notebook 03b (03a's verdicts, on per-element patches and the own-face patch, for perturbed copies of the
                                           # CRAS model, 7 runs: one wall moved 1 cm both ways, 3 and 10 cm, one IFC copy
                                           # each; the door, the baseline-OK element and a clutter-hidden wall deleted as
                                           # scan masks; ~11 min measured (679 s, tessellating the 135 elements included,
-                                          # 2026-11-03), peak RSS 1.76 GB; needs the same inputs as 03a; writes
+                                          # 2026-11-03; 2176 s on a busy machine after #31, 2026-11-04), peak RSS 1.54 GB; needs the same inputs as 03a; writes
                                           # outputs/03b/: perturbed IFCs, manifest.json, scores_*.csv,
                                           # occlusion_control.csv, figures)
 uv run python scripts/make_tuning_slice.py
