@@ -112,3 +112,34 @@ def test_dataset_without_an_english_name_is_an_error() -> None:
     xml = process(results=[(GWP_TOTAL_A2, {"A1-A3": 1})]).replace('<baseName xml:lang="en">Test material</baseName>', "")
     with pytest.raises(ValueError, match="English name"):
         parse_dataset(xml, flow(MASS, {MASS: 1}))
+
+
+@pytest.mark.parametrize(
+    ("in_flow_xml", "old", "tag"),
+    [
+        (False, "<common:UUID>p-1</common:UUID>", "UUID"),
+        (False, "<common:dataSetVersion>01.02.003</common:dataSetVersion>", "dataSetVersion"),
+        (False, f'<referenceToLCIAMethodDataSet refObjectId="{GWP_TOTAL_A2}"/>', "referenceToLCIAMethodDataSet"),
+        (False, '<epd:amount epd:module="A1-A3">4</epd:amount>', "amount"),  # emptied, not removed
+        (True, f'<referenceToFlowPropertyDataSet refObjectId="{MASS}"/>', "referenceToFlowPropertyDataSet"),
+        (True, "<meanValue>1</meanValue>", "meanValue"),
+    ],
+)
+def test_a_missing_required_tag_is_a_value_error_naming_it(in_flow_xml: bool, old: str, tag: str) -> None:
+    p = process(results=[(GWP_TOTAL_A2, {"A1-A3": 4})])
+    f = flow(MASS, {MASS: 1})
+    new = "<epd:amount epd:module=\"A1-A3\"></epd:amount>" if tag == "amount" else ""
+    if in_flow_xml:
+        assert old in f
+        f = f.replace(old, new)
+    else:
+        assert old in p
+        p = p.replace(old, new)
+    with pytest.raises(ValueError, match=tag):
+        parse_dataset(p, f)
+
+
+def test_a_reference_exchange_without_a_flow_reference_is_a_value_error() -> None:
+    xml = process().replace('<referenceToFlowDataSet refObjectId="f-1"/>', "")
+    with pytest.raises(ValueError, match="referenceToFlowDataSet"):
+        reference_flow_uuid(xml)

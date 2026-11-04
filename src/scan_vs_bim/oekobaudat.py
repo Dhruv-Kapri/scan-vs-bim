@@ -42,19 +42,38 @@ class Dataset:
         return None
 
 
+def _text(el: ET.Element, path: str) -> str:
+    text = el.findtext(path, namespaces=NS)
+    if text is None:
+        raise ValueError(f"missing <{path.rsplit('/', 1)[-1]}> in the dataset")
+    return text
+
+
+def _ref(el: ET.Element, path: str) -> str:
+    ref = el.find(path, NS)
+    value = None if ref is None else ref.get("refObjectId")
+    if value is None:
+        raise ValueError(f"missing <{path.rsplit('/', 1)[-1]}> (with refObjectId) in the dataset")
+    return value
+
+
 def reference_flow_uuid(process_xml: str) -> str:
     root = ET.fromstring(process_xml)
     internal_id = root.findtext("p:processInformation/p:quantitativeReference/p:referenceToReferenceFlow", namespaces=NS)
     for exchange in root.iterfind("p:exchanges/p:exchange", NS):
         if exchange.get("dataSetInternalID") == internal_id:
-            return exchange.find("p:referenceToFlowDataSet", NS).get("refObjectId")
+            return _ref(exchange, "p:referenceToFlowDataSet")
     raise ValueError(f"reference flow {internal_id} not among the exchanges")
 
 
 def _gwp_total_a1_a3(root: ET.Element) -> float:
     for result in root.iterfind("p:LCIAResults/p:LCIAResult", NS):
-        if result.find("p:referenceToLCIAMethodDataSet", NS).get("refObjectId") in GWP_TOTAL_METHODS:
-            amounts = {a.get(EPD_MODULE): float(a.text) for a in result.iter("{%s}amount" % NS["e"])}
+        if _ref(result, "p:referenceToLCIAMethodDataSet") in GWP_TOTAL_METHODS:
+            amounts: dict[str | None, float] = {}
+            for a in result.iter("{%s}amount" % NS["e"]):
+                if a.text is None:
+                    raise ValueError("missing <amount> value in the dataset")
+                amounts[a.get(EPD_MODULE)] = float(a.text)
             if "A1-A3" in amounts:
                 return amounts["A1-A3"]
             if {"A1", "A2", "A3"} <= amounts.keys():
@@ -69,16 +88,17 @@ def parse_dataset(process_xml: str, flow_xml: str) -> Dataset:
         raise ValueError("no English name in the dataset")
     flow = ET.fromstring(flow_xml)
     reference = flow.findtext("f:flowInformation/f:quantitativeReference/f:referenceToReferenceFlowProperty", namespaces=NS)
-    per_unit, declared = {}, "other"
+    per_unit: dict[str, float] = {}
+    declared = "other"
     for prop in flow.iterfind("f:flowProperties/f:flowProperty", NS):
-        unit = UNIT_OF_PROPERTY.get(prop.find("f:referenceToFlowPropertyDataSet", NS).get("refObjectId"))
+        unit = UNIT_OF_PROPERTY.get(_ref(prop, "f:referenceToFlowPropertyDataSet"))
         if unit:
-            per_unit[unit] = float(prop.findtext("f:meanValue", namespaces=NS))
+            per_unit[unit] = float(_text(prop, "f:meanValue"))
         if prop.get("dataSetInternalID") == reference:
             declared = unit or "other"
     return Dataset(
-        uuid=root.findtext("p:processInformation/p:dataSetInformation/c:UUID", namespaces=NS),
-        version=root.findtext("p:administrativeInformation/p:publicationAndOwnership/c:dataSetVersion", namespaces=NS),
+        uuid=_text(root, "p:processInformation/p:dataSetInformation/c:UUID"),
+        version=_text(root, "p:administrativeInformation/p:publicationAndOwnership/c:dataSetVersion"),
         name=name,
         declared_unit=declared,
         gwp_a1_a3=_gwp_total_a1_a3(root),
