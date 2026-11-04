@@ -115,31 +115,37 @@ def test_dataset_without_an_english_name_is_an_error() -> None:
 
 
 @pytest.mark.parametrize(
-    ("in_flow_xml", "old", "tag"),
+    ("in_flow_xml", "old", "new", "tag"),
     [
-        (False, "<common:UUID>p-1</common:UUID>", "UUID"),
-        (False, "<common:dataSetVersion>01.02.003</common:dataSetVersion>", "dataSetVersion"),
-        (False, f'<referenceToLCIAMethodDataSet refObjectId="{GWP_TOTAL_A2}"/>', "referenceToLCIAMethodDataSet"),
-        (False, '<epd:amount epd:module="A1-A3">4</epd:amount>', "amount"),  # emptied, not removed
-        (True, f'<referenceToFlowPropertyDataSet refObjectId="{MASS}"/>', "referenceToFlowPropertyDataSet"),
-        (True, "<meanValue>1</meanValue>", "meanValue"),
+        (False, "<common:UUID>p-1</common:UUID>", "", "<UUID>"),
+        (False, "<common:UUID>p-1</common:UUID>", "<common:UUID> </common:UUID>", "<UUID>"),  # present but empty
+        (False, f'<referenceToLCIAMethodDataSet refObjectId="{GWP_TOTAL_A2}"/>', "", "<referenceToLCIAMethodDataSet>"),
+        (False, '<epd:amount epd:module="A1-A3">4</epd:amount>', '<epd:amount epd:module="A1-A3"></epd:amount>', "<amount>"),
+        (True, f'<referenceToFlowPropertyDataSet refObjectId="{MASS}"/>', "", "<referenceToFlowPropertyDataSet>"),
+        (True, "<meanValue>1</meanValue>", "", "<meanValue>"),
+        (True, "<referenceToReferenceFlowProperty>0</referenceToReferenceFlowProperty>", "", "<referenceToReferenceFlowProperty>"),
     ],
 )
-def test_a_missing_required_tag_is_a_value_error_naming_it(in_flow_xml: bool, old: str, tag: str) -> None:
-    p = process(results=[(GWP_TOTAL_A2, {"A1-A3": 4})])
-    f = flow(MASS, {MASS: 1})
-    new = "<epd:amount epd:module=\"A1-A3\"></epd:amount>" if tag == "amount" else ""
+def test_a_missing_required_tag_is_a_value_error_naming_it(in_flow_xml: bool, old: str, new: str, tag: str) -> None:
+    p, f = process(results=[(GWP_TOTAL_A2, {"A1-A3": 4})]), flow(MASS, {MASS: 1})
+    assert old in (f if in_flow_xml else p)
     if in_flow_xml:
-        assert old in f
         f = f.replace(old, new)
     else:
-        assert old in p
         p = p.replace(old, new)
     with pytest.raises(ValueError, match=tag):
         parse_dataset(p, f)
 
 
-def test_a_reference_exchange_without_a_flow_reference_is_a_value_error() -> None:
-    xml = process().replace('<referenceToFlowDataSet refObjectId="f-1"/>', "")
-    with pytest.raises(ValueError, match="referenceToFlowDataSet"):
-        reference_flow_uuid(xml)
+@pytest.mark.parametrize(
+    ("old", "tag"),
+    [
+        ('<referenceToFlowDataSet refObjectId="f-1"/>', "<referenceToFlowDataSet>"),
+        ("<referenceToReferenceFlow>7</referenceToReferenceFlow>", "<referenceToReferenceFlow>"),
+    ],
+)
+def test_a_missing_reference_flow_tag_is_a_value_error_naming_it(old: str, tag: str) -> None:
+    xml = process()
+    assert old in xml
+    with pytest.raises(ValueError, match=tag):
+        reference_flow_uuid(xml.replace(old, ""))

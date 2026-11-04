@@ -42,24 +42,30 @@ class Dataset:
         return None
 
 
+def _missing(path: str, what: str = "") -> ValueError:
+    """The error for a required tag that is absent or empty, named without its namespace prefix: "<UUID>"."""
+    tag = path.rsplit("/", 1)[-1].split(":")[-1]
+    return ValueError(f"missing <{tag}>{what} in the dataset")
+
+
 def _text(el: ET.Element, path: str) -> str:
     text = el.findtext(path, namespaces=NS)
-    if text is None:
-        raise ValueError(f"missing <{path.rsplit('/', 1)[-1]}> in the dataset")
+    if text is None or not text.strip():
+        raise _missing(path)
     return text
 
 
 def _ref(el: ET.Element, path: str) -> str:
     ref = el.find(path, NS)
     value = None if ref is None else ref.get("refObjectId")
-    if value is None:
-        raise ValueError(f"missing <{path.rsplit('/', 1)[-1]}> (with refObjectId) in the dataset")
+    if not value:
+        raise _missing(path, " refObjectId")
     return value
 
 
 def reference_flow_uuid(process_xml: str) -> str:
     root = ET.fromstring(process_xml)
-    internal_id = root.findtext("p:processInformation/p:quantitativeReference/p:referenceToReferenceFlow", namespaces=NS)
+    internal_id = _text(root, "p:processInformation/p:quantitativeReference/p:referenceToReferenceFlow")
     for exchange in root.iterfind("p:exchanges/p:exchange", NS):
         if exchange.get("dataSetInternalID") == internal_id:
             return _ref(exchange, "p:referenceToFlowDataSet")
@@ -71,8 +77,8 @@ def _gwp_total_a1_a3(root: ET.Element) -> float:
         if _ref(result, "p:referenceToLCIAMethodDataSet") in GWP_TOTAL_METHODS:
             amounts: dict[str | None, float] = {}
             for a in result.iter("{%s}amount" % NS["e"]):
-                if a.text is None:
-                    raise ValueError("missing <amount> value in the dataset")
+                if a.text is None or not a.text.strip():
+                    raise _missing("amount", " value")
                 amounts[a.get(EPD_MODULE)] = float(a.text)
             if "A1-A3" in amounts:
                 return amounts["A1-A3"]
@@ -87,7 +93,7 @@ def parse_dataset(process_xml: str, flow_xml: str) -> Dataset:
     if name is None:
         raise ValueError("no English name in the dataset")
     flow = ET.fromstring(flow_xml)
-    reference = flow.findtext("f:flowInformation/f:quantitativeReference/f:referenceToReferenceFlowProperty", namespaces=NS)
+    reference = _text(flow, "f:flowInformation/f:quantitativeReference/f:referenceToReferenceFlowProperty")
     per_unit: dict[str, float] = {}
     declared = "other"
     for prop in flow.iterfind("f:flowProperties/f:flowProperty", NS):
