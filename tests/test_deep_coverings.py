@@ -7,13 +7,13 @@ import pytest
 from scan_vs_bim.compare import _unit_normals
 from scan_vs_bim.load import load_ifc_elements
 
-ROOT = Path(__file__).parents[1]
-IFC = ROOT / "data" / "cras" / "craslabbim.ifc"
-ROOM_B = ROOT / "notebooks" / "01_cras_slice.json"
+ROOT: Path = Path(__file__).parents[1]
+IFC: Path = ROOT / "data" / "cras" / "craslabbim.ifc"
+ROOM_B: Path = ROOT / "notebooks" / "01_cras_slice.json"
 HELD_OUT: list[Path] = [ROOT / "notebooks" / "03c_tuning_slice.json", ROOT / "notebooks" / "03c_tuning_slice_room_a.json"]
-FORROS_1 = "33gtcvddH7cec8$WOT4fKs"
-SIDE_FACE = 0.99  # |n_z| <= this: a side face, not one of the two faces across z
-DEEP = 0.15  # m: the z-span of a side face above which a slab or covering counts as deep
+FORROS_1: str = "33gtcvddH7cec8$WOT4fKs"
+SIDE_FACE: float = 0.99  # |n_z| <= this: a side face, not one of the two faces across z
+DEEP: float = 0.15  # m: the z-span of a side face above which a slab or covering counts as deep
 
 
 def _slab_and_covering_guids(slice_json: Path) -> set[str]:
