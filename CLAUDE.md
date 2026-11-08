@@ -82,7 +82,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
                                           # the CRAS IFC and outputs/03a/*.csv from 03a; writes outputs/04a/)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3000 notebooks/05b_hand_check.ipynb
                                           # notebook 05b (20 random CRAS verdicts as close-ups + the overall Phase 0.5
-                                          # gate; ~3 min measured (188 s, 2026-11-03; the close-ups rebuild 03a's element patches over all 135 elements), peak RSS 1.7 GB; needs outputs/03a, outputs/03b (run 03a
+                                          # gate; ~4-6 min measured (340 s, 2026-11-08, on a loaded machine; 262 s on a quieter one; the close-ups rebuild 03a's element patches over all 135 elements and 03a's wall side test for the drawn walls), peak RSS 1.2-2.0 GB (1.2 GB in the 340 s run); needs outputs/03a, outputs/03b (run 03a
                                           # then 03b first; re-run both if either changes) and outputs/05a; writes
                                           # outputs/05b/ and, only if absent, notebooks/05b_hand_check.csv, whose
                                           # `judgement` column the author fills; re-run after filling)
