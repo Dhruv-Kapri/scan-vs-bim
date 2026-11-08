@@ -2,8 +2,9 @@ from typing import cast
 
 import numpy as np
 import open3d as o3d
+import pytest
 
-from scan_vs_bim.compare import aligned_faces, over_own_face
+from scan_vs_bim.compare import aligned_faces, face_coverage, over_own_face
 
 
 def box(x0: float, x1: float, y0: float, y1: float, z0: float, z1: float) -> tuple[np.ndarray, np.ndarray]:
@@ -92,3 +93,33 @@ def test_over_own_face_with_no_faces_keeps_no_point() -> None:
     # An element with no selected face has nothing to be over; no closest-point lookup on an empty scene.
     pts = np.array([[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]])
     assert not over_own_face(pts, np.zeros((0, 3)), np.zeros((0, 3), int)).any()
+
+
+def sample_face(x0: float, x1: float, z0: float, z1: float, y: float = 0.1, step: float = 0.01) -> np.ndarray:
+    """Points on the plane y = `y`, one every `step` metres over x `x0`..`x1`, z `z0`..`z1` (offset by half a step so none sits on a cell border)."""
+    x, z = np.meshgrid(np.arange(x0 + step / 2, x1, step), np.arange(z0 + step / 2, z1, step))
+    return np.column_stack([x.ravel(), np.full(x.size, y), z.ravel()])
+
+
+def test_a_fully_sampled_face_is_covered_and_half_the_points_cover_half() -> None:
+    assert face_coverage(sample_face(0, 4, 0, 3), V, OWN, axis=1, cell=0.05) == pytest.approx(1.0)
+    assert face_coverage(sample_face(0, 2, 0, 3), V, OWN, axis=1, cell=0.05) == pytest.approx(0.5)
+
+
+def test_points_beyond_the_faces_edge_do_not_count() -> None:
+    assert face_coverage(sample_face(4.1, 5, 0, 3), V, OWN, axis=1, cell=0.05) == 0.0
+    assert face_coverage(np.vstack([sample_face(0, 4, 0, 3), sample_face(4.1, 5, 0, 3)]), V, OWN, axis=1, cell=0.05) == pytest.approx(1.0)
+
+
+def test_a_partitions_two_faces_are_one_surface_not_two() -> None:
+    both = F[aligned_faces(V, F, axis=1)]  # y = 0 and y = 0.1: both project onto the same rectangle
+    assert face_coverage(sample_face(0, 4, 0, 3), V, both, axis=1, cell=0.05) == pytest.approx(1.0)
+
+
+def test_a_triangle_seen_edge_on_covers_nothing() -> None:
+    ends = F[aligned_faces(V, F, axis=0)]  # the wall's end faces, seen along y: lines, not areas
+    assert face_coverage(sample_face(0, 4, 0, 3), V, ends, axis=1, cell=0.05) == 0.0
+
+
+def test_no_points_cover_nothing() -> None:
+    assert face_coverage(np.zeros((0, 3)), V, OWN, axis=1, cell=0.05) == 0.0

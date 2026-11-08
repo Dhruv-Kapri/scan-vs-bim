@@ -102,7 +102,9 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   `exclude=`). `tests/run_notebook.py`: `run_notebook(path)`
   executes a notebook top to bottom for tests (nbclient; raises on any cell error).
 - `src/scan_vs_bim/compare.py`: `over_own_face(points, vertices, faces, margin)` (which scan points lie over an element's
-  own face; points past its edges do not) and `aligned_faces`: the geometry of the own-face patch in 03a/03b/03c (#20).
+  own face; points past its edges do not) and `aligned_faces`: the geometry of the own-face patch in 03a/03b/03c (#20);
+  `face_coverage(points, vertices, faces, axis, cell)`: share of an element's face covered by points, seen across its
+  thickness axis (03c section 8b, #30: tested as a rule for label-free shifted, rejected; the rule is unchanged).
 - `src/scan_vs_bim/oekobaudat.py`: reads one ÖKOBAUDAT process dataset + its reference-flow XML: UUID, version,
   English name, GWP-total A1-A3 per declared unit (A1-A3 combined, or A1+A2+A3 summed; EN 15804+A2 "GWP-total" and
   EF 3.1 "Climate change" method UUIDs), and kg/m3/m2 per declared unit from the flow properties. `Dataset.carbon()`
