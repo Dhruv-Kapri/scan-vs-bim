@@ -1,8 +1,8 @@
 n,global_id,ifc_class,name,verdict,judgement,note
 1,054HMVvnL1EOSZl$bniLeG,IfcColumn,M_Concrete-Rectangular-Column:150 x 350mm:1164179,not confirmed,not confirmed,
 2,2unE$VYSL2OPIL$6LYYccT,IfcCovering,Compound Ceiling:Forro de gesso:1428995,not confirmed,OK,
-3,2unE$VYSL2OPIL$6LYYdVk,IfcCovering,Compound Ceiling:Forro de gesso:1429616,not confirmed,not confirmed,
-4,33gtcvddH7cec8$WOT4fKs,IfcCovering,Forros 1:Forros 1:1537527,not confirmed,not confirmed,
+3,2unE$VYSL2OPIL$6LYYdVk,IfcCovering,Compound Ceiling:Forro de gesso:1429616,not confirmed,OK,re-judged on the whole-patch close-up (#25)
+4,33gtcvddH7cec8$WOT4fKs,IfcCovering,Forros 1:Forros 1:1537527,not confirmed,OK,re-judged on the whole-patch close-up (#25)
 5,0WU0DUvgT6tu4IXFc9kNX5,IfcDoor,Doors_Door-sets_Swedoor_JELD-WEN_Exterior_Steel_4210_GS1T_Unequal_Double_40:SDE30 - M15 (M10) x M20 - EI30:1044681,not confirmed,shifted,wide leaf no points (likely open); narrow leaf two parallel surfaces ~2 cm and ~6 cm off the model face
 6,1gsZ4XbYD0qRhfvwOUEI1z,IfcWallStandardCase,Basic Wall:(10cm) Drywall:961571,not confirmed,OK,
 7,1gsZ4XbYD0qRhfvwOUEIAE,IfcWallStandardCase,Basic Wall:(10cm) Drywall:962256,not confirmed,not confirmed,
