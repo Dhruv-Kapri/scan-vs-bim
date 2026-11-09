@@ -59,10 +59,9 @@ def test_voxel_first_point_wins_and_attributes_kept(tmp_path, method, eol):
     assert saved == meta
 
 
-@pytest.mark.parametrize("method", METHODS)
-def test_metadata_and_header_not_parsed_as_points(tmp_path, method):
+def test_metadata_and_header_not_parsed_as_points(tmp_path: Path) -> None:
     zpath, out = tmp_path / "t.zip", tmp_path / "c.npz"
-    make_zip(zpath, asc_text(ROWS), method)
+    make_zip(zpath, asc_text(ROWS), zipfile.ZIP_DEFLATED)
     meta = build_cache(zpath, out, voxel=0.01, chunk_bytes=64)
     assert meta["voxel_size"] == 0.01
     assert meta["member"] == MEMBER

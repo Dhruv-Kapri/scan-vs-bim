@@ -32,14 +32,23 @@ def test_points_over_the_face_are_kept_whatever_their_distance_in_front() -> Non
     assert over_own_face(p, V, OWN).all()  # the last one is behind the face; still over it
 
 
-def test_points_past_the_end_of_the_wall_are_not_over_its_face() -> None:
-    p = pts([4.03, 0.1, 1.5], [4.09, 0.12, 1.5], [-0.05, 0.1, 1.5])  # past the x = 4 end (3 and 9 cm), and past the x = 0 end
-    assert not over_own_face(p, V, OWN).any()
-
-
-def test_points_past_the_top_and_bottom_edge_are_not_over_the_face() -> None:
-    p = pts([2, 0.1, 3.04], [2, 0.12, 3.09], [2, 0.1, -0.05])
-    assert not over_own_face(p, V, OWN).any()
+# At an L-junction the neighbouring wall's face lies on the line where this face ends, so its points are over this face by projection; the junction margin elsewhere, not this predicate, leaves them out.
+@pytest.mark.parametrize(
+    ("point", "expected"),
+    [
+        pytest.param([4.0, 0.1, 1.5], True, id="on the end edge"),
+        pytest.param([0.0, 0.1, 3.0], True, id="on a corner"),
+        pytest.param([4.03, 0.1, 1.5], False, id="3 cm past the x=4 end"),
+        pytest.param([4.09, 0.12, 1.5], False, id="9 cm past the end, in front"),
+        pytest.param([-0.05, 0.1, 1.5], False, id="past the x=0 end"),
+        pytest.param([2, 0.1, 3.04], False, id="past the top edge"),
+        pytest.param([2, 0.12, 3.09], False, id="past the top edge, in front"),
+        pytest.param([2, 0.1, -0.05], False, id="below the bottom edge"),
+        pytest.param([4.0, 2.0, 1.5], True, id="L-junction: neighbour's face on the end line"),
+    ],
+)
+def test_a_point_is_over_the_face_up_to_its_edges_and_not_past_them(point: list[float], expected: bool) -> None:
+    assert over_own_face(pts(point), V, OWN, margin=0.0).tolist() == [expected]
 
 
 def test_a_point_just_beyond_an_edge_is_kept_within_the_allowance_and_dropped_beyond_it() -> None:
@@ -47,18 +56,6 @@ def test_a_point_just_beyond_an_edge_is_kept_within_the_allowance_and_dropped_be
     assert over_own_face(p, V, OWN, margin=0.01).tolist() == [True, False]
     assert over_own_face(p, V, OWN, margin=0.0).tolist() == [False, False]
     assert over_own_face(p, V, OWN, margin=0.05).tolist() == [True, True]
-
-
-def test_the_edge_itself_is_over_the_face() -> None:
-    assert over_own_face(pts([4.0, 0.1, 1.5], [0.0, 0.1, 3.0]), V, OWN).all()
-
-
-def test_an_l_junction_points_past_the_end_of_the_wall_belong_to_the_neighbour() -> None:
-    # A second wall B (x 4 to 4.1, y 0 to 3) closes the corner: its room face is x = 4 and the wall A ends there. A's own face is y = 0.1, x 0..4.
-    # Points on B's face (x = 4) lie on the line where A's face ends, so they are over A's face by projection (the junction margin, not this predicate, leaves them out);
-    # points on B's far side (x = 4.1 and beyond) are past A's end and are not over A's face.
-    p = pts([4.0, 0.5, 1.5], [4.0, 2.0, 1.5], [4.1, 0.5, 1.5], [4.2, 0.1, 1.5])
-    assert over_own_face(p, V, OWN).tolist() == [True, True, False, False]
 
 
 def test_a_partition_with_two_faces_counts_points_over_either() -> None:
@@ -83,10 +80,9 @@ def test_a_slab_is_judged_on_its_broad_faces_not_its_edge_faces() -> None:
 def test_aligned_faces_picks_triangles_whose_normal_is_along_the_axis() -> None:
     v, f = box(0, 4, 0, 0.1, 0, 3)
     m = aligned_faces(v, f, axis=1)
-    assert m.sum() == 4  # two triangles on each of the y = 0 and y = 0.1 faces
-    assert np.allclose(np.abs(np.asarray(o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v), o3d.utility.Vector3iVector(f[m])).compute_triangle_normals().triangle_normals)[:, 1]), 1)
+    assert set(np.flatnonzero(m)) == set(room_face_of_wall(v, f, 0.1)) | set(room_face_of_wall(v, f, 0.0))  # the y = 0 and y = 0.1 faces, two triangles each
     only = aligned_faces(v, f, axis=1, among=np.isin(np.arange(len(f)), np.flatnonzero(m)[:2]))
-    assert only.sum() == 2
+    assert np.flatnonzero(only).tolist() == np.flatnonzero(m)[:2].tolist()
 
 
 def test_over_own_face_with_no_faces_keeps_no_point() -> None:

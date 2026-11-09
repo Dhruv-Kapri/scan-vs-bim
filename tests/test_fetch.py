@@ -2,11 +2,14 @@ import io
 import logging
 import os
 import zipfile
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+import requests
 
+from scan_vs_bim import fetch
 from scan_vs_bim.fetch import data_start, extract_zip_member
 
 
@@ -31,17 +34,18 @@ def reader_for(blob, calls=None):
 
 
 @pytest.mark.parametrize("name", ["dir/deflated.bin", "dir/stored.bin"])
-def test_extract_roundtrip_chunked(tmp_path, name):
+def test_extract_roundtrip_chunked(tmp_path: Path, name: str) -> None:
     zpath = tmp_path / "t.zip"
     originals = make_zip(zpath)
     blob = zpath.read_bytes()
     info = zipfile.ZipFile(zpath).getinfo(name)
-    calls = []
+    calls: list[tuple[int, int]] = []
     dest = tmp_path / "out" / "x.bin"
     extract_zip_member(reader_for(blob, calls), info, dest, chunk_size=100)
     assert dest.read_bytes() == originals[name]
     assert not dest.with_name("x.bin.part").exists()
-    assert len(calls) > 3  # header + several chunks
+    assert max(e - s + 1 for s, e in calls) <= 100  # every ranged read, the 30-byte header included, honours chunk_size
+    assert len(calls) > 2  # the header and more than one data chunk
 
 
 def test_resume_from_part_file(tmp_path):
@@ -84,13 +88,17 @@ def test_corruption_fails_crc(tmp_path):
     assert not dest.exists()
 
 
-def test_retry_is_logged_on_the_fetch_logger(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-    # Notebook 05a counts retries from the records of the "scan_vs_bim.fetch" logger.
-    import requests
-
-    from scan_vs_bim import fetch
-
-    responses = iter([requests.ConnectionError("boom"), SimpleNamespace(status_code=206, content=b"abcd")])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(requests.ConnectionError("boom"), id="connection error"),
+        pytest.param(SimpleNamespace(status_code=504, content=b"504!"), id="HTTP 504"),  # a body of the asked length: only the status can reject it
+        pytest.param(SimpleNamespace(status_code=206, content=b"ab"), id="short read"),
+    ],
+)
+def test_a_failed_range_read_is_retried_and_logged_on_the_fetch_logger(failure: Any, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    # Zenodo returns 504s and short reads. Notebook 05a counts retries from the records of the "scan_vs_bim.fetch" logger.
+    responses = iter([failure, SimpleNamespace(status_code=206, content=b"abcd")])
 
     def get(*args: Any, **kwargs: Any) -> Any:
         r = next(responses)

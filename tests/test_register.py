@@ -1,11 +1,12 @@
 from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import open3d as o3d
 import pytest
 
 from scan_vs_bim.pc2model import scale_of
-from scan_vs_bim.register import FINE_FLOOR_M, refine_icp, refine_plan, voxel_schedule
+from scan_vs_bim.register import refine_icp, refine_plan, voxel_schedule
 
 # Gate thresholds (docs/roadmap.md) are 2 deg, 5 cm, 1 %; these tests ask for clearly tighter.
 ROT_DEG: float = 0.3
@@ -100,14 +101,18 @@ def test_voxel_schedule_halves_down_to_the_floor() -> None:
     assert voxel_schedule(0.04, 0.05) == []   # already finer than the floor: no stage
 
 
-def test_refine_plan_scale_stages_only_on_scaled_samples() -> None:
-    plain, scaled = refine_plan(0.4, scaled=False), refine_plan(0.4, scaled=True)
-    assert plain["scale_voxels"] == [] and plain["rigid_voxels"][-1] == FINE_FLOOR_M
-    assert len(scaled["scale_voxels"]) == 2 and scaled["rigid_voxels"][-1] == FINE_FLOOR_M
-    assert scaled["scale_voxels"][-1] == scaled["rigid_voxels"][0]   # rigid stages continue from where the scale stages stop
+@pytest.mark.parametrize(
+    ("kwargs", "scale_voxels", "rigid_voxels"),
+    [
+        pytest.param({"scaled": False, "floor": 0.025}, [], [0.2, 0.1, 0.05, 0.025], id="unscaled"),
+        # the defaults are the plan 05c chose and 05a runs (two scale stages, floor 2.5 cm): literals on purpose, so changing them fails here
+        pytest.param({"scaled": True}, [0.2, 0.1], [0.1, 0.05, 0.025], id="scaled, defaults: rigid continues from the last scale voxel"),
+        pytest.param({"scaled": True, "n_scale": 0, "floor": 0.025}, [], [0.2, 0.1, 0.05, 0.025], id="05c candidate R: no scale stages"),
+        pytest.param({"scaled": True, "n_scale": 99, "floor": 0.05}, [0.2, 0.1, 0.05], [0.05], id="05c candidate S: scale at every stage"),
+    ],
+)
+def test_refine_plan_scale_stages_then_rigid_stages_down_to_the_floor(kwargs: dict[str, Any], scale_voxels: list[float], rigid_voxels: list[float]) -> None:
+    plan = refine_plan(0.4, **kwargs)
+    assert plan["scale_voxels"] == pytest.approx(scale_voxels)
+    assert plan["rigid_voxels"] == pytest.approx(rigid_voxels)
 
-
-def test_refine_plan_variants() -> None:
-    assert refine_plan(0.4, scaled=True, n_scale=0)["scale_voxels"] == []
-    every = refine_plan(0.4, scaled=True, n_scale=99, floor=0.05)   # scale stages at every voxel, one rigid stage at the floor
-    assert every["scale_voxels"] == pytest.approx([0.2, 0.1, 0.05]) and every["rigid_voxels"] == pytest.approx([0.05])
