@@ -3,7 +3,7 @@ import pytest
 
 from scan_vs_bim.ramp import block_resamples, plane_gradient
 
-RNG = np.random.default_rng(0)
+RNG: np.random.Generator = np.random.default_rng(0)
 
 
 def test_a_known_plane_with_different_offset_per_group_is_recovered() -> None:
