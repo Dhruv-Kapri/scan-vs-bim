@@ -4,7 +4,7 @@ The [roadmap](roadmap.md) fixed a gate before notebook 05 ran, allowed one week 
 said to write the result up if it still failed. It did. This page records the gate, what the tuning changed,
 why the rest still fails, and what that means for later phases. Issue:
 [#21](https://github.com/Dhruv-Kapri/scan-vs-bim/issues/21). Numbers come from the committed notebook outputs
-on `stage-0.5` (checked at a523be2); each is tagged with its notebook or issue. Terms are those of
+at commit a523be2 (end of Phase 0.5); each is tagged with its notebook or issue. Terms are those of
 [CONTEXT.md](../CONTEXT.md). *Room B* is the CRAS room the gate scores; the *held-out rooms* (room A and the
 west hall, [03c](../notebooks/03c_tuning_room.ipynb)) are the two rooms #20 tuned on instead. The *own-face
 patch* (#20) counts a point only if it lies over its element's own face; the *proxy* is 03c's stand-in for
@@ -55,7 +55,7 @@ The tuning week is [#20](https://github.com/Dhruv-Kapri/scan-vs-bim/issues/20). 
 code that moves a number below; #25 re-judged two hand-check rows, and the rest are diagnoses or small fixes
 with no verdict change.
 
-| Criterion | Threshold | First gate run, after #17 and #18 (#14, #15; 05b at a18aa3b) | After #23, before #20's re-run of 05a | Now (stage-0.5; 05a, 03b, 05b) |
+| Criterion | Threshold | First gate run, after #17 and #18 (#14, #15; 05b at a18aa3b) | After #23, before #20's re-run of 05a | Now (a523be2; 05a, 03b, 05b) |
 | --- | --- | --- | --- | --- |
 | Registration | ≥ 6 of 9 | 4 of 9, FAIL | 4 of 9, FAIL | **7 of 9, PASS** |
 | Perturbed model, changes beyond tolerance right (no labels) | all | 3 of 5, FAIL | 3 of 5, FAIL | 3 of 5, **FAIL** |
