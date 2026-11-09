@@ -112,3 +112,40 @@ def test_dataset_without_an_english_name_is_an_error() -> None:
     xml = process(results=[(GWP_TOTAL_A2, {"A1-A3": 1})]).replace('<baseName xml:lang="en">Test material</baseName>', "")
     with pytest.raises(ValueError, match="English name"):
         parse_dataset(xml, flow(MASS, {MASS: 1}))
+
+
+@pytest.mark.parametrize(
+    ("in_flow_xml", "old", "new", "tag"),
+    [
+        (False, "<common:UUID>p-1</common:UUID>", "", "<UUID>"),
+        (False, "<common:UUID>p-1</common:UUID>", "<common:UUID> </common:UUID>", "<UUID>"),  # present but empty
+        (False, f'<referenceToLCIAMethodDataSet refObjectId="{GWP_TOTAL_A2}"/>', "", "<referenceToLCIAMethodDataSet>"),
+        (False, '<epd:amount epd:module="A1-A3">4</epd:amount>', '<epd:amount epd:module="A1-A3"></epd:amount>', "<amount>"),
+        (True, f'<referenceToFlowPropertyDataSet refObjectId="{MASS}"/>', "", "<referenceToFlowPropertyDataSet>"),
+        (True, "<meanValue>1</meanValue>", "", "<meanValue>"),
+        (True, "<referenceToReferenceFlowProperty>0</referenceToReferenceFlowProperty>", "", "<referenceToReferenceFlowProperty>"),
+    ],
+)
+def test_a_missing_required_tag_is_a_value_error_naming_it(in_flow_xml: bool, old: str, new: str, tag: str) -> None:
+    p, f = process(results=[(GWP_TOTAL_A2, {"A1-A3": 4})]), flow(MASS, {MASS: 1})
+    assert old in (f if in_flow_xml else p)
+    if in_flow_xml:
+        f = f.replace(old, new)
+    else:
+        p = p.replace(old, new)
+    with pytest.raises(ValueError, match=tag):
+        parse_dataset(p, f)
+
+
+@pytest.mark.parametrize(
+    ("old", "tag"),
+    [
+        ('<referenceToFlowDataSet refObjectId="f-1"/>', "<referenceToFlowDataSet>"),
+        ("<referenceToReferenceFlow>7</referenceToReferenceFlow>", "<referenceToReferenceFlow>"),
+    ],
+)
+def test_a_missing_reference_flow_tag_is_a_value_error_naming_it(old: str, tag: str) -> None:
+    xml = process()
+    assert old in xml
+    with pytest.raises(ValueError, match=tag):
+        reference_flow_uuid(xml.replace(old, ""))

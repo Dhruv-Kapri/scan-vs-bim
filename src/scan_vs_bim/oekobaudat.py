@@ -42,19 +42,44 @@ class Dataset:
         return None
 
 
+def _required(value: str | None, tag: str) -> str:
+    """The value, or a ValueError naming the tag if it is missing or blank."""
+    if value is None or not value.strip():
+        raise ValueError(f"required <{tag}> missing or empty in the dataset")
+    return value
+
+
+def _tag(path: str) -> str:
+    """The last tag of an ElementTree path, without its namespace prefix."""
+    return path.rsplit("/", 1)[-1].split(":")[-1]
+
+
+def _text(parent: ET.Element, path: str) -> str:
+    """The text of the element at path; ValueError naming its tag if absent or blank."""
+    return _required(parent.findtext(path, namespaces=NS), _tag(path))
+
+
+def _ref(parent: ET.Element, path: str) -> str:
+    """The refObjectId of the reference element at path; ValueError naming its tag if absent or blank."""
+    element = parent.find(path, NS)
+    return _required(None if element is None else element.get("refObjectId"), _tag(path))
+
+
 def reference_flow_uuid(process_xml: str) -> str:
     root = ET.fromstring(process_xml)
-    internal_id = root.findtext("p:processInformation/p:quantitativeReference/p:referenceToReferenceFlow", namespaces=NS)
+    internal_id = _text(root, "p:processInformation/p:quantitativeReference/p:referenceToReferenceFlow")
     for exchange in root.iterfind("p:exchanges/p:exchange", NS):
         if exchange.get("dataSetInternalID") == internal_id:
-            return exchange.find("p:referenceToFlowDataSet", NS).get("refObjectId")
+            return _ref(exchange, "p:referenceToFlowDataSet")
     raise ValueError(f"reference flow {internal_id} not among the exchanges")
 
 
 def _gwp_total_a1_a3(root: ET.Element) -> float:
     for result in root.iterfind("p:LCIAResults/p:LCIAResult", NS):
-        if result.find("p:referenceToLCIAMethodDataSet", NS).get("refObjectId") in GWP_TOTAL_METHODS:
-            amounts = {a.get(EPD_MODULE): float(a.text) for a in result.iter("{%s}amount" % NS["e"])}
+        if _ref(result, "p:referenceToLCIAMethodDataSet") in GWP_TOTAL_METHODS:
+            amounts: dict[str | None, float] = {}
+            for a in result.iter("{%s}amount" % NS["e"]):
+                amounts[a.get(EPD_MODULE)] = float(_required(a.text, "amount"))
             if "A1-A3" in amounts:
                 return amounts["A1-A3"]
             if {"A1", "A2", "A3"} <= amounts.keys():
@@ -68,17 +93,18 @@ def parse_dataset(process_xml: str, flow_xml: str) -> Dataset:
     if name is None:
         raise ValueError("no English name in the dataset")
     flow = ET.fromstring(flow_xml)
-    reference = flow.findtext("f:flowInformation/f:quantitativeReference/f:referenceToReferenceFlowProperty", namespaces=NS)
-    per_unit, declared = {}, "other"
+    reference = _text(flow, "f:flowInformation/f:quantitativeReference/f:referenceToReferenceFlowProperty")
+    per_unit: dict[str, float] = {}
+    declared = "other"
     for prop in flow.iterfind("f:flowProperties/f:flowProperty", NS):
-        unit = UNIT_OF_PROPERTY.get(prop.find("f:referenceToFlowPropertyDataSet", NS).get("refObjectId"))
+        unit = UNIT_OF_PROPERTY.get(_ref(prop, "f:referenceToFlowPropertyDataSet"))
         if unit:
-            per_unit[unit] = float(prop.findtext("f:meanValue", namespaces=NS))
+            per_unit[unit] = float(_text(prop, "f:meanValue"))
         if prop.get("dataSetInternalID") == reference:
             declared = unit or "other"
     return Dataset(
-        uuid=root.findtext("p:processInformation/p:dataSetInformation/c:UUID", namespaces=NS),
-        version=root.findtext("p:administrativeInformation/p:publicationAndOwnership/c:dataSetVersion", namespaces=NS),
+        uuid=_text(root, "p:processInformation/p:dataSetInformation/c:UUID"),
+        version=_text(root, "p:administrativeInformation/p:publicationAndOwnership/c:dataSetVersion"),
         name=name,
         declared_unit=declared,
         gwp_a1_a3=_gwp_total_a1_a3(root),

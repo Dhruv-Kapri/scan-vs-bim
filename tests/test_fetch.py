@@ -57,7 +57,7 @@ def test_resume_from_part_file(tmp_path):
     # Pre-seed a partial download: first 120 compressed bytes.
     start = data_start(reader_for(blob), info)
     dest.with_name("x.bin.part").write_bytes(blob[start : start + 120])
-    calls = []
+    calls: list[tuple[int, int]] = []
     extract_zip_member(reader_for(blob, calls), info, dest, chunk_size=100)
     assert dest.read_bytes() == originals["dir/deflated.bin"]
     assert min(s for s, _ in calls[1:]) >= start + 120
