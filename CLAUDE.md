@@ -77,6 +77,12 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # diagnosis, the own-face patch, known answers; ~15 and ~10 min, peak RSS 1.7 GB; write
                                           # outputs/03c/ and outputs/03c_room_a/). SLICE_JSON=01_cras_slice.json runs one on room B
                                           # instead (tests/test_notebook_03c.py uses that to check the copy against outputs/03a)
+uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03d_floor_ramp.ipynb
+                                          # notebook 03d (why the scan floor ramps 0.084 degrees against the flat model floor, #26; room
+                                          # height = ceiling minus floor per 1 m cell, one plane with block-bootstrap intervals, residual
+                                          # correlation, wall lean, a synthetic known-answer room; a diagnosis, no verdict or rule changes;
+                                          # ~30-110 s measured on a shared machine (2026-11-09), peak RSS 0.6-1.4 GB; needs the CRAS cache, the CRAS
+                                          # IFC and outputs/03a/frame.json (run 03a first); writes outputs/03d/ incl. summary.json)
 uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
   notebooks/04a_report.ipynb              # notebook 04a (03a's no-labels verdicts as a ScanVsBim_Verdict pset in an IFC
                                           # copy, plus a BCF 2.1 file with one issue per non-OK element; ~15 s (13 s), peak RSS 0.6 GB; needs
@@ -105,6 +111,9 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   own face; points past its edges do not) and `aligned_faces`: the geometry of the own-face patch in 03a/03b/03c (#20);
   `face_coverage(points, vertices, faces, axis, cell)`: share of an element's face covered by points, seen across its
   thickness axis (03c section 8b, #30: tested as a rule for label-free shifted, rejected; the rule is unchanged).
+- `src/scan_vs_bim/ramp.py`: `plane_gradient(x, y, values, groups)` (least-squares plane, one intercept per group and one shared
+  (gx, gy), with residuals; refuses positions on a line) and `block_resamples` (seeded bootstrap of whole square blocks of cells):
+  the seam of notebook 03d (#26).
 - `src/scan_vs_bim/oekobaudat.py`: reads one ÖKOBAUDAT process dataset + its reference-flow XML: UUID, version,
   English name, GWP-total A1-A3 per declared unit (A1-A3 combined, or A1+A2+A3 summed; EN 15804+A2 "GWP-total" and
   EF 3.1 "Climate change" method UUIDs), and kg/m3/m2 per declared unit from the flow properties. `Dataset.carbon()`
