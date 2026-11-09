@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Phase 0 (setup) done. The repo holds the plan (`README.md`), the phased plan with "done when" criteria
-(`docs/roadmap.md`), the dataset survey (`docs/data-sources.md`) and the research framing
-(`docs/research-outline.md`). Read the roadmap before starting any work; record new commands here.
+Phases 0 (setup) and 0.5 (explore, notebooks `00`-`05`) done. The 0.5 gate failed after the tuning week and
+is written up as a negative result (`docs/phase-0.5-negative-result.md`). The repo holds the plan (`README.md`),
+the phased plan with "done when" criteria (`docs/roadmap.md`), the dataset survey (`docs/data-sources.md`) and
+the research framing (`docs/research-outline.md`). Read the roadmap before starting any work; record new commands here.
 
 ## Commands
 
