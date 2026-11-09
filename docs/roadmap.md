@@ -80,6 +80,8 @@ Terms (verdict, element, clutter, perturbed model, ...) are defined in [CONTEXT.
 - **If 05 fails:** at most one week of tuning inside 0.5. If it still fails, write it up as a negative
   result and continue; it motivates the learned registration under Later.
 - **Done when:** 00-05 run top to bottom and 05 meets the gate (or the negative result is written up).
+  The gate failed after the tuning week (registration 7 of 9, perturbed model and hand check fail); the
+  negative result is written up in [phase-0.5-negative-result.md](phase-0.5-negative-result.md).
 
 ## 1. Align (weeks 2-3)
 
