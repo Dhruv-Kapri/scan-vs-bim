@@ -36,24 +36,22 @@ def reader_for(blob):
     return lambda start, end: blob[start : end + 1]
 
 
-def test_parse_transform_reads_a_4x4():
+def test_parse_transform_reads_a_4x4() -> None:
     T = parse_transform(matrix_text(1.0))
-    assert T.shape == (4, 4) and T.dtype == np.float64
-    assert T[0, 3] == pytest.approx(215.8)
+    expected = np.eye(4)
+    expected[:3, 3] = [215.8, -213.6, 492.5]
+    assert T.dtype == np.float64
+    np.testing.assert_allclose(T, expected)
 
 
-def test_parse_transform_wrong_shape():
-    with pytest.raises(ValueError):
+def test_parse_transform_wrong_shape() -> None:
+    with pytest.raises(ValueError, match="4x4"):
         parse_transform("1 0 0\n0 1 0\n0 0 1\n")
 
 
-def test_scale_of_returns_s_for_scaled_rotation():
-    T = parse_transform(matrix_text(0.8))
-    assert scale_of(T) == pytest.approx(0.8)
-
-
-def test_rotation_alone_is_scale_one():
-    assert scale_of(parse_transform(matrix_text(1.0, rotate=True))) == pytest.approx(1.0)
+@pytest.mark.parametrize(("scale", "rotate"), [(0.8, True), (1.3, False), (1.0, True)])
+def test_scale_of_is_the_uniform_scale_whatever_the_rotation(scale: float, rotate: bool) -> None:
+    assert scale_of(parse_transform(matrix_text(scale, rotate))) == pytest.approx(scale)
 
 
 def test_group_samples_finds_each_transform_and_skips_dirs():

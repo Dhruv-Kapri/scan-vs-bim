@@ -66,18 +66,18 @@ def test_ifc_exclude_override(ifc_path):
     assert "IfcSpace" in {e.ifc_class for e in load_ifc_elements(path, exclude=())}
 
 
-def test_ifc_only_guids_with_exclude_raises(ifc_path):
+def test_ifc_only_guids_with_exclude_raises(ifc_path: tuple[Path, dict[str, str]]) -> None:
     path, expected = ifc_path
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="only_guids"):
         load_ifc_elements(path, only_guids=list(expected)[:1], exclude=("IfcSpace",))
 
 
-def test_ifc_no_geometry_raises(tmp_path):
+def test_ifc_no_geometry_raises(tmp_path: Path) -> None:
     f = ifcopenshell.api.run("project.create_file")
     ifcopenshell.api.run("root.create_entity", f, ifc_class="IfcProject", name="p")
     path = tmp_path / "empty.ifc"
     f.write(str(path))
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="no tessellated geometry"):
         load_ifc_elements(path)
 
 

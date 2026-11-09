@@ -177,15 +177,11 @@ def test_perturbed_without_changes_beyond_tolerance_raises_not_passes_vacuously(
         perturbed_result(rows)
 
 
-def test_perturbed_unknown_change_raises_naming_it():
-    with pytest.raises(ValueError, match="'rotated'"):
-        perturbed_result([score_row("a", "rotated", "shifted", "shifted")])
-
-
-def test_perturbed_old_not_built_change_raises() -> None:
-    # renamed to "deleted" (CONTEXT.md); scores from a 03b run before the rename must fail loudly, not be read
-    with pytest.raises(ValueError, match="'not_built'"):
-        perturbed_result([score_row("a", "not_built", "not confirmed", "not confirmed")])
+# "not_built" was renamed to "deleted" (CONTEXT.md); scores from a 03b run before the rename must fail loudly, not be read
+@pytest.mark.parametrize("change", [pytest.param("rotated", id="unknown"), pytest.param("not_built", id="pre-rename not_built")])
+def test_perturbed_unknown_change_raises_naming_it(change: str) -> None:
+    with pytest.raises(ValueError, match=f"'{change}'"):
+        perturbed_result([score_row("a", change, "shifted", "shifted")])
 
 
 def test_perturbed_changed_row_without_a_verdict_as_expected_raises():
