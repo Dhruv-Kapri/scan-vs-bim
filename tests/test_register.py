@@ -105,7 +105,8 @@ def test_voxel_schedule_halves_down_to_the_floor() -> None:
     ("kwargs", "scale_voxels", "rigid_voxels"),
     [
         pytest.param({"scaled": False, "floor": 0.025}, [], [0.2, 0.1, 0.05, 0.025], id="unscaled"),
-        pytest.param({"scaled": True, "floor": 0.025}, [0.2, 0.1], [0.1, 0.05, 0.025], id="scaled, default n_scale: rigid continues from the last scale voxel"),
+        # the defaults are the plan 05c chose and 05a runs (two scale stages, floor 2.5 cm): literals on purpose, so changing them fails here
+        pytest.param({"scaled": True}, [0.2, 0.1], [0.1, 0.05, 0.025], id="scaled, defaults: rigid continues from the last scale voxel"),
         pytest.param({"scaled": True, "n_scale": 0, "floor": 0.025}, [], [0.2, 0.1, 0.05, 0.025], id="05c candidate R: no scale stages"),
         pytest.param({"scaled": True, "n_scale": 99, "floor": 0.05}, [0.2, 0.1, 0.05], [0.05], id="05c candidate S: scale at every stage"),
     ],
@@ -115,6 +116,3 @@ def test_refine_plan_scale_stages_then_rigid_stages_down_to_the_floor(kwargs: di
     assert plan["scale_voxels"] == pytest.approx(scale_voxels)
     assert plan["rigid_voxels"] == pytest.approx(rigid_voxels)
 
-
-def test_refine_plan_defaults_are_the_05c_choice() -> None:
-    assert refine_plan(0.4, scaled=True) == refine_plan(0.4, scaled=True, n_scale=2, floor=0.025)
