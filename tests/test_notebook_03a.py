@@ -48,6 +48,7 @@ def test_notebook_03a_writes_per_element_verdicts(tmp_path):
         assert all(int(r["point_count"]) > 0 for r in rows if r["reason"] == "too few points")
         assert {r["reason"] for r in rows if r["point_count"] == "0"} <= {"no points"}
     assert (out / "verdicts_top_down.png").stat().st_size > 0
+    assert (out / "fold_walls_plan.png").stat().st_size > 0  # the issue #27 plan view of the two partitions
 
     # #23: the scope taken from the strict box and from the padded box (frozen frame) gives the same verdict for every one of the 35 elements, in both variants
     with open(out / "crop_check.csv", newline="") as f:
