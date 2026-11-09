@@ -42,25 +42,25 @@ class Dataset:
         return None
 
 
-def _missing(path: str, what: str = "") -> ValueError:
-    """The error for a required tag that is absent or empty, named without its namespace prefix: "<UUID>"."""
-    tag = path.rsplit("/", 1)[-1].split(":")[-1]
-    return ValueError(f"missing <{tag}>{what} in the dataset")
+def _tag(path: str) -> str:
+    """The last tag of a path, without its namespace prefix: "p:a/c:UUID" -> "UUID"."""
+    return path.rsplit("/", 1)[-1].split(":")[-1]
+
+
+def _required(value: str | None, tag: str, what: str = "") -> str:
+    """value, or a ValueError naming <tag> if it is absent or blank."""
+    if value is None or not value.strip():
+        raise ValueError(f"missing <{tag}>{what} in the dataset")
+    return value
 
 
 def _text(el: ET.Element, path: str) -> str:
-    text = el.findtext(path, namespaces=NS)
-    if text is None or not text.strip():
-        raise _missing(path)
-    return text
+    return _required(el.findtext(path, namespaces=NS), _tag(path))
 
 
 def _ref(el: ET.Element, path: str) -> str:
     ref = el.find(path, NS)
-    value = None if ref is None else ref.get("refObjectId")
-    if not value:
-        raise _missing(path, " refObjectId")
-    return value
+    return _required(None if ref is None else ref.get("refObjectId"), _tag(path), " refObjectId")
 
 
 def reference_flow_uuid(process_xml: str) -> str:
@@ -77,9 +77,7 @@ def _gwp_total_a1_a3(root: ET.Element) -> float:
         if _ref(result, "p:referenceToLCIAMethodDataSet") in GWP_TOTAL_METHODS:
             amounts: dict[str | None, float] = {}
             for a in result.iter("{%s}amount" % NS["e"]):
-                if a.text is None or not a.text.strip():
-                    raise _missing("amount", " value")
-                amounts[a.get(EPD_MODULE)] = float(a.text)
+                amounts[a.get(EPD_MODULE)] = float(_required(a.text, "amount", " value"))
             if "A1-A3" in amounts:
                 return amounts["A1-A3"]
             if {"A1", "A2", "A3"} <= amounts.keys():
