@@ -42,25 +42,27 @@ class Dataset:
         return None
 
 
-def _tag(path: str) -> str:
-    """The last tag of a path, without its namespace prefix: "p:a/c:UUID" -> "UUID"."""
-    return path.rsplit("/", 1)[-1].split(":")[-1]
-
-
-def _required(value: str | None, tag: str, what: str = "") -> str:
-    """value, or a ValueError naming <tag> if it is absent or blank."""
+def _required(value: str | None, tag: str) -> str:
+    """The value, or a ValueError naming the tag if it is missing or blank."""
     if value is None or not value.strip():
-        raise ValueError(f"missing <{tag}>{what} in the dataset")
+        raise ValueError(f"required <{tag}> missing or empty in the dataset")
     return value
 
 
-def _text(el: ET.Element, path: str) -> str:
-    return _required(el.findtext(path, namespaces=NS), _tag(path))
+def _tag(path: str) -> str:
+    """The last tag of an ElementTree path, without its namespace prefix."""
+    return path.rsplit("/", 1)[-1].split(":")[-1]
 
 
-def _ref(el: ET.Element, path: str) -> str:
-    ref = el.find(path, NS)
-    return _required(None if ref is None else ref.get("refObjectId"), _tag(path), " refObjectId")
+def _text(parent: ET.Element, path: str) -> str:
+    """The text of the element at path; ValueError naming its tag if absent or blank."""
+    return _required(parent.findtext(path, namespaces=NS), _tag(path))
+
+
+def _ref(parent: ET.Element, path: str) -> str:
+    """The refObjectId of the reference element at path; ValueError naming its tag if absent or blank."""
+    element = parent.find(path, NS)
+    return _required(None if element is None else element.get("refObjectId"), _tag(path))
 
 
 def reference_flow_uuid(process_xml: str) -> str:
@@ -77,7 +79,7 @@ def _gwp_total_a1_a3(root: ET.Element) -> float:
         if _ref(result, "p:referenceToLCIAMethodDataSet") in GWP_TOTAL_METHODS:
             amounts: dict[str | None, float] = {}
             for a in result.iter("{%s}amount" % NS["e"]):
-                amounts[a.get(EPD_MODULE)] = float(_required(a.text, "amount", " value"))
+                amounts[a.get(EPD_MODULE)] = float(_required(a.text, "amount"))
             if "A1-A3" in amounts:
                 return amounts["A1-A3"]
             if {"A1", "A2", "A3"} <= amounts.keys():
