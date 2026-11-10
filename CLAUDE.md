@@ -37,6 +37,16 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
 uv run python scripts/fetch_tuning_samples.py # the 3 held-out PC2Model samples for 05c (house_6, indoor_modelling_5-GM,
                                           # real-indoor_modelling_5-GM; ~700 MB, no gate sample or gate building; resumable,
                                           # idempotent; ~1-2 h at Zenodo speeds, run it detached)
+uv run python scripts/fetch_all_samples.py  # all 137 PC2Model samples listed in outputs/pc2model_scales.csv (run
+                                          # find_scaled_sample.py --no-fetch first) into data/pc2model/<sample>/: the 37
+                                          # building samples first, then the 100 object samples (#36). Resumable (.part files)
+                                          # and idempotent (CRC-checked files are skipped; a re-run with all on disk takes 2 s).
+                                          # Measured 2026-11-10 with 13 samples already on disk: 5.7 h (20,622 s), 6 retried
+                                          # ranges, peak RSS 74 MB; data/pc2model grew 2.2 -> 12.0 GiB (extracted sizes exceed
+                                          # the ~8.9 GB compressed). One member failing all its retries stops the job: re-run it.
+                                          # Run it detached:
+                                          # `mkdir -p outputs/jobs; nohup sh -c 'uv run python scripts/fetch_all_samples.py; echo "exit=$?" > outputs/jobs/fetch-all.status' > outputs/jobs/fetch-all.log 2>&1 &`
+                                          # then poll `grep -c '^done' outputs/jobs/fetch-all.log` and the `.status` file.
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05c_registration_tuning.ipynb
                                           # notebook 05c (tunes 05a's registration refinement on held-out PC2Model samples:
                                           # fur_010, house_6, indoor_modelling_5-GM, real-indoor_modelling_5-GM and a
