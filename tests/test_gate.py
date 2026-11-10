@@ -1,6 +1,7 @@
 import csv
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -9,20 +10,20 @@ from scan_vs_bim.gate import combine, hand_check_result as _hand_check_result, p
 COLUMNS = ["n", "global_id", "ifc_class", "name", "verdict", "judgement", "note"]
 
 
-def hand_rows(verdicts: Sequence[str], judgements: Sequence[str]) -> list[dict]:
+def hand_rows(verdicts: Sequence[str], judgements: Sequence[str]) -> list[dict[str, str | int]]:
     return [dict(n=i + 1, global_id=f"g{i}", ifc_class="IfcWall", name=f"w{i}", verdict=v, judgement=j, note="")
             for i, (v, j) in enumerate(zip(verdicts, judgements))]
 
 
-def hand_check_result(rows: list[dict], n_required: int = 20, min_share: float = 0.8) -> dict:
+def hand_check_result(rows: list[dict[str, str | int]], n_required: int = 20, min_share: float = 0.8) -> dict[str, Any]:
     return _hand_check_result(rows, n_required=n_required, min_share=min_share)
 
 
-def perturbed_result(rows: list[dict], max_false_share: float = 0.10) -> dict:
+def perturbed_result(rows: list[dict[str, str]], max_false_share: float = 0.10) -> dict[str, Any]:
     return _perturbed_result(rows, max_false_share=max_false_share)
 
 
-def write_csv(path: Path, rows: list[dict]) -> None:
+def write_csv(path: Path, rows: list[dict[str, str | int]]) -> None:
     with open(path, "w", newline="") as f:
         w = csv.DictWriter(f, COLUMNS)
         w.writeheader()
