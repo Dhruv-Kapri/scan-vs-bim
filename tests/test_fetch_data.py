@@ -57,7 +57,7 @@ class _Stop(Exception):
     pass
 
 
-@pytest.mark.parametrize("script", ["fetch_tuning_samples.py", "make_tuning_slice.py"])
+@pytest.mark.parametrize("script", ["fetch_tuning_samples.py", "fetch_all_samples.py", "make_tuning_slice.py"])
 def test_scripts_log_at_info_like_fetch_data(script: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """Library code logs through `logging` (#16); a script must configure INFO or its progress lines are silent."""
     configured: dict[str, object] = {}

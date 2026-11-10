@@ -1,12 +1,13 @@
 import io
 import os
 import zipfile
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from scan_vs_bim.fetch import data_start
-from scan_vs_bim.pc2model import Sample, group_samples, parse_transform, pick_gate_samples, pick_smallest_scaled, read_member, scale_of
+from scan_vs_bim.pc2model import Sample, download_order, fetch_samples, group_samples, parse_transform, pick_gate_samples, pick_smallest_scaled, read_member, scale_of
 
 
 def matrix_text(scale=1.0, rotate=False):
@@ -174,3 +175,63 @@ def test_pick_gate_samples_raises_when_a_category_cannot_give_three(spec, messag
     samples, scales = fake_samples(spec)
     with pytest.raises(ValueError, match=message):
         pick_gate_samples(samples, scales, categories=["cat"])
+
+
+def test_download_order_puts_buildings_first_and_keeps_input_order() -> None:
+    rows = [
+        {"sample": "Z/furniture/chair", "category": "furniture"},
+        {"sample": "Z/house/h1", "category": "house"},
+        {"sample": "Z/vehicle/car", "category": "vehicle"},
+        {"sample": "Z/ISPRS_indoor_modeling_benchmark/i1", "category": "ISPRS_indoor_modeling_benchmark"},
+        {"sample": "Z/indoor_modelling/m1", "category": "indoor_modelling"},
+        {"sample": "Z/house/h2", "category": "house"},
+        {"sample": "Z/furniture/desk", "category": "furniture"},
+    ]
+    assert download_order(rows) == [
+        "Z/house/h1",
+        "Z/ISPRS_indoor_modeling_benchmark/i1",
+        "Z/indoor_modelling/m1",
+        "Z/house/h2",
+        "Z/furniture/chair",
+        "Z/vehicle/car",
+        "Z/furniture/desk",
+    ]
+
+
+def _two_sample_zip() -> tuple[bytes, list[zipfile.ZipInfo], dict[str, bytes]]:
+    files = {
+        "Z/house/a/scan.txt": os.urandom(500),
+        "Z/house/a/transformation_matrix.txt": b"1 0 0 0\n",
+        "Z/furniture/b/scan.txt": os.urandom(700),
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("Z/house/a/", b"")
+        for name, data in files.items():
+            z.writestr(name, data)
+    return buf.getvalue(), zipfile.ZipFile(io.BytesIO(buf.getvalue())).infolist(), files
+
+
+def test_fetch_samples_extracts_in_order_then_skips_complete_files(tmp_path: Path) -> None:
+    blob, infos, files = _two_sample_zip()
+    calls: list[tuple[int, int]] = []
+
+    def read_range(start: int, end: int) -> bytes:
+        calls.append((start, end))
+        return blob[start : end + 1]
+
+    fetch_samples(read_range, infos, ["Z/furniture/b", "Z/house/a"], tmp_path)
+    assert (tmp_path / "b" / "scan.txt").read_bytes() == files["Z/furniture/b/scan.txt"]
+    assert (tmp_path / "a" / "scan.txt").read_bytes() == files["Z/house/a/scan.txt"]
+    assert (tmp_path / "a" / "transformation_matrix.txt").read_bytes() == files["Z/house/a/transformation_matrix.txt"]
+    furniture = next(i for i in infos if i.filename == "Z/furniture/b/scan.txt")
+    assert calls[0][0] == furniture.header_offset  # the first read is the first folder listed, though it is last in the zip
+    calls.clear()
+    fetch_samples(read_range, infos, ["Z/furniture/b", "Z/house/a"], tmp_path)
+    assert calls == []
+
+
+def test_fetch_samples_rejects_a_folder_missing_from_the_zip(tmp_path: Path) -> None:
+    _, infos, _ = _two_sample_zip()
+    with pytest.raises(ValueError, match="Z/house/nope"):
+        fetch_samples(lambda s, e: b"", infos, ["Z/house/nope"], tmp_path)
