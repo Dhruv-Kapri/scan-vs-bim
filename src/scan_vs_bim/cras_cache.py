@@ -11,8 +11,9 @@ import io
 import json
 import logging
 import zipfile
+from collections.abc import Iterator
 from pathlib import Path
-from typing import IO, Iterator, NamedTuple
+from typing import IO, NamedTuple
 
 import numpy as np
 

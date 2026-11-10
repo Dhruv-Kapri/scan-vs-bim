@@ -37,7 +37,7 @@ def make_zip(path: Path, text: str, method: int, name: str = MEMBER) -> None:
 METHODS: list[int] = [zipfile.ZIP_DEFLATED, zipfile.ZIP_STORED]
 
 
-def load(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict]:
+def load(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
     with np.load(path) as d:
         return d["xyz"], d["rgb"], d["cls"], json.loads(str(d["meta"]))
 
