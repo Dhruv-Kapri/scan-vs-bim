@@ -16,7 +16,7 @@ VERDICTS = {"OK", "shifted", "not confirmed"}  # missing / not visible are unrea
 COLUMNS = ["global_id", "ifc_class", "verdict", "point_count", "median_signed_offset_mm"]
 
 
-def test_notebook_03a_writes_per_element_verdicts(tmp_path):
+def test_notebook_03a_writes_per_element_verdicts(tmp_path: Path) -> None:
     """Known answers are asserted inside 03a; here: both CSVs (with and without oracle labels) hold one row per room
     element, only element classes, only the three verdicts reachable here (OK, shifted, not confirmed), a zero-point element reads "no points", and the
     top-down PNG is written; the strict and the padded box give the same verdicts (crop_check.csv, issue #23)."""

@@ -11,7 +11,7 @@ NOTEBOOK = ROOT / "notebooks" / "05a_registration_gate.ipynb"
 SCALES, GATE = ROOT / "outputs" / "pc2model_scales.csv", ROOT / "outputs" / "05a" / "gate_samples.csv"
 
 
-def test_notebook_05a_runs_with_known_answers(tmp_path):
+def test_notebook_05a_runs_with_known_answers(tmp_path: Path) -> None:
     """Known answers asserted inside 05a: the nine samples match the selection rule, T (not inv T) maps each scan onto its
     model, and the criterion line matches the success flags in registration.csv, and registration.csv keeps the columns 05b reads. The gate itself is not asserted: failing is a valid result."""
     needs = [SCALES, GATE]

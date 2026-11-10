@@ -14,12 +14,12 @@ OEKO = ROOT / "data" / "oekobaudat"
 CSVS = {v: ROOT / "outputs" / "03a" / f"verdicts_{v}.csv" for v in ("no_labels", "oracle_labels")}
 
 
-def read(path):
+def read(path: Path) -> list[dict[str, str]]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
-def test_mapping_has_identifiers_only():
+def test_mapping_has_identifiers_only() -> None:
     """Cheap guard for the licence rule: the committed mapping holds no factor values."""
     columns = list(read(MAPPING)[0])
     assert columns == ["ifc_material", "oekobaudat_uuid", "basis", "dataset_name", "note"]
@@ -28,7 +28,7 @@ def test_mapping_has_identifiers_only():
         assert bool(r["oekobaudat_uuid"]) == bool(r["basis"]) == bool(r["dataset_name"])  # a mapped material has all three, an unmapped one none
 
 
-def test_notebook_04b_carbon_table_adds_up(tmp_path):
+def test_notebook_04b_carbon_table_adds_up(tmp_path: Path) -> None:
     """One row per room element in carbon_elements.csv; carbon_summary.csv splits it into confirmed + rest = total per variant; every mapped dataset is used or reported;
     only outputs/04b/ is new."""
     for p in [IFC, *CSVS.values()]:

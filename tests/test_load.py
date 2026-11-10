@@ -2,6 +2,7 @@ from pathlib import Path
 
 import ifcopenshell
 import ifcopenshell.api
+import ifcopenshell.api.geometry
 import numpy as np
 import pytest
 
@@ -10,7 +11,7 @@ from scan_vs_bim.load import ElementMesh, load_e57, load_ifc, load_ifc_elements,
 OFFSET = (10.0, 20.0, 3.0)
 
 
-def add_box(f, body, element, size, offset):
+def add_box(f: ifcopenshell.file, body: ifcopenshell.entity_instance, element: ifcopenshell.entity_instance, size: tuple[float, float, float], offset: tuple[float, float, float]) -> None:
     """Give `element` an extruded rectangle (size x, y, z) placed at `offset` in the world."""
     x, y, z = size
     profile = f.createIfcRectangleProfileDef("AREA", None, f.createIfcAxis2Placement2D(f.createIfcCartesianPoint((x / 2, y / 2))), x, y)
@@ -24,7 +25,7 @@ def add_box(f, body, element, size, offset):
 
 
 @pytest.fixture
-def ifc_path(tmp_path):
+def ifc_path(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     f = ifcopenshell.api.run("project.create_file")
     ifcopenshell.api.run("root.create_entity", f, ifc_class="IfcProject", name="p")
     ifcopenshell.api.run("unit.assign_unit", f, length={"is_metric": True, "raw": "METERS"})
@@ -42,7 +43,7 @@ def ifc_path(tmp_path):
     return path, {wall.GlobalId: "IfcWall", slab.GlobalId: "IfcSlab"}
 
 
-def test_ifc_elements_identity_and_world_coords(ifc_path):
+def test_ifc_elements_identity_and_world_coords(ifc_path: tuple[Path, dict[str, str]]) -> None:
     path, expected = ifc_path
     els = load_ifc_elements(path)
     assert {e.global_id: e.ifc_class for e in els} == expected  # IfcSpace excluded
@@ -52,7 +53,7 @@ def test_ifc_elements_identity_and_world_coords(ifc_path):
     np.testing.assert_allclose(wall.vertices.max(0), np.add(OFFSET, (4.0, 0.2, 3.0)), atol=1e-6)
 
 
-def test_ifc_only_guids(ifc_path):
+def test_ifc_only_guids(ifc_path: tuple[Path, dict[str, str]]) -> None:
     path, expected = ifc_path
     wall_guid = next(g for g, c in expected.items() if c == "IfcWall")
     els = load_ifc_elements(path, only_guids=[wall_guid])
@@ -61,7 +62,7 @@ def test_ifc_only_guids(ifc_path):
     np.testing.assert_allclose(els[0].vertices, full.vertices)
 
 
-def test_ifc_exclude_override(ifc_path):
+def test_ifc_exclude_override(ifc_path: tuple[Path, dict[str, str]]) -> None:
     path, _ = ifc_path
     assert "IfcSpace" in {e.ifc_class for e in load_ifc_elements(path, exclude=())}
 
@@ -81,7 +82,7 @@ def test_ifc_no_geometry_raises(tmp_path: Path) -> None:
         load_ifc_elements(path)
 
 
-def test_merge_and_load_ifc(ifc_path):
+def test_merge_and_load_ifc(ifc_path: tuple[Path, dict[str, str]]) -> None:
     path, _ = ifc_path
     els = load_ifc_elements(path)
     mesh = merge_meshes(els)
@@ -94,7 +95,7 @@ def test_merge_and_load_ifc(ifc_path):
     assert len(load_ifc(path).triangles) == len(mesh.triangles)
 
 
-def write_e57(path, scans):
+def write_e57(path: Path, scans: list[tuple[int, tuple[float, float, float]]]) -> None:
     """scans: list of (n_points, translation). Points are uniform in the unit cube."""
     import pye57
 
@@ -106,7 +107,7 @@ def write_e57(path, scans):
     e57.close()
 
 
-def test_e57_poses_proportional_and_seeded(tmp_path):
+def test_e57_poses_proportional_and_seeded(tmp_path: Path) -> None:
     path = tmp_path / "t.e57"
     write_e57(path, [(300, (100, 0, 0)), (100, (0, 200, 0))])
     pts = np.asarray(load_e57(path, max_points=100).points)

@@ -13,7 +13,7 @@ NEEDS = [ROOT / "data" / "pc2model" / n for n in (
     "real-indoor_modelling_5-ISPRS_indoor_modelling-GM")]
 
 
-def test_notebook_05c_runs_with_known_answers(tmp_path):
+def test_notebook_05c_runs_with_known_answers(tmp_path: Path) -> None:
     """Known answers asserted inside 05c: the chosen candidate is the plan 05a uses (register.refine_plan). The tuning outcome itself is
     not asserted; here only the table's shape (5 samples x 5 candidates) is. Slow (about 25 min): five samples, five RANSAC seeds each."""
     for p in NEEDS:

@@ -3,6 +3,7 @@ import shutil
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
+from typing import cast
 
 import ifcopenshell
 import ifcopenshell.util.element
@@ -16,12 +17,12 @@ IFC = ROOT / "data" / "cras" / "craslabbim.ifc"
 CSVS = {v: ROOT / "outputs" / "03a" / f"verdicts_{v}.csv" for v in ("no_labels", "oracle_labels")}
 
 
-def read(path):
+def read(path: Path) -> dict[str, dict[str, str]]:
     with open(path, newline="") as f:
         return {r["global_id"]: r for r in csv.DictReader(f)}
 
 
-def test_notebook_04a_writes_verdicts_into_ifc_and_bcf(tmp_path):
+def test_notebook_04a_writes_verdicts_into_ifc_and_bcf(tmp_path: Path) -> None:
     """Known answers are asserted inside 04a; here: the IFC copy re-opens with the pset on exactly the 35 room elements,
     the BCF holds one topic per non-OK (no-labels) element, and only outputs/04a/ is new."""
     for p in [IFC, *CSVS.values()]:
@@ -44,7 +45,7 @@ def test_notebook_04a_writes_verdicts_into_ifc_and_bcf(tmp_path):
     assert ifc.schema == "IFC2X3"
     with_pset = set()
     for el in ifc.by_type("IfcElement"):
-        props = ifcopenshell.util.element.get_psets(el).get("ScanVsBim_Verdict")
+        props = ifcopenshell.util.element.get_psets(cast(ifcopenshell.entity_instance, el)).get("ScanVsBim_Verdict")
         if props is not None:
             with_pset.add(el.GlobalId)
             assert props["Verdict"] == no_labels[el.GlobalId]["verdict"]

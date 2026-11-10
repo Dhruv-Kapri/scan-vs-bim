@@ -16,7 +16,7 @@ NEEDS = [ROOT / "data" / "cras" / "cras_voxel_1cm.npz", ROOT / "data" / "cras" /
          ROOT / "outputs" / "03b" / "scores_no_labels.csv", ROOT / "outputs" / "03b" / "manifest.json", ROOT / "outputs" / "05a" / "registration.csv"]
 
 
-def setup_copy(tmp_path):
+def setup_copy(tmp_path: Path) -> Path:
     """A copy of the notebook with the inputs of the real outputs/ symlinked; its own outputs/05b and hand-check CSV land in tmp_path."""
     (tmp_path / "notebooks").mkdir()
     (tmp_path / "outputs").mkdir()
@@ -34,7 +34,7 @@ def setup_copy(tmp_path):
     return copy
 
 
-def test_notebook_05b_pending_then_scored_from_filled_judgements(tmp_path):
+def test_notebook_05b_pending_then_scored_from_filled_judgements(tmp_path: Path) -> None:
     """Known answers asserted inside 05b (inputs consistent, draw repeatable, expected verdicts follow the tolerance, success flags follow
     the thresholds). Here: a first run writes the 20-row judgement template and 20 close-ups and reports the hand check PENDING; after the
     judgements are filled (3 of 20 disagreeing) a second run keeps the file as it is and scores 17 of 20 = 85 %; the template is never overwritten."""

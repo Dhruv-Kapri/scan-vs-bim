@@ -14,7 +14,7 @@ NEEDS = [
 ]
 
 
-def test_notebook_02_runs_with_known_answers(tmp_path):
+def test_notebook_02_runs_with_known_answers(tmp_path: Path) -> None:
     """Known answers are asserted inside 02: the scaled sample is fur_010, T beats inv(T) on UVigo, the best UVigo draw is within the rotation gate, the rigid baseline fails on fur_010, the scale estimate is within 5%."""
     for p in NEEDS:
         if not p.exists():

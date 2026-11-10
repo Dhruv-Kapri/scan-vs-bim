@@ -1,8 +1,10 @@
 """Parser tests on small synthetic ILCD-shaped XML; every number here is invented."""
 
+from collections.abc import Sequence
+
 import pytest
 
-from scan_vs_bim.oekobaudat import parse_dataset, reference_flow_uuid
+from scan_vs_bim.oekobaudat import Dataset, parse_dataset, reference_flow_uuid
 
 GWP_TOTAL_A2 = "6a37f984-a4b3-458a-a20a-64418c145fa2"  # EN 15804+A2 "GWP-total"
 GWP_FOSSIL_A2 = "5f635281-343e-44fb-83df-1971b155e6b6"
@@ -10,7 +12,7 @@ CLIMATE_CHANGE_EF31 = "a7ea142a-9749-11ed-a8fc-0242ac120002"  # EF 3.1 "Climate 
 AREA, MASS, VOLUME = (f"93a60a56-a3c8-{x}-a746-0800200{y}" for x, y in (("19da", "c9a66"), ("11da", "b9a66"), ("22da", "c9a66")))
 
 
-def process(uuid="p-1", flow="f-1", results=(), version="01.02.003"):
+def process(uuid: str = "p-1", flow: str = "f-1", results: Sequence[tuple[str, dict[str, float]]] = (), version: str = "01.02.003") -> str:
     """results: (method uuid, {module: amount}) pairs."""
     lcia = "".join(
         f'<LCIAResult><referenceToLCIAMethodDataSet refObjectId="{m}"/><common:other>'
@@ -32,7 +34,7 @@ def process(uuid="p-1", flow="f-1", results=(), version="01.02.003"):
       <LCIAResults>{lcia}</LCIAResults></processDataSet>"""
 
 
-def flow(reference, properties):
+def flow(reference: str, properties: dict[str, float]) -> str:
     """reference: property uuid; properties: {property uuid: amount per one reference unit}."""
     ids = list(properties)
     body = "".join(
@@ -45,7 +47,7 @@ def flow(reference, properties):
         </quantitativeReference></flowInformation><flowProperties>{body}</flowProperties></flowDataSet>"""
 
 
-def test_reads_identity_declared_unit_and_combined_a1_a3():
+def test_reads_identity_declared_unit_and_combined_a1_a3() -> None:
     p = process(results=[(GWP_TOTAL_A2, {"A1-A3": 12.5, "C2": 99})])
     d = parse_dataset(p, flow(VOLUME, {VOLUME: 1}))
     assert (d.uuid, d.version, d.name) == ("p-1", "01.02.003", "Test material")
@@ -53,50 +55,50 @@ def test_reads_identity_declared_unit_and_combined_a1_a3():
     assert d.gwp_a1_a3 == 12.5  # not the C2 module
 
 
-def test_split_modules_are_summed():
+def test_split_modules_are_summed() -> None:
     p = process(results=[(GWP_TOTAL_A2, {"A1": 1.5, "A2": 2.0, "A3": 0.25, "C2": 99})])
     assert parse_dataset(p, flow(AREA, {AREA: 1})).gwp_a1_a3 == 3.75
 
 
-def test_picks_the_total_climate_indicator_in_either_method_version():
+def test_picks_the_total_climate_indicator_in_either_method_version() -> None:
     for total in (GWP_TOTAL_A2, CLIMATE_CHANGE_EF31):
         p = process(results=[(GWP_FOSSIL_A2, {"A1-A3": 1}), (total, {"A1-A3": 7})])
         assert parse_dataset(p, flow(MASS, {MASS: 1})).gwp_a1_a3 == 7
 
 
-def test_no_total_climate_indicator_is_an_error():
+def test_no_total_climate_indicator_is_an_error() -> None:
     with pytest.raises(ValueError, match="GWP-total"):
         parse_dataset(process(results=[(GWP_FOSSIL_A2, {"A1-A3": 1})]), flow(MASS, {MASS: 1}))
 
 
-def test_conversions_come_from_the_flow_properties():
+def test_conversions_come_from_the_flow_properties() -> None:
     p = process(results=[(GWP_TOTAL_A2, {"A1-A3": 10})])
     d = parse_dataset(p, flow(VOLUME, {VOLUME: 1, MASS: 800}))
     assert d.per_declared_unit == {"m3": 1, "kg": 800}  # one m3 holds 800 kg; no area given
 
 
-def test_reference_flow_uuid_follows_the_internal_id():
+def test_reference_flow_uuid_follows_the_internal_id() -> None:
     assert reference_flow_uuid(process(flow="f-42")) == "f-42"
 
 
-def dataset(reference, properties):
+def dataset(reference: str, properties: dict[str, float]) -> Dataset:
     return parse_dataset(process(results=[(GWP_TOTAL_A2, {"A1-A3": 4})]), flow(reference, properties))
 
 
-def test_carbon_in_the_declared_unit():
+def test_carbon_in_the_declared_unit() -> None:
     assert dataset(VOLUME, {VOLUME: 1}).carbon({"m2": 5.0, "m3": 2.0}) == 8.0  # 2 m3 x 4
 
 
-def test_carbon_converts_through_the_flow_properties():
+def test_carbon_converts_through_the_flow_properties() -> None:
     d = dataset(VOLUME, {VOLUME: 1, MASS: 800})
     assert d.carbon({"kg": 1600.0}) == 8.0  # 1600 kg = 2 m3
 
 
-def test_carbon_is_none_when_nothing_converts():
+def test_carbon_is_none_when_nothing_converts() -> None:
     assert dataset(MASS, {MASS: 1}).carbon({"m3": 2.0}) is None  # no density in the data: never guessed
 
 
-def test_a_total_indicator_without_a1_a3_is_skipped():
+def test_a_total_indicator_without_a1_a3_is_skipped() -> None:
     p = process(results=[(GWP_TOTAL_A2, {"C2": 5}), (CLIMATE_CHANGE_EF31, {"A1": 1, "A2": 1})])
     with pytest.raises(ValueError, match="GWP-total"):
         parse_dataset(p, flow(MASS, {MASS: 1}))
