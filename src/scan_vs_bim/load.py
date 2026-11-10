@@ -2,6 +2,7 @@
 
 import logging
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -53,7 +54,7 @@ def load_e57(path: Path, max_points: int, seed: int = 0, chunk_points: int = 1_0
     return o3d.geometry.PointCloud(o3d.utility.Vector3dVector(np.concatenate(parts)))
 
 
-def load_ifc_elements(path: Path, exclude=None, only_guids=None) -> list[ElementMesh]:
+def load_ifc_elements(path: Path, exclude: Iterable[str] | None = None, only_guids: Iterable[str] | None = None) -> list[ElementMesh]:
     """Tessellate the model, leaving out the IFC classes in `exclude` (default: IfcSpace, IfcOpeningElement).
     `only_guids` limits it to those GlobalIds (much faster on a big model); it cannot be combined with `exclude`."""
     if only_guids is not None and exclude is not None:
@@ -67,7 +68,7 @@ def load_ifc_elements(path: Path, exclude=None, only_guids=None) -> list[Element
         geom_iter = ifcopenshell.geom.iterator(settings, model, os.cpu_count() or 1, exclude=list(exclude))
     else:
         geom_iter = ifcopenshell.geom.iterator(settings, model, os.cpu_count() or 1, include=[model.by_guid(g) for g in only_guids])
-    elements = []
+    elements: list[ElementMesh] = []
     if geom_iter.initialize():
         while True:
             shape = geom_iter.get()
