@@ -13,8 +13,10 @@ the research framing (`docs/research-outline.md`). Read the roadmap before start
 
 ```sh
 uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57; dev: pytest,
-                                          # jupyter/ipykernel, nbclient, matplotlib, scipy
+                                          # jupyter/ipykernel, nbclient, matplotlib, scipy, mypy
 uv run pytest                             # tests
+uv run mypy                               # type check src/scan_vs_bim + tests (config in pyproject.toml: every def
+                                          # annotated; only open3d.pipelines and pye57 lack stubs and are ignored)
 uv run python scripts/fetch_data.py       # CRAS IFC + PC2Model real-indoor_modelling_3 (UVigo) into data/ (~5-10 min);
                                           # resumable, idempotent. --with-scan also fetches the CRAS scan zip (4.27 GB,
                                           # never extracted; measured 2026-10-28: 0.1-0.5 MB/s on one connection, ~3.5 h)

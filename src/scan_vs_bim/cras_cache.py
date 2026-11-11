@@ -11,8 +11,9 @@ import io
 import json
 import logging
 import zipfile
+from collections.abc import Iterator
 from pathlib import Path
-from typing import IO, Iterator, NamedTuple
+from typing import IO, NamedTuple
 
 import numpy as np
 
@@ -24,7 +25,7 @@ VOXEL_AXIS_OFFSET: int = 1 << (VOXEL_AXIS_BITS - 1)
 REPORT_EVERY_BYTES: int = 1 << 30
 
 
-def read_blocks(f, chunk_bytes: int) -> Iterator[bytes]:
+def read_blocks(f: IO[bytes], chunk_bytes: int) -> Iterator[bytes]:
     """Yield byte blocks of whole lines; the trailing partial line carries into the next block."""
     carry = b""
     while chunk := f.read(chunk_bytes):

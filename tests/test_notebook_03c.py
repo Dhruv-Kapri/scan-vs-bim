@@ -12,7 +12,7 @@ NEEDS = [ROOT / "data" / "cras" / "cras_voxel_1cm.npz", ROOT / "data" / "cras" /
          ROOT / "outputs" / "03a" / "verdicts_no_labels.csv", ROOT / "outputs" / "03a" / "verdicts_oracle_labels.csv"]
 
 
-def test_03c_copy_of_03a_logic_reproduces_03a_on_room_b(tmp_path, monkeypatch):
+def test_03c_copy_of_03a_logic_reproduces_03a_on_room_b(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """03c carries a copy of 03a's logic (as 03b does). Run on room B (SLICE_JSON=01_cras_slice.json), up to and including its room-B check cell, it must give 03a's
     verdicts, point counts and medians row for row: the check is asserted inside the notebook. Needs outputs/03a (run 03a first)."""
     for p in NEEDS:

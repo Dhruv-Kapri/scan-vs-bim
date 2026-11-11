@@ -44,7 +44,9 @@ def over_own_face(points: np.ndarray, vertices: np.ndarray, faces: np.ndarray, m
     out = np.empty(len(points), bool)
     for i in range(0, len(points), 1_000_000):
         p = np.ascontiguousarray(points[i:i + 1_000_000], dtype=np.float32)
-        r = scene.compute_closest_points(o3d.core.Tensor(p))
+        # Explicit dtype/device: the same as the runtime defaults for a float32 array, and Open3D's stubs only
+        # declare the ndarray overload with both (the one-argument call works at runtime but fails mypy).
+        r = scene.compute_closest_points(o3d.core.Tensor(p, o3d.core.float32, o3d.core.Device("CPU:0")))
         d = p.astype(np.float64) - r["points"].numpy()
         n = normals[r["primitive_ids"].numpy()]
         lateral = np.linalg.norm(d - (d * n).sum(1, keepdims=True) * n, axis=1)

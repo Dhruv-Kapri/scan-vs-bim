@@ -1,7 +1,9 @@
 import json
 import os
 import zipfile
+from collections.abc import Sequence
 from pathlib import Path
+from typing import IO, Any
 
 import numpy as np
 import pytest
@@ -11,7 +13,7 @@ from scan_vs_bim.cras_cache import build_cache
 
 MEMBER = "CRASLAB_annotated.asc"
 # x y z r g b intensity class
-ROWS = [
+ROWS: list[tuple[float, ...]] = [
     (0.0012, 0.0034, 0.0056, 10, 20, 30, 0.5, 1.0),  # voxel A, first
     (0.0090, 0.0010, 0.0020, 11, 21, 31, 0.6, 2.0),  # voxel A again: dropped
     (0.0123, 0.0034, 0.0056, 40, 50, 60, 0.1, 7.0),  # voxel B (x one cell over)
@@ -21,28 +23,28 @@ ROWS = [
 ]
 
 
-def asc_text(rows, declared=None, eol="\n"):
+def asc_text(rows: Sequence[tuple[float, ...]], declared: int | None = None, eol: str = "\n") -> str:
     lines = ["//X Y Z R G B Intensity Classification".replace(" ", "\t"), str(declared or len(rows))]
     lines += ["\t".join(str(v) for v in r) for r in rows]
     return eol.join(lines) + eol
 
 
-def make_zip(path, text, method, name=MEMBER):
+def make_zip(path: Path, text: str, method: int, name: str = MEMBER) -> None:
     with zipfile.ZipFile(path, "w") as z:
         z.writestr(zipfile.ZipInfo(name), text, compress_type=method)
 
 
-METHODS = [zipfile.ZIP_DEFLATED, zipfile.ZIP_STORED]
+METHODS: list[int] = [zipfile.ZIP_DEFLATED, zipfile.ZIP_STORED]
 
 
-def load(path):
+def load(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
     with np.load(path) as d:
         return d["xyz"], d["rgb"], d["cls"], json.loads(str(d["meta"]))
 
 
 @pytest.mark.parametrize("method", METHODS)
 @pytest.mark.parametrize("eol", ["\n", "\r\n"])
-def test_voxel_first_point_wins_and_attributes_kept(tmp_path, method, eol):
+def test_voxel_first_point_wins_and_attributes_kept(tmp_path: Path, method: int, eol: str) -> None:
     zpath, out = tmp_path / "t.zip", tmp_path / "c.npz"
     make_zip(zpath, asc_text(ROWS, eol=eol), method)
     # 37 bytes: lines straddle blocks, so do the header and count lines.
@@ -74,7 +76,7 @@ def test_metadata_and_header_not_parsed_as_points(tmp_path: Path) -> None:
     assert meta["extent_max"] == pytest.approx([6.5185, 15.7385, 3.21], abs=1e-4)
 
 
-def test_rerun_is_a_noop_without_streaming(tmp_path, monkeypatch):
+def test_rerun_is_a_noop_without_streaming(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     zpath, out = tmp_path / "t.zip", tmp_path / "c.npz"
     make_zip(zpath, asc_text(ROWS), zipfile.ZIP_DEFLATED)
     first = build_cache(zpath, out)
@@ -82,7 +84,7 @@ def test_rerun_is_a_noop_without_streaming(tmp_path, monkeypatch):
 
     real_open = zipfile.ZipFile.open
 
-    def guarded(self, name, *a, **k):  # np.load opens the npz members through this too
+    def guarded(self: zipfile.ZipFile, name: str | zipfile.ZipInfo, *a: Any, **k: Any) -> IO[bytes]:  # np.load opens the npz members through this too
         if getattr(name, "filename", name) == MEMBER:
             raise AssertionError("should not stream")
         return real_open(self, name, *a, **k)
@@ -92,7 +94,7 @@ def test_rerun_is_a_noop_without_streaming(tmp_path, monkeypatch):
     assert os.stat(out).st_mtime_ns == before
 
 
-def test_rebuilds_when_voxel_changes(tmp_path):
+def test_rebuilds_when_voxel_changes(tmp_path: Path) -> None:
     zpath, out = tmp_path / "t.zip", tmp_path / "c.npz"
     make_zip(zpath, asc_text(ROWS), zipfile.ZIP_STORED)
     assert build_cache(zpath, out, voxel=0.01)["points_kept"] == 4
@@ -118,7 +120,7 @@ def test_dedupe_across_many_blocks_keeps_stream_first(tmp_path: Path, monkeypatc
         assert first[tuple(np.floor(p.astype(np.float64) / 0.25).astype(int))] == c
 
 
-def test_rejects_zip_without_exactly_one_member(tmp_path):
+def test_rejects_zip_without_exactly_one_member(tmp_path: Path) -> None:
     zpath = tmp_path / "t.zip"
     with zipfile.ZipFile(zpath, "w") as z:
         z.writestr("a.asc", asc_text(ROWS))
@@ -127,7 +129,7 @@ def test_rejects_zip_without_exactly_one_member(tmp_path):
         build_cache(zpath, tmp_path / "c.npz")
 
 
-def test_truncated_stream_raises_and_writes_no_cache(tmp_path):
+def test_truncated_stream_raises_and_writes_no_cache(tmp_path: Path) -> None:
     zpath, out = tmp_path / "t.zip", tmp_path / "c.npz"
     make_zip(zpath, asc_text(ROWS, declared=len(ROWS) + 1), zipfile.ZIP_DEFLATED)
     with pytest.raises(ValueError, match="declares"):
@@ -140,7 +142,7 @@ def test_truncated_stream_raises_and_writes_no_cache(tmp_path):
     ["X\tY\tZ\n3\n1\t2\t3\t4\t5\t6\t7\t8\n", "//X Y Z\nthree\n1\t2\t3\t4\t5\t6\t7\t8\n"],
     ids=["header", "count"],
 )
-def test_malformed_header_or_count_raises(tmp_path, text):
+def test_malformed_header_or_count_raises(tmp_path: Path, text: str) -> None:
     zpath = tmp_path / "t.zip"
     make_zip(zpath, text, zipfile.ZIP_STORED)
     with pytest.raises(ValueError, match="header|count"):

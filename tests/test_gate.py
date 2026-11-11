@@ -1,4 +1,7 @@
 import csv
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -7,62 +10,62 @@ from scan_vs_bim.gate import combine, hand_check_result as _hand_check_result, p
 COLUMNS = ["n", "global_id", "ifc_class", "name", "verdict", "judgement", "note"]
 
 
-def hand_rows(verdicts, judgements):
+def hand_rows(verdicts: Sequence[str], judgements: Sequence[str]) -> list[dict[str, str | int]]:
     return [dict(n=i + 1, global_id=f"g{i}", ifc_class="IfcWall", name=f"w{i}", verdict=v, judgement=j, note="")
             for i, (v, j) in enumerate(zip(verdicts, judgements))]
 
 
-def hand_check_result(rows: list[dict], n_required: int = 20, min_share: float = 0.8) -> dict:
+def hand_check_result(rows: list[dict[str, str | int]], n_required: int = 20, min_share: float = 0.8) -> dict[str, Any]:
     return _hand_check_result(rows, n_required=n_required, min_share=min_share)
 
 
-def perturbed_result(rows: list[dict], max_false_share: float = 0.10) -> dict:
+def perturbed_result(rows: list[dict[str, str]], max_false_share: float = 0.10) -> dict[str, Any]:
     return _perturbed_result(rows, max_false_share=max_false_share)
 
 
-def write_csv(path, rows):
+def write_csv(path: Path, rows: list[dict[str, str | int]]) -> None:
     with open(path, "w", newline="") as f:
         w = csv.DictWriter(f, COLUMNS)
         w.writeheader()
         w.writerows(rows)
 
 
-def test_hand_check_pending_until_all_are_filled():
+def test_hand_check_pending_until_all_are_filled() -> None:
     rows = hand_rows(["OK"] * 20, ["OK"] * 19 + [""])
     r = hand_check_result(rows)
     assert r["status"] == "PENDING" and r["n_filled"] == 19 and r["n_agree"] == 19
 
 
-def test_hand_check_agreement_is_judgement_equals_verdict():
+def test_hand_check_agreement_is_judgement_equals_verdict() -> None:
     verdicts = ["OK"] * 10 + ["shifted"] * 5 + ["not confirmed"] * 5
     judgements = ["OK"] * 10 + ["shifted"] * 3 + ["OK"] * 2 + ["not confirmed"] * 4 + ["shifted"]
     r = hand_check_result(hand_rows(verdicts, judgements))
     assert (r["n_filled"], r["n_agree"]) == (20, 17) and r["share"] == pytest.approx(0.85) and r["status"] == "PASS"
 
 
-def test_hand_check_threshold_is_at_least_80_percent():
+def test_hand_check_threshold_is_at_least_80_percent() -> None:
     verdicts = ["OK"] * 20
     assert hand_check_result(hand_rows(verdicts, ["OK"] * 16 + ["shifted"] * 4))["status"] == "PASS"   # 16 / 20 = 80 %
     assert hand_check_result(hand_rows(verdicts, ["OK"] * 15 + ["shifted"] * 5))["status"] == "FAIL"   # 75 %
 
 
-def test_hand_check_with_nothing_filled_is_pending():
+def test_hand_check_with_nothing_filled_is_pending() -> None:
     r = hand_check_result(hand_rows(["OK"] * 20, [""] * 20))
     assert r["status"] == "PENDING" and r["n_filled"] == 0 and r["share"] is None
 
 
-def test_hand_check_with_nothing_filled_is_pending_even_when_none_are_required():
+def test_hand_check_with_nothing_filled_is_pending_even_when_none_are_required() -> None:
     assert hand_check_result(hand_rows(["OK"], [""]), n_required=0)["status"] == "PENDING"
 
 
-def test_read_hand_check_rejects_unknown_judgement(tmp_path):
+def test_read_hand_check_rejects_unknown_judgement(tmp_path: Path) -> None:
     p = tmp_path / "h.csv"
     write_csv(p, hand_rows(["OK", "OK"], ["OK", "okay"]))
     with pytest.raises(ValueError, match=r"row n=2.*'okay'.*OK.*shifted.*not confirmed"):
         read_hand_check(p)
 
 
-def test_read_hand_check_strips_blanks_and_rejects_bad_columns(tmp_path):
+def test_read_hand_check_strips_blanks_and_rejects_bad_columns(tmp_path: Path) -> None:
     p = tmp_path / "h.csv"
     write_csv(p, hand_rows(["OK"], [" shifted "]))
     assert read_hand_check(p)[0]["judgement"] == "shifted"
@@ -71,7 +74,7 @@ def test_read_hand_check_strips_blanks_and_rejects_bad_columns(tmp_path):
         read_hand_check(p)
 
 
-def test_read_hand_check_rejects_rows_with_extra_fields(tmp_path):
+def test_read_hand_check_rejects_rows_with_extra_fields(tmp_path: Path) -> None:
     p = tmp_path / "h.csv"
     write_csv(p, hand_rows(["OK"], [""]))
     p.write_text(p.read_text().rstrip("\n") + ",oops\n")
@@ -79,7 +82,7 @@ def test_read_hand_check_rejects_rows_with_extra_fields(tmp_path):
         read_hand_check(p)
 
 
-def test_write_hand_check_template_never_overwrites(tmp_path):
+def test_write_hand_check_template_never_overwrites(tmp_path: Path) -> None:
     p = tmp_path / "h.csv"
     rows = hand_rows(["OK", "shifted"], ["", ""])
     assert write_hand_check_template(p, rows) is True
@@ -89,11 +92,11 @@ def test_write_hand_check_template_never_overwrites(tmp_path):
     assert [r["judgement"] for r in read_hand_check(p)] == ["OK", "shifted"]
 
 
-def score_row(run="r1", change="", expected="", actual="OK"):
+def score_row(run: str = "r1", change: str = "", expected: str = "", actual: str = "OK") -> dict[str, str]:
     return dict(run=run, change=change, expected=expected, actual=actual)
 
 
-def run_rows(run, changed, n_untouched=34, **untouched_actuals):
+def run_rows(run: str, changed: dict[str, str], n_untouched: int = 34, **untouched_actuals: int) -> list[dict[str, str]]:
     """One 03b run: the changed row plus `n_untouched` untouched rows (all OK unless `shifted=k` etc. replaces the first k)."""
     untouched = [score_row(run, actual=a) for a, k in untouched_actuals.items() for _ in range(k)]
     return [changed] + untouched + [score_row(run) for _ in range(n_untouched - len(untouched))]
@@ -116,7 +119,7 @@ def seven_runs(**actual_by_run: str) -> list[dict[str, str]]:
             for row in run_rows(run, score_row(run, change, expected, actual_by_run.get(run, expected)))]
 
 
-def test_perturbed_beyond_tolerance_is_decided_by_the_expected_verdict_not_the_size_of_the_move():
+def test_perturbed_beyond_tolerance_is_decided_by_the_expected_verdict_not_the_size_of_the_move() -> None:
     rows = seven_runs(move_3cm_in="not confirmed")   # one beyond-tolerance change gets the wrong verdict
     r = perturbed_result(rows)
     assert (r["n_beyond"], r["n_beyond_right"]) == (5, 4) and r["changes_ok"] is False and r["status"] == "FAIL"
@@ -124,7 +127,7 @@ def test_perturbed_beyond_tolerance_is_decided_by_the_expected_verdict_not_the_s
     assert perturbed_result(seven_runs())["changes_ok"] is True
 
 
-def test_perturbed_one_cm_move_expected_ok_is_a_control_not_part_of_the_criterion():
+def test_perturbed_one_cm_move_expected_ok_is_a_control_not_part_of_the_criterion() -> None:
     rows = seven_runs(move_1cm_away="not confirmed", move_1cm_in="shifted")   # both controls read wrong
     r = perturbed_result(rows)
     assert (r["n_control"], r["n_control_right"]) == (2, 0)
@@ -132,8 +135,9 @@ def test_perturbed_one_cm_move_expected_ok_is_a_control_not_part_of_the_criterio
     assert perturbed_result(seven_runs())["n_control_right"] == 2
 
 
-def test_perturbed_false_flag_clause_is_judged_per_run_on_the_worst_run():
-    flagged = lambda run, k: run_rows(run, score_row(run, "moved", "shifted", "shifted"), shifted=k)
+def test_perturbed_false_flag_clause_is_judged_per_run_on_the_worst_run() -> None:
+    def flagged(run: str, k: int) -> list[dict[str, str]]:
+        return run_rows(run, score_row(run, "moved", "shifted", "shifted"), shifted=k)
     rows = flagged("a", 0) + flagged("b", 3) + flagged("c", 1)   # 34 untouched each: 3 of 34 = 8.8 %
     r = perturbed_result(rows)
     assert r["worst_run"] == "b" and r["worst_share_false"] == pytest.approx(3 / 34) and r["false_ok"] is True and r["status"] == "PASS"
@@ -168,7 +172,7 @@ def test_perturbed_returns_the_flagged_untouched_rows() -> None:
     assert r["false_rows"] == [flagged] and r["beyond_rows"] == [rows[0]]
 
 
-def test_perturbed_without_changes_beyond_tolerance_raises_not_passes_vacuously():
+def test_perturbed_without_changes_beyond_tolerance_raises_not_passes_vacuously() -> None:
     rows = run_rows("a", score_row("a", "moved", "OK", "OK"), n_untouched=5)   # only a within-tolerance control
     with pytest.raises(ValueError, match="beyond"):
         perturbed_result(rows)
@@ -184,27 +188,27 @@ def test_perturbed_unknown_change_raises_naming_it(change: str) -> None:
         perturbed_result([score_row("a", change, "shifted", "shifted")])
 
 
-def test_perturbed_changed_row_without_a_verdict_as_expected_raises():
+def test_perturbed_changed_row_without_a_verdict_as_expected_raises() -> None:
     # an empty or misspelt `expected` must not silently count as beyond tolerance
     for bad in ("", "Shifted"):
         with pytest.raises(ValueError, match="expected"):
             perturbed_result(run_rows("a", score_row("a", "moved", bad, "shifted")))
 
 
-def test_registration_criterion_counts_success_flags():
+def test_registration_criterion_counts_success_flags() -> None:
     rows = [{"success": s} for s in ["True"] * 4 + ["False"] * 5]
     r = registration_result(rows, min_success=6)
     assert (r["n_success"], r["n_total"], r["status"]) == (4, 9, "FAIL")
     assert registration_result([{"success": "True"}] * 6 + [{"success": "False"}] * 3, 6)["status"] == "PASS"
 
 
-def test_registration_rejects_other_success_values():
+def test_registration_rejects_other_success_values() -> None:
     for bad in ("", "true", "1", "yes"):
         with pytest.raises(ValueError, match="success"):
             registration_result([{"success": "True"}, {"success": bad}], min_success=1)
 
 
-def test_combine_overall():
+def test_combine_overall() -> None:
     assert combine(["PASS", "PASS", "PASS"]) == "PASS"
     assert combine(["PASS", "FAIL", "PENDING"]) == "FAIL"   # a failure is final, even with a part pending
     assert combine(["PASS", "PASS", "PENDING"]) == "PENDING"

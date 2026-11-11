@@ -18,11 +18,11 @@ NEEDS = [ROOT / "data" / "cras" / "cras_voxel_1cm.npz", IFC]
 VERDICTS = {"OK", "shifted", "not confirmed"}  # missing / not visible are unreachable: 01 recovered no scanner positions
 
 
-def placements(model):
+def placements(model: ifcopenshell.file) -> dict[str, np.ndarray]:
     return {p.GlobalId: ifc_placement.get_local_placement(p.ObjectPlacement) for p in model.by_type("IfcProduct") if p.ObjectPlacement}
 
 
-def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path):
+def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path: Path) -> None:
     """Known answers are asserted inside 03b; here: every move has its own perturbed IFC, each differs from the original only by that move (same elements, same
     GUIDs, only the moved wall and the opening elements it carries have a changed placement, each by the manifest's offset), the deletions are scan masks (no IFC), and
     the score tables hold, for each of the seven runs, all 35 elements with an expected and an actual verdict on the changed one."""
@@ -98,7 +98,7 @@ def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path):
     assert_zero_points_read_no_points(control)
 
 
-def assert_zero_points_read_no_points(rows):
+def assert_zero_points_read_no_points(rows: list[dict[str, str]]) -> None:
     """An element with no points at all says "no points", not "too few points", as in 03a (issue #19)."""
     assert all(int(r["point_count"]) > 0 for r in rows if r["reason"] == "too few points")
     assert {r["reason"] for r in rows if int(r["point_count"]) == 0} <= {"no points"}  # #23 removed the room-box reason

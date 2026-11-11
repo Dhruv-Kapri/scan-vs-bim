@@ -10,7 +10,7 @@ NOTEBOOK = ROOT / "notebooks" / "01_data.ipynb"
 NEEDS = [ROOT / "data" / "cras" / "cras_voxel_1cm.npz", ROOT / "data" / "cras" / "craslabbim.ifc"]
 
 
-def test_notebook_01_runs_with_known_answers(tmp_path):
+def test_notebook_01_runs_with_known_answers(tmp_path: Path) -> None:
     """Known answers are asserted inside 01: the synthetic hole detector recovers its holes, the CRAS scan is far off the model's frame and the estimated transform fixes it, the room box holds walls, a door and windows, UVigo scale is 1."""
     for p in NEEDS:
         if not p.exists():
