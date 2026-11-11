@@ -92,8 +92,8 @@ def test_write_hand_check_template_never_overwrites(tmp_path: Path) -> None:
     assert [r["judgement"] for r in read_hand_check(p)] == ["OK", "shifted"]
 
 
-def score_row(run: str = "r1", change: str = "", expected: str = "", actual: str = "OK") -> dict[str, str]:
-    return dict(run=run, change=change, expected=expected, actual=actual)
+def score_row(run: str = "r1", change: str = "", expected: str = "", actual: str = "OK", baseline: str = "OK") -> dict[str, str]:
+    return dict(run=run, change=change, expected=expected, actual=actual, baseline=baseline)
 
 
 def run_rows(run: str, changed: dict[str, str], n_untouched: int = 34, **untouched_actuals: int) -> list[dict[str, str]]:
@@ -163,6 +163,46 @@ def test_perturbed_not_confirmed_is_not_a_false_flag() -> None:
            run_rows("b", score_row("b", "deleted", "not confirmed", "not confirmed"), n_untouched=10, **{"not confirmed": 4})
     r = perturbed_result(rows)
     assert r["n_false"] == 0 and r["n_untouched_not_confirmed"] == 14 and r["per_run"]["b"]["n_untouched_not_confirmed"] == 4
+
+
+def test_perturbed_baseline_shifted_untouched_element_is_excluded_not_a_false_flag() -> None:
+    # ADR 0002: an element already shifted on the unperturbed model may really be displaced; it leaves the denominator
+    changed = score_row("a", "deleted", "not confirmed", "not confirmed")
+    already = score_row("a", actual="shifted", baseline="shifted")
+    rows = [changed, already] + [score_row("a") for _ in range(9)]   # 10 untouched
+    r = perturbed_result(rows)
+    assert r["false_rows"] == [] and r["excluded_rows"] == [already] and r["n_excluded"] == 1
+    assert r["per_run"]["a"]["n_untouched"] == 10 and r["per_run"]["a"]["n_baseline_shifted"] == 1 and r["per_run"]["a"]["n_counted"] == 9
+
+
+def test_perturbed_newly_shifted_element_is_a_false_flag_and_the_denominator_shrinks_by_the_excluded() -> None:
+    changed = score_row("a", "deleted", "not confirmed", "not confirmed")
+    newly = score_row("a", actual="shifted", baseline="OK")
+    rows = [changed, newly] + [score_row("a", actual="shifted", baseline="shifted") for _ in range(3)] + [score_row("a") for _ in range(8)]   # 12 untouched, 3 excluded
+    r = perturbed_result(rows)
+    assert r["false_rows"] == [newly] and r["n_false"] == 1 and r["n_counted"] == 9
+    assert r["worst_share_false"] == pytest.approx(1 / 9) and r["pooled_share_false"] == pytest.approx(1 / 9) and r["false_ok"] is False
+
+
+def test_perturbed_false_flag_is_a_change_to_shifted_from_any_baseline_but_shifted() -> None:
+    # baseline OK -> not confirmed is no flag (not confirmed never is); not confirmed -> shifted is one; shifted -> anything is excluded
+    changed = score_row("a", "deleted", "not confirmed", "not confirmed")
+    ok_to_nc = score_row("a", actual="not confirmed", baseline="OK")
+    nc_to_shifted = score_row("a", actual="shifted", baseline="not confirmed")
+    shifted_to_ok = score_row("a", actual="OK", baseline="shifted")
+    r = perturbed_result([changed, ok_to_nc, nc_to_shifted, shifted_to_ok])
+    assert r["false_rows"] == [nc_to_shifted] and r["excluded_rows"] == [shifted_to_ok] and r["per_run"]["a"]["n_counted"] == 2
+
+
+@pytest.mark.parametrize("bad", ["", "Shifted"])
+def test_perturbed_untouched_row_without_a_valid_baseline_raises_naming_run_and_value(bad: str) -> None:
+    # scores from a 03b run before the baseline column must fail loudly, not be counted under the wrong rule
+    rows = [score_row("a", "deleted", "not confirmed", "not confirmed"), score_row("a", baseline=bad)]
+    with pytest.raises(ValueError, match=f"'a'.*baseline.*'{bad}'"):
+        perturbed_result(rows)
+    del rows[1]["baseline"]
+    with pytest.raises(ValueError, match="baseline"):
+        perturbed_result(rows)
 
 
 def test_perturbed_returns_the_flagged_untouched_rows() -> None:

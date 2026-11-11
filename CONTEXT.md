@@ -75,6 +75,11 @@ A perturbed model with several moves and deletions at once (03b: three walls mov
 plus the three deletions), used for what only appears when changes coexist: the leak and the ICP
 pull. The known-answer runs are separate perturbed models, one change each.
 
+**False flag**:
+In a perturbed-model run, an untouched element whose verdict changes from its baseline verdict to shifted
+or missing. Elements already shifted in the baseline are not counted (they may really be displaced); they
+are listed instead.
+
 **Pure shift**:
 What the unchanged verdict logic gives on a wall's own baseline offsets shifted by an injected
 change, with no perturbed model involved. A move is a **fair verdict test** for a variant only if

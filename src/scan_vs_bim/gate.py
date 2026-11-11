@@ -2,6 +2,7 @@
 
 import csv
 from pathlib import Path
+from typing import Any
 
 # The verdicts the hand check can name. "missing" and "not visible" are unreachable in this phase: notebook 01 recovered no scanner
 # positions, so 03a cannot tell an unseen element from an absent one, and CONTEXT.md merges both into "not confirmed".
@@ -52,8 +53,8 @@ def hand_check_result(rows: list[dict], *, n_required: int, min_share: float) ->
     return dict(status=status, n_filled=len(filled), n_agree=n_agree, share=share, n_required=n_required, min_share=min_share)
 
 
-def perturbed_result(rows: list[dict], *, max_false_share: float) -> dict:
-    """The roadmap's perturbed-model criterion from 03b's score rows (columns run, change, expected, actual; one run per perturbation).
+def perturbed_result(rows: list[dict[str, str]], *, max_false_share: float) -> dict[str, Any]:
+    """The roadmap's perturbed-model criterion from 03b's score rows (columns run, change, expected, actual, baseline; one run per perturbation).
 
     Each run must hold exactly one changed row (empty `change` = untouched); ValueError otherwise, on an unknown `change`, and on a changed
     row whose `expected` is not one of VERDICTS.
@@ -62,11 +63,14 @@ def perturbed_result(rows: list[dict], *, max_false_share: float) -> dict:
     expected OK (the 1 cm moves), reported but not part of the criterion. ValueError when no change is beyond tolerance (vacuous pass).
     `changes_ok`: every beyond-tolerance changed row has actual == expected.
 
-    False flag: an untouched row whose actual is shifted or missing ("missing" is unreachable in this phase, see VERDICTS, so in practice
-    shifted only). The clause is applied **per run**: every run's share of falsely flagged untouched elements must be <= max_false_share,
-    so `false_ok` uses the worst run (`worst_run`, `worst_share_false`; the first run in the rows on a tie). `per_run` has each run's
-    n_untouched, n_false, share_false and n_untouched_not_confirmed; `pooled_share_false` (all runs together) is context only.
-    `n_untouched_not_confirmed` is pooled over the runs (context; "not confirmed" is not a false flag)."""
+    False flag (docs/adr/0002-false-flags-against-baseline.md, CONTEXT.md "False flag"): an untouched row whose verdict CHANGES from its `baseline`
+    (the verdict on the real unperturbed model) to shifted or missing ("missing" is unreachable in this phase, see VERDICTS, so in practice
+    shifted only). An untouched row whose baseline is already shifted may really be displaced: it leaves the denominator and is returned in
+    `excluded_rows`. ValueError on an untouched row whose `baseline` is missing or not one of VERDICTS (scores from a 03b without the column).
+    The clause is applied **per run**: every run's share of falsely flagged elements among the counted ones (untouched minus baseline-shifted)
+    must be <= max_false_share, so `false_ok` uses the worst run (`worst_run`, `worst_share_false`; the first run in the rows on a tie).
+    `per_run` has each run's n_untouched, n_baseline_shifted, n_counted, n_false, share_false (n_false / n_counted) and n_untouched_not_confirmed;
+    `pooled_share_false` (all runs together) is context only. `n_untouched_not_confirmed` is pooled over the runs (context; "not confirmed" is not a false flag)."""
     for r in rows:
         if r["change"] not in ("", "moved", "deleted"):
             raise ValueError(f"unknown change {r['change']!r}; expected '', 'moved' or 'deleted'")
@@ -75,6 +79,9 @@ def perturbed_result(rows: list[dict], *, max_false_share: float) -> dict:
         n = sum(bool(r["change"]) for r in rows if r["run"] == run)
         if n != 1:
             raise ValueError(f"run {run!r} has {n} changed rows; each run must have exactly one")
+    for r in rows:
+        if not r["change"] and r.get("baseline") not in VERDICTS:
+            raise ValueError(f"run {r['run']!r}: untouched row has baseline {r.get('baseline')!r}, not one of {', '.join(VERDICTS)} (scores from a 03b without the baseline column?)")
     changed = [r for r in rows if r["change"]]
     for r in changed:
         if r["expected"] not in VERDICTS:
@@ -86,21 +93,29 @@ def perturbed_result(rows: list[dict], *, max_false_share: float) -> dict:
     n_right = sum(r["actual"] == r["expected"] for r in beyond)
     changes_ok = n_right == len(beyond)
 
-    false_rows = [r for r in rows if not r["change"] and r["actual"] in ("shifted", "missing")]
-    per_run = {}
+    untouched_rows = [r for r in rows if not r["change"]]
+    excluded_rows = [r for r in untouched_rows if r["baseline"] == "shifted"]   # may really be displaced (ADR 0002): out of the denominator
+    false_rows = [r for r in untouched_rows if r["baseline"] != "shifted" and r["actual"] in ("shifted", "missing")]
+    per_run: dict[str, dict[str, Any]] = {}
     for run in runs:
-        untouched = [r for r in rows if r["run"] == run and not r["change"]]
+        untouched = [r for r in untouched_rows if r["run"] == run]
+        n_baseline_shifted = sum(r["run"] == run for r in excluded_rows)
+        n_counted = len(untouched) - n_baseline_shifted
         n_false = sum(r["run"] == run for r in false_rows)
-        per_run[run] = dict(n_untouched=len(untouched), n_false=n_false, share_false=n_false / len(untouched) if untouched else 0.0,
+        per_run[run] = dict(n_untouched=len(untouched), n_baseline_shifted=n_baseline_shifted, n_counted=n_counted, n_false=n_false,
+                            share_false=n_false / n_counted if n_counted else 0.0,
                             n_untouched_not_confirmed=sum(r["actual"] == "not confirmed" for r in untouched))
     worst_run = max(per_run, key=lambda run: per_run[run]["share_false"])
     worst_share = per_run[worst_run]["share_false"]
     n_untouched = sum(p["n_untouched"] for p in per_run.values())
+    n_counted = sum(p["n_counted"] for p in per_run.values())
     false_ok = worst_share <= max_false_share
-    return dict(status=PASS if changes_ok and false_ok else FAIL, beyond_rows=beyond, false_rows=false_rows, n_beyond=len(beyond), n_beyond_right=n_right,
+    return dict(status=PASS if changes_ok and false_ok else FAIL, beyond_rows=beyond, false_rows=false_rows, excluded_rows=excluded_rows,
+                n_beyond=len(beyond), n_beyond_right=n_right,
                 changes_ok=changes_ok, n_control=len(control), n_control_right=sum(r["actual"] == r["expected"] for r in control),
                 per_run=per_run, worst_run=worst_run, worst_share_false=worst_share, false_ok=false_ok, max_false_share=max_false_share,
-                n_untouched=n_untouched, n_false=len(false_rows), pooled_share_false=len(false_rows) / n_untouched if n_untouched else 0.0,
+                n_untouched=n_untouched, n_excluded=len(excluded_rows), n_counted=n_counted, n_false=len(false_rows),
+                pooled_share_false=len(false_rows) / n_counted if n_counted else 0.0,
                 n_untouched_not_confirmed=sum(p["n_untouched_not_confirmed"] for p in per_run.values()))
 
 
