@@ -158,7 +158,7 @@ scan-confirmed elements). Python with Open3D and IfcOpenShell; the viewer is Jav
 - **PC2Model** (10.2 GB zip): don't download whole. Zenodo serves HTTP range requests, so pull single samples
   (chunked, retried ranges; see `scripts/fetch_data.py`). 71 of 137 samples are scaled (0.69–1.98 measured;
   the record says 0.5–1.5), so registration needs a scale estimate or must report those separately. Report the
-  31 house/indoor samples separately.
+  37 house/indoor samples (25 house, 6 simulated indoor, 6 real indoor) separately.
 - **INESC CRAS** (4.3 GB zip, ~585M ASCII points, likely 25–30 GB unzipped): stream the zip member and
   subsample on the fly; never extract.
 - Open3D cannot read `.e57`; use `pye57` (works on Apple Silicon).
