@@ -61,7 +61,8 @@ def main() -> None:
     scene += mesh.get_axis_aligned_bounding_box()
     scene_center, scene_extent, scene_zoom = scene.get_center(), scene.get_max_extent(), 0.7
     a.png.parent.mkdir(parents=True, exist_ok=True)
-    vis.capture_screen_image(str(a.png))
+    # Pass the Path, not str(Path): Open3D 0.20 types `filename` as os.PathLike. A str works at runtime but fails mypy.
+    vis.capture_screen_image(a.png)
     print(f"wrote {a.png}")
     # The two sit far apart, so also capture each one close up from the same window.
     view = vis.get_view_control()
@@ -72,7 +73,7 @@ def main() -> None:
             vis.poll_events()
             vis.update_renderer()
         png = a.png.with_name(f"{a.png.stem}-{name}{a.png.suffix}")
-        vis.capture_screen_image(str(png))
+        vis.capture_screen_image(png)
         print(f"wrote {png}")
     view.set_lookat(scene_center)
     view.set_zoom(scene_zoom)

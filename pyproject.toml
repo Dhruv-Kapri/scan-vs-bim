@@ -34,7 +34,7 @@ dev = [
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src/scan_vs_bim", "tests"]
+files = ["src/scan_vs_bim", "tests", "scripts"]
 # Every function is annotated, tests included (and so its body is checked).
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -42,4 +42,9 @@ disallow_incomplete_defs = true
 # No stubs ship for these; the rest of open3d has stubs.
 [[tool.mypy.overrides]]
 module = ["open3d.pipelines", "open3d.pipelines.*", "pye57"]
+ignore_missing_imports = true
+
+# remotezip ships no stubs and no py.typed, and no types-remotezip package exists on PyPI. Only scripts/ import it.
+[[tool.mypy.overrides]]
+module = ["remotezip"]
 ignore_missing_imports = true
