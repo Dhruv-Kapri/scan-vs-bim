@@ -88,12 +88,12 @@ def read_hand_check(path: Path) -> list[HandRow]:
         if reader.fieldnames != HAND_COLUMNS:
             raise ValueError(f"{path}: columns must be {HAND_COLUMNS}, found {reader.fieldnames}")
         rows: list[HandRow] = []
-        for r in reader:
-            if None in r:
-                raise ValueError(f"{path}: row n={r.get('n')}: extra fields {r[None]} (a comma in a note must be quoted)")
-            c = {k: (v or "").strip() for k, v in r.items()}
-            rows.append(HandRow(n=c["n"], global_id=c["global_id"], ifc_class=c["ifc_class"], name=c["name"], verdict=c["verdict"],
-                                judgement=c["judgement"], note=c["note"]))
+        for raw in reader:
+            if None in raw:
+                raise ValueError(f"{path}: row n={raw.get('n')}: extra fields {raw[None]} (a comma in a note must be quoted)")
+            cleaned = {k: (v or "").strip() for k, v in raw.items()}
+            rows.append(HandRow(n=cleaned["n"], global_id=cleaned["global_id"], ifc_class=cleaned["ifc_class"], name=cleaned["name"],
+                                verdict=cleaned["verdict"], judgement=cleaned["judgement"], note=cleaned["note"]))
     for row in rows:
         if row["judgement"] not in ("", *VERDICTS):
             raise ValueError(f"{path}: row n={row['n']}: judgement {row['judgement']!r} is not one of {', '.join(VERDICTS)} (or empty)")
