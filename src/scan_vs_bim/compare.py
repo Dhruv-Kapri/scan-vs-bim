@@ -344,7 +344,10 @@ def measure(els: Sequence[Mesh], faces: Sequence[np.ndarray], pts: np.ndarray, r
     `rules.junction` of any other element's surface (a junction with the ceiling, the floor, a window, another wall: not the wall's own plane; None: off).
     The SideTest also holds d_other (distance to the nearest other element, walls' points only), signed_side (the offsets before the margin, apply_junction's input)
     and occ (the side test's occupancy grid of each wall: the points within `rules.reach` of the wall's bounding box, so it does not depend on which points are passed)."""
-    scene, normal_list, first, t_meshes = o3d.t.geometry.RaycastingScene(), [], [0], []
+    scene = o3d.t.geometry.RaycastingScene()
+    normal_list: list[np.ndarray] = []
+    first: list[int] = [0]
+    t_meshes: list[o3d.t.geometry.TriangleMesh] = []
     for e in els:
         m = _mesh_of(e)
         normal_list.append(np.asarray(m.triangle_normals))

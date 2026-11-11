@@ -142,9 +142,10 @@ def scan_plane(rng: np.random.Generator, x: float, y0: float = 0.6, y1: float = 
     return np.column_stack([x + rng.normal(0, noise, yy.size), yy.ravel(), zz.ravel()]).astype(np.float32)
 
 
-def read(scope: list[ElementMesh], others: list[ElementMesh], planes: list[np.ndarray], box: tuple[np.ndarray, np.ndarray], rules: VerdictRules = RULES) -> VerdictRow:
+def judge_first(scope: list[ElementMesh], others: list[ElementMesh], planes: list[np.ndarray], room: tuple[np.ndarray, np.ndarray], rules: VerdictRules = RULES) -> VerdictRow:
+    """The row of scope[0] from judge_elements on the concatenated scan planes, every point used (no labels)."""
     points = np.concatenate(planes)
-    return judge_elements(scope, others, points, np.ones(len(points), bool), box[0], box[1], rules)[0]
+    return judge_elements(scope, others, points, np.ones(len(points), bool), room[0], room[1], rules)[0]
 
 
 @pytest.mark.parametrize(
@@ -166,7 +167,7 @@ def test_judge_reads_the_rules_on_synthetic_offsets(offsets: Callable[[np.random
 # 13 mm is inside LOA30's 15 mm and 17 mm outside it. With 0.5 mm of noise the margin is 4 sigma either way, so the verdict is not a matter of the draw. -17 mm puts the scanned plane inside the wall body.
 @pytest.mark.parametrize(("offset", "verdict"), [(0.013, "OK"), (0.017, "shifted"), (-0.017, "shifted")])
 def test_a_wall_on_the_loa30_boundary_reads_ok_or_shifted_at_the_offset(offset: float, verdict: str) -> None:
-    row = read([element(0, 0.1, 0, 5, 0, 3)], [], [scan_plane(np.random.default_rng(0), 0.1 + offset, noise=0.0005)], BOUNDARY_BOX)
+    row = judge_first([element(0, 0.1, 0, 5, 0, 3)], [], [scan_plane(np.random.default_rng(0), 0.1 + offset, noise=0.0005)], BOUNDARY_BOX)
     assert row["verdict"] == verdict
     assert abs(row["median_signed_offset_mm"] - offset * 1000) < 1
 
@@ -174,20 +175,20 @@ def test_a_wall_on_the_loa30_boundary_reads_ok_or_shifted_at_the_offset(offset: 
 def test_a_wall_scanned_from_both_sides_keeps_only_its_room_facing_points() -> None:
     rng = np.random.default_rng(0)
     room_face, back = scan_plane(rng, 0.1), scan_plane(rng, 0.0)  # the neighbouring room's surface lies on the wall's back face
-    row = read([element(0, 0.1, 0, 5, 0, 3)], [], [room_face, back], BOUNDARY_BOX)
+    row = judge_first([element(0, 0.1, 0, 5, 0, 3)], [], [room_face, back], BOUNDARY_BOX)
     assert (row["verdict"], row["point_count"], row["points_other_side"]) == ("OK", len(room_face), len(back))
     assert row["reference_side"] == "+x" and row["room_facing_sides"] == 1
 
 
 def test_a_wall_scanned_only_on_its_back_face_is_shifted_by_the_wall_thickness() -> None:
-    row = read([element(0, 0.1, 0, 5, 0, 3)], [], [scan_plane(np.random.default_rng(0), 0.0)], BOUNDARY_BOX)
+    row = judge_first([element(0, 0.1, 0, 5, 0, 3)], [], [scan_plane(np.random.default_rng(0), 0.0)], BOUNDARY_BOX)
     assert row["verdict"] == "shifted" and abs(row["median_signed_offset_mm"] + 100) < 3
 
 
 @pytest.mark.parametrize(("shift", "verdict"), [(0.03, "shifted"), (0.01, "OK")])
 def test_a_partition_is_judged_on_whichever_face_the_scan_shows(shift: float, verdict: str) -> None:
     rng = np.random.default_rng(0)
-    row = read([element(shift, 0.1 + shift, 0, 5, 0, 3)], [], [scan_plane(rng, 0.1), scan_plane(rng, 0.0)], PARTITION_BOX)  # the scan has both faces where the wall really is; the model is `shift` off
+    row = judge_first([element(shift, 0.1 + shift, 0, 5, 0, 3)], [], [scan_plane(rng, 0.1), scan_plane(rng, 0.0)], PARTITION_BOX)  # the scan has both faces where the wall really is; the model is `shift` off
     assert row["verdict"] == verdict
     assert row["room_facing_sides"] == 2
     if verdict == "shifted":
@@ -196,8 +197,8 @@ def test_a_partition_is_judged_on_whichever_face_the_scan_shows(shift: float, ve
 
 # The wall (x 0..0.1, y 0..4.5) meets a ceiling slab above it, a floor slab below it and a second wall at its end. Strips 2.5 cm in front of the wall's plane in those corners (a fillet, a skirting, a cornice)
 # are nearer to the wall than to the neighbour, but lie within 10 cm of it: the junction margin leaves them out.
-CORNER_WALL = element(0, 0.1, 0, 4.5, 0, 3.0)
-CORNER_NEIGHBOURS = [element(-0.5, 4.1, -0.5, 4.6, 3.0, 3.2, "IfcSlab", "ceiling"), element(-0.5, 4.1, -0.5, 4.6, -0.2, 0.0, "IfcSlab", "floor"), element(0.1, 4.1, 4.5, 4.6, 0, 3.0, global_id="end wall")]
+CORNER_WALL: ElementMesh = element(0, 0.1, 0, 4.5, 0, 3.0)
+CORNER_NEIGHBOURS: list[ElementMesh] = [element(-0.5, 4.1, -0.5, 4.6, 3.0, 3.2, "IfcSlab", "ceiling"), element(-0.5, 4.1, -0.5, 4.6, -0.2, 0.0, "IfcSlab", "floor"), element(0.1, 4.1, 4.5, 4.6, 0, 3.0, global_id="end wall")]
 
 
 @pytest.mark.parametrize(
@@ -207,17 +208,17 @@ CORNER_NEIGHBOURS = [element(-0.5, 4.1, -0.5, 4.6, 3.0, 3.2, "IfcSlab", "ceiling
 def test_the_junction_margin_leaves_corner_strips_out_and_judges_the_plane(plane_x: float, strip_x: float, verdict: str, median_mm: float) -> None:
     rng = np.random.default_rng(0)
     planes = [scan_plane(rng, plane_x), scan_plane(rng, strip_x, 0.6, 4.4, 2.9, 2.975), scan_plane(rng, strip_x, 0.6, 4.4, 0.025, 0.1), scan_plane(rng, strip_x, 4.4, 4.475, 0.3, 2.7)]
-    row = read([CORNER_WALL], CORNER_NEIGHBOURS, planes, BOUNDARY_BOX)
+    row = judge_first([CORNER_WALL], CORNER_NEIGHBOURS, planes, BOUNDARY_BOX)
     assert row["verdict"] == verdict and abs(row["median_signed_offset_mm"] - median_mm) < 3
     assert row["points_at_junction"] > 0
-    assert read([CORNER_WALL], CORNER_NEIGHBOURS, planes, BOUNDARY_BOX, replace(RULES, junction=None))["points_at_junction"] == 0
+    assert judge_first([CORNER_WALL], CORNER_NEIGHBOURS, planes, BOUNDARY_BOX, replace(RULES, junction=None))["points_at_junction"] == 0
 
 
 # n1: the only scan is the neighbour's face, 2.9 m from the wall: no point within the side test's reach of the wall. n2: the neighbour's face is 25 cm in front of the wall: points within reach, none within the band.
 @pytest.mark.parametrize("nx", [pytest.param(3.0, id="n1 neighbour out of reach"), pytest.param(0.35, id="n2 points in reach, none in the band")])
 def test_a_wall_with_no_point_in_its_patch_reads_no_points(nx: float) -> None:
     neighbour = element(nx, nx + 0.1, 0.5, 2.0, 0.0, 3.0)
-    row = read([element(0, 0.1, 0, 5, 0, 3)], [neighbour], [scan_plane(np.random.default_rng(0), nx, y1=1.9)], BOUNDARY_BOX)
+    row = judge_first([element(0, 0.1, 0, 5, 0, 3)], [neighbour], [scan_plane(np.random.default_rng(0), nx, y1=1.9)], BOUNDARY_BOX)
     assert (row["verdict"], row["reason"], row["point_count"]) == ("not confirmed", "no points", 0)
 
 
@@ -226,11 +227,21 @@ def test_the_own_face_patch_leaves_out_a_surface_carried_past_the_walls_end() ->
     rng = np.random.default_rng(0)
     planes = [scan_plane(rng, 0.1, 4.3, 4.9), scan_plane(rng, 0.1, 5.02, 5.11)]
     wall = element(0, 0.1, 0, 5, 0, 3)
-    on, off = read([wall], [], planes, BOUNDARY_BOX), read([wall], [], planes, BOUNDARY_BOX, replace(RULES, own_face=False))
-    assert off["verdict"] != "OK"
-    assert on["verdict"] == "OK" and abs(on["median_signed_offset_mm"]) < 3 and on["points_past_edge"] > 0
+    with_patch, without = judge_first([wall], [], planes, BOUNDARY_BOX), judge_first([wall], [], planes, BOUNDARY_BOX, replace(RULES, own_face=False))
+    assert without["verdict"] != "OK"
+    assert with_patch["verdict"] == "OK" and abs(with_patch["median_signed_offset_mm"]) < 3 and with_patch["points_past_edge"] > 0
 
 
 def test_plane_vote_does_not_let_two_of_ten_points_decide_a_narrow_walls_side() -> None:
     # All points in two 5 mm bins (less than the vote window); 2 of the 10 show a side by themselves.
     assert not plane_vote(np.array([0.0] * 2 + [0.006] * 8), np.array([1] * 2 + [0] * 8), 0.5).any()
+
+
+def test_the_use_mask_decides_which_points_count_and_which_are_reported_left_out() -> None:
+    # With oracle labels only the labelled points enter: a back plane outside the mask is neither counted nor reported as the other side.
+    rng = np.random.default_rng(0)
+    room_face, back = scan_plane(rng, 0.1), scan_plane(rng, 0.0)
+    points = np.concatenate([room_face, back])
+    use = np.arange(len(points)) < len(room_face) // 2  # half of the room face only
+    row = judge_elements([element(0, 0.1, 0, 5, 0, 3)], [], points, use, *BOUNDARY_BOX)[0]
+    assert (row["verdict"], row["point_count"], row["points_other_side"]) == ("OK", len(room_face) // 2, 0)
