@@ -210,6 +210,8 @@ def test_perturbed_returns_the_flagged_untouched_rows() -> None:
     rows = [score_row("a", "deleted", "not confirmed", "not confirmed"), flagged, score_row("a")]
     r = perturbed_result(rows)
     assert r["false_rows"] == [flagged] and r["beyond_rows"] == [rows[0]]
+    # the very input objects, not copies: 05b matches them back to its rows by id() (#48)
+    assert r["false_rows"][0] is flagged and r["beyond_rows"][0] is rows[0]
 
 
 def test_perturbed_without_changes_beyond_tolerance_raises_not_passes_vacuously() -> None:
