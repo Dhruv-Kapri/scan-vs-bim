@@ -92,6 +92,32 @@ move does to which points enter the band.
 Placing the scan in the model's coordinate frame by a rigid transform (plus scale where needed).
 _Avoid_: alignment (fine in prose, but the metrics say registration), fitting
 
+**Sample**:
+One PC2Model case: a scan, its model and the ground-truth transform between them. Samples come in
+categories (house, simulated indoor, real indoor, and four object categories); the 37 house and indoor
+samples are the building samples.
+_Avoid_: scene, case
+
+**Scaled sample**:
+A sample whose ground-truth transform includes a uniform scale (|s − 1| > 0.001). Registration is not told
+which samples are scaled; it fits a scale on every sample.
+
+**Centroid error**:
+The distance between where the estimated and the ground-truth transforms put the scan's centroid. The
+translation error of a registration; the raw translation difference is dominated by the lever arm from the
+scan's origin.
+_Avoid_: translation error (for the raw difference)
+
+**Registration success**:
+A sample whose registration, on the best of five RANSAC seeds by ICP fitness, has rotation error ≤ 2°,
+centroid error ≤ 5 cm and scale error ≤ 1% (on every sample, scaled or not). Judgement calls fixed before the Phase 0.5
+gate, not taken from a standard.
+
+**Seen sample**:
+A sample already used to choose or tune registration (the nine gate samples or the tuning samples), as
+opposed to an unseen sample. Success rates are reported over all samples and over unseen samples only.
+_Avoid_: training sample
+
 **Registration residual**:
 Distance between the registered scan points and the model surface (PC2Model calls its mean
 `LOA_mean`). A measure of registration quality, not an accuracy level.

@@ -83,19 +83,54 @@ Terms (verdict, element, clutter, perturbed model, ...) are defined in [CONTEXT.
   The gate failed after the tuning week (registration 7 of 9, perturbed model and hand check fail); the
   negative result is written up in [phase-0.5-negative-result.md](phase-0.5-negative-result.md).
 
-## 1. Align (weeks 2-3)
+## 1. Package and align (weeks 3-5)
 
-Notebook 02's code moves into the package and runs on all 31 building/indoor samples, then the rest.
+Planned 2026-11-09, after the Phase 0.5 negative result. The stage logic the notebooks copy moves into the
+package ([#33](https://github.com/Dhruv-Kapri/scan-vs-bim/issues/33)), the registration runs on all 137
+PC2Model samples, and the verdict-rule fixes that the negative result deferred are made. Terms (sample,
+scaled sample, centroid error, registration success, seen sample, false flag) are in [CONTEXT.md](../CONTEXT.md).
 
+Order of work:
 
-- Coarse: voxel downsample, FPFH features, RANSAC global registration (Open3D).
-- Fine: point-to-plane ICP.
-- The model side: sample the IFC or OBJ surfaces into a point cloud so both sides use the same tools.
-- Score on PC2Model with its ground-truth transforms: rotation error, translation error, success rate,
-  per category. Start with the building categories (houses, indoor), then run the rest.
-- PC2Model applies random scaling to half its samples, so the baseline needs a scale estimate
-  (or must report those samples separately). Notebook 02 tries one estimate; decide from its result.
-- **Done when:** a reproducible results table, with the exact command that produced it.
+1. Start the detached, resumable download of all 137 samples (about 8.9 GB; the 25 house samples are 7 GB).
+   It is the long pole and runs while the rest is done.
+2. mypy and annotations ([#34](https://github.com/Dhruv-Kapri/scan-vs-bim/issues/34)).
+3. Registration into the package, in two steps: a pure move that leaves 05a's nine rows unchanged; then the
+   scaled flag is dropped and scale is fitted on every sample ([ADR 0001](adr/0001-fit-scale-on-every-sample.md)),
+   05a and 05c are re-run and their changed numbers recorded.
+4. Verdict logic into `scan_vs_bim.compare`, as pure moves split over several tickets: re-run 03a, 03b, 03c
+   and 05b give unchanged verdicts.
+5. Verdict-rule fixes, each with its acceptance stated before tuning, tuned on 03c's two held-out rooms only
+   (never room B, as in #20):
+   - the wall side test (#27): a point may take the side away from the room only if the scan shows the
+     neighbouring space there;
+   - large slabs and coverings (#26): offsets against a plane fitted to the element's own points, its tilt
+     reported per element;
+   - delete `face_coverage`, whose rule #30 rejected;
+   - false flags counted against the baseline verdict ([ADR 0002](adr/0002-false-flags-against-baseline.md)).
+6. The registration benchmark: the 37 building samples (25 house, 6 simulated indoor, 6 real indoor) first,
+   then the 100 object samples.
+7. Room B re-reported: 03a, 03b and 05b re-run once after the fixes. Their gate numbers are reported as
+   "after Phase 1", not as a new pass or fail of the Phase 0.5 gate.
+
+The benchmark:
+
+- Pipeline: 05a's, frozen (coarse FPFH + RANSAC + ICP over seeds 0 to 4, the draw with the highest coarse ICP
+  fitness, then `refine_plan`), except that scale is fitted on every sample. No further tuning.
+- Success: 05a's thresholds (rotation ≤ 2°, centroid error ≤ 5 cm, scale error ≤ 1%), the scale criterion
+  now on every sample. Also reported: median and p90 of each error per category, scaled and unscaled rows
+  separately, and seed-0 success as context.
+- Seen samples (05a's nine gate samples, 05c's tuning samples) are marked; success rates are given over all
+  samples and over unseen samples only.
+- A detached, resumable script writes per-sample rows to `outputs/`; `docs/phase-1-results.md` holds the
+  table, the command and the commit.
+
+- **Done when:** all four hold:
+  - the benchmark table for all 137 samples, with the exact command that produced it;
+  - #33 complete: each copied helper exists once in the package with tests, the notebooks import it, and the
+    pure moves left the numbers unchanged;
+  - each rule fix meets its pre-stated acceptance on the held-out rooms;
+  - room B re-reported after the fixes.
 
 ## 2. Compare (weeks 3-5)
 

@@ -23,8 +23,9 @@ marked unverified and must be checked before use.
   transformed scan into the model frame (**Verified 2026-10-28**, measured in notebook 02 on UVigo:
   median scan-to-model distance 0.042 m with T, 927 m with its inverse). The smallest scaled sample is
   `furniture/fur_010-modelnet` (0.38 MB, scale 1.357).
-- Not a building dataset overall: 31 of 137 samples are houses or indoor spaces. Report those
-  categories separately.
+- Not a building dataset overall: 37 of 137 samples are houses or indoor spaces (25 house, 6 simulated
+  indoor, 6 real indoor; **Verified 2026-11-09** from `outputs/pc2model_scales.csv`, which an earlier "31"
+  undercounted). Report those categories separately.
 - Unverified: the metrics the authors use, and whether an evaluation server will open.
 - **Verified 2026-10-27 (access):** Zenodo serves HTTP range requests (206) on the zip, so single
   samples can be pulled without the 10.2 GB download, e.g. with `remotezip`. Each sample is a folder
