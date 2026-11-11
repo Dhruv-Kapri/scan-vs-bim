@@ -131,9 +131,12 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   English name, GWP-total A1-A3 per declared unit (A1-A3 combined, or A1+A2+A3 summed; EN 15804+A2 "GWP-total" and
   EF 3.1 "Climate change" method UUIDs), and kg/m3/m2 per declared unit from the flow properties. `Dataset.carbon()`
   returns None when nothing converts: no densities are ever guessed.
-- `src/scan_vs_bim/register.py`: `refine_icp` (scale-fitting point-to-point ICP stages, then rigid point-to-plane
-  stages, coarse to fine, after the coarse RANSAC + ICP), `refine_plan` (the stages 05a runs; chosen in 05c, issue #20)
-  and `voxel_schedule`.
+- `src/scan_vs_bim/register.py`: registration, once (#37; notebooks 00, 02 and 05a import it). `register_sample` (05a's
+  pipeline: scale estimate on a flagged sample, FPFH + RANSAC + ICP per seed in `SEEDS` via `preprocess`/`coarse_draw`,
+  the best coarse ICP fitness, then `refine_plan`), `score` (rotation, centroid and scale error, success on CONTEXT.md's
+  thresholds `ROT_MAX_DEG`/`CENTROID_MAX_M`/`SCALE_MAX_REL`), `apply(T, pts)`, `seed_all`, `rms_radius`; `refine_icp`
+  (scale-fitting point-to-point ICP stages, then rigid point-to-plane stages, coarse to fine, after the coarse RANSAC + ICP),
+  `refine_plan` (the stages 05a runs; chosen in 05c, issue #20) and `voxel_schedule`.
 - In a git worktree, uv warns that `VIRTUAL_ENV` (the main checkout's venv, exported by the shell) "does not match the
   project environment". Run `unset VIRTUAL_ENV` in the worktree shell to silence it; each worktree has its own `.venv`.
 - `src/scan_vs_bim/fetch.py`: chunked, retried, resumable HTTP range downloads and single-member zip
