@@ -3,16 +3,19 @@
 import logging
 import zipfile
 import zlib
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
-from scan_vs_bim.fetch import ReadRange, data_start
+from scan_vs_bim.fetch import ReadRange, data_start, extract_zip_member
 
 log = logging.getLogger(__name__)
 
 URL = "https://zenodo.org/api/records/17581812/files/PC2Model_v1.4.zip/content"
+
+BUILDING_CATEGORIES: tuple[str, ...] = ("house", "indoor_modelling", "ISPRS_indoor_modeling_benchmark")
 
 
 @dataclass(frozen=True)
@@ -106,3 +109,22 @@ def cached_scales(read_range: ReadRange, samples: list[Sample], cache: Path) -> 
             log.info("[%d/%d] %s", n, len(samples), s.folder)
         scales[s.folder] = scale_of(parse_transform(f.read_text()))
     return scales
+
+
+def download_order(rows: Iterable[Mapping[str, str]]) -> list[str]:
+    """Sample folders from pc2model_scales.csv rows: building categories first, then the rest, each in input order."""
+    rows = list(rows)
+    buildings = [r["sample"] for r in rows if r["category"] in BUILDING_CATEGORIES]
+    others = [r["sample"] for r in rows if r["category"] not in BUILDING_CATEGORIES]
+    return buildings + others
+
+
+def fetch_samples(read_range: ReadRange, infos: Sequence[zipfile.ZipInfo], folders: Sequence[str], data_dir: Path) -> None:
+    """Extract every member of each sample folder into data_dir/<folder basename>/; complete files are skipped."""
+    for n, folder in enumerate(folders, 1):
+        members = [i for i in infos if i.filename.startswith(folder + "/") and not i.is_dir()]
+        if not members:
+            raise ValueError(f"no members under {folder!r} in the zip")
+        for info in members:
+            extract_zip_member(read_range, info, data_dir / Path(folder).name / Path(info.filename).name)
+        log.info("done %d/%d: %s", n, len(folders), folder)
