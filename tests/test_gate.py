@@ -142,7 +142,7 @@ def test_perturbed_false_flag_clause_is_judged_per_run_on_the_worst_run() -> Non
     r = perturbed_result(rows)
     assert r["worst_run"] == "b" and r["worst_share_false"] == pytest.approx(3 / 34) and r["false_ok"] is True and r["status"] == "PASS"
     assert [r["per_run"][k]["n_false"] for k in "abc"] == [0, 3, 1]
-    assert r["pooled_share_false"] == pytest.approx(4 / 102) and r["n_false"] == 4 and r["n_untouched"] == 102
+    assert r["pooled_share_false"] == pytest.approx(4 / 102) and r["n_false"] == 4 and r["n_untouched_all"] == 102
     # 4 of 34 = 11.8 % in one run fails, although pooled over the three runs it is only 4 of 102 = 3.9 %
     rows = flagged("a", 0) + flagged("b", 4) + flagged("c", 0)
     r = perturbed_result(rows)
@@ -172,7 +172,7 @@ def test_perturbed_baseline_shifted_untouched_element_is_excluded_not_a_false_fl
     rows = [changed, already] + [score_row("a") for _ in range(9)]   # 10 untouched
     r = perturbed_result(rows)
     assert r["false_rows"] == [] and r["excluded_rows"] == [already] and r["n_excluded"] == 1
-    assert r["per_run"]["a"]["n_untouched"] == 10 and r["per_run"]["a"]["n_baseline_shifted"] == 1 and r["per_run"]["a"]["n_counted"] == 9
+    assert r["per_run"]["a"]["n_untouched_all"] == 10 and r["per_run"]["a"]["n_baseline_shifted"] == 1 and r["per_run"]["a"]["n_counted"] == 9
 
 
 def test_perturbed_newly_shifted_element_is_a_false_flag_and_the_denominator_shrinks_by_the_excluded() -> None:
