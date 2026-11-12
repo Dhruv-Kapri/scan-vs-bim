@@ -13,8 +13,9 @@ NEEDS = [ROOT / "data" / "cras" / "cras_voxel_1cm.npz", ROOT / "data" / "cras" /
 
 
 def test_03c_copy_of_03a_logic_reproduces_03a_on_room_b(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """03c carries a copy of 03a's logic (as 03b does). Run on room B (SLICE_JSON=01_cras_slice.json), up to and including its room-B check cell, it must give 03a's
-    verdicts, point counts and medians row for row: the check is asserted inside the notebook. Needs outputs/03a (run 03a first)."""
+    """03c imports 03a's logic from scan_vs_bim.compare (it carried a copy until #41). Run on room B (SLICE_JSON=01_cras_slice.json), up to and including its room-B check cell,
+    03c's use of it (the assignment on the 135 elements, the own-face patch cut by `recut`, its row adapter) must give 03a's verdicts, point counts and medians row for row:
+    the check is asserted inside the notebook. Needs outputs/03a (run 03a first)."""
     for p in NEEDS:
         if not p.exists():
             pytest.skip(f"{p.relative_to(ROOT)} not present (fetch the data, run 03a)")
