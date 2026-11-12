@@ -177,3 +177,17 @@ def test_score_success_flips_at_each_threshold_and_is_inclusive_on_centroid(crit
     assert not score(estimate(limit + 1e-9), np.eye(4), pts).success
     if criterion == "centroid":   # the only limit float arithmetic can hit exactly: a pure shift of (0.05, 0, 0); `<` would fail here
         assert score(estimate(limit), np.eye(4), pts).success
+
+
+def test_apply_f32_is_the_float32_transform_the_verdict_notebooks_were_run_with() -> None:
+    # 03a moved the CRAS cache (float32) with T cast to float32 and float32 out; 05b's patch counts must equal 03a's exactly (#42), so the package version is
+    # held to that copy bit for bit, at model coordinates of tens of metres where float32 and float64 differ. Any input dtype comes out float32.
+    rng = np.random.default_rng(0)
+    c, s = np.cos(0.3), np.sin(0.3)
+    T = np.array([[c, -s, 0, 12.345678], [s, c, 0, -4.2], [0, 0, 1, 1.5], [0, 0, 0, 1]])
+    p32 = (rng.random((1000, 3)) * 20).astype(np.float32)
+    copy_03a = (p32 @ T[:3, :3].T.astype(np.float32) + T[:3, 3].astype(np.float32)).astype(np.float32)
+    got = register.apply_f32(T, p32)
+    assert got.dtype == np.float32 and np.array_equal(got, copy_03a)
+    assert not np.array_equal(got, register.apply(T, p32).astype(np.float32))   # the float64 route rounds differently: the test can tell them apart
+    assert register.apply_f32(T, p32.astype(np.float64)).dtype == np.float32

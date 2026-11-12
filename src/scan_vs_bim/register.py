@@ -126,6 +126,12 @@ def apply(T: np.ndarray, pts: np.ndarray) -> np.ndarray:
     return pts @ T[:3, :3].T + T[:3, 3]
 
 
+def apply_f32(T: np.ndarray, pts: np.ndarray) -> np.ndarray:
+    """Points (n, 3) moved by the 4x4 transform T in float32 (T cast to float32 first), float32 out whatever the input dtype: the CRAS notebooks' transform
+    (01, 03a, 05b). Not `apply`: rounding differs, and 05b's patch counts must equal 03a's exactly."""
+    return (pts @ T[:3, :3].T.astype(np.float32) + T[:3, 3].astype(np.float32)).astype(np.float32)
+
+
 def rms_radius(pcd: o3d.geometry.PointCloud, voxel: float) -> float:
     """RMS distance of the voxel-downsampled cloud from its centroid (02's scale estimate uses the ratio of two)."""
     p = np.asarray(pcd.voxel_down_sample(voxel).points)
