@@ -1,12 +1,12 @@
 from collections.abc import Callable
-from dataclasses import replace
-from typing import cast
+from dataclasses import fields, is_dataclass, replace
+from typing import Any, cast
 
 import numpy as np
 import open3d as o3d
 import pytest
 
-from scan_vs_bim.compare import RULES, VerdictRow, VerdictRules, aligned_faces, face_coverage, judge, judge_elements, over_own_face, plane_vote
+from scan_vs_bim.compare import RULES, VerdictRow, VerdictRules, aligned_faces, assign_patches, face_coverage, judge, judge_elements, over_own_face, own_face_triangles, plane_vote, recut
 from scan_vs_bim.load import ElementMesh
 
 
@@ -217,7 +217,7 @@ def test_the_junction_margin_leaves_corner_strips_out_and_judges_the_plane(plane
 # n1: the only scan is the neighbour's face, 2.9 m from the wall: no point within the side test's reach of the wall. n2: the neighbour's face is 25 cm in front of the wall: points within reach, none within the band.
 @pytest.mark.parametrize("nx", [pytest.param(3.0, id="n1 neighbour out of reach"), pytest.param(0.35, id="n2 points in reach, none in the band")])
 def test_a_wall_with_no_point_in_its_patch_reads_no_points(nx: float) -> None:
-    neighbour = element(nx, nx + 0.1, 0.5, 2.0, 0.0, 3.0)
+    neighbour = element(nx, nx + 0.1, 0.5, 2.0, 0.0, 3.0, global_id="neighbour")
     row = judge_first([element(0, 0.1, 0, 5, 0, 3)], [neighbour], [scan_plane(np.random.default_rng(0), nx, y1=1.9)], BOUNDARY_BOX)
     assert (row["verdict"], row["reason"], row["point_count"]) == ("not confirmed", "no points", 0)
 
@@ -245,3 +245,63 @@ def test_the_use_mask_decides_which_points_count_and_which_are_reported_left_out
     use = np.arange(len(points)) < len(room_face) // 2  # half of the room face only
     row = judge_elements([element(0, 0.1, 0, 5, 0, 3)], [], points, use, *BOUNDARY_BOX)[0]
     assert (row["verdict"], row["point_count"], row["points_other_side"]) == ("OK", len(room_face) // 2, 0)
+
+
+def test_the_tolerance_is_the_usibd_loa30_bound_not_a_tuning_value() -> None:
+    assert RULES.tol == 0.015  # USIBD LOA30: at most 15 mm at 2 sigma
+
+
+def test_a_door_like_element_is_taken_across_its_thinnest_plan_axis_not_z() -> None:
+    # A door leaf x 0..0.05, y 0..0.9, z 0..2.1: its own faces are the two broad ones at x = 0 and x = 0.05, not its top and bottom (which the z fallback would give).
+    door = element(0, 0.05, 0, 0.9, 0, 2.1, "IfcDoor")
+    tri = own_face_triangles(door, np.ones(len(door.faces), bool))
+    assert tri.sum() == 4
+    x = door.vertices[door.faces[tri]][:, :, 0]
+    assert np.isclose(x, x[:, :1]).all()  # each selected triangle lies in a plane x = const
+
+
+def assert_same(a: Any, b: Any, path: str = "patches") -> None:
+    """Field-by-field equality of two `Patches`, whatever they nest: arrays (NaN equal), lists, dicts, dataclasses."""
+    if isinstance(a, np.ndarray):
+        np.testing.assert_array_equal(a, b, err_msg=path)
+    elif is_dataclass(a):
+        for f in fields(a):
+            assert_same(getattr(a, f.name), getattr(b, f.name), f"{path}.{f.name}")
+    elif isinstance(a, dict):
+        assert a.keys() == b.keys(), path
+        for k in a:
+            assert_same(a[k], b[k], f"{path}[{k}]")
+    elif isinstance(a, (list, tuple)):
+        assert len(a) == len(b), path
+        for i, (x, y) in enumerate(zip(a, b)):
+            assert_same(x, y, f"{path}[{i}]")
+    else:
+        assert a == b, path
+
+
+# The own-face cut is the only part of the assignment that `recut` redoes; the measurement under it (`measure`) is reused. A wall whose scan carries on past its end (the case above), and a partition,
+# which `own_face_one_sided` leaves alone, are where the cut matters.
+@pytest.mark.parametrize(
+    ("room", "measured_with", "recut_to"),
+    [
+        pytest.param(BOUNDARY_BOX, replace(RULES, own_face=False), RULES, id="off to on"),
+        pytest.param(BOUNDARY_BOX, RULES, replace(RULES, own_face=False), id="on to off"),
+        pytest.param(PARTITION_BOX, RULES, replace(RULES, own_face_one_sided=False), id="partition: one-sided to all walls"),
+        pytest.param(BOUNDARY_BOX, RULES, replace(RULES, own_face_margin=0.1), id="wider margin"),
+    ],
+)
+def test_recut_gives_what_assign_patches_gives_from_the_same_measurement(room: tuple[np.ndarray, np.ndarray], measured_with: VerdictRules, recut_to: VerdictRules) -> None:
+    rng = np.random.default_rng(0)
+    points = np.concatenate([scan_plane(rng, 0.1, 4.3, 4.9), scan_plane(rng, 0.1, 5.02, 5.11)])
+    scope = [element(0, 0.1, 0, 5, 0, 3)]
+    measured = assign_patches(scope, [], points, *room, measured_with)
+    expected = assign_patches(scope, [], points, *room, recut_to)
+    assert not np.array_equal(measured.past_edge, expected.past_edge)  # the cut matters here, or this would pass on a recut that does nothing
+    assert_same(recut(measured, scope, points, *room, recut_to), expected)
+
+
+def test_assign_patches_refuses_an_element_in_both_scope_and_others() -> None:
+    # It would compete with itself, and its back face would read as a junction at distance 0.
+    wall = element(0, 0.1, 0, 5, 0, 3)
+    with pytest.raises(AssertionError, match="global_id"):
+        assign_patches([wall], [wall], scan_plane(np.random.default_rng(0), 0.1), *BOUNDARY_BOX)

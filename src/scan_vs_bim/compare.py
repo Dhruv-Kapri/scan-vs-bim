@@ -1,7 +1,7 @@
 """The compare stage: per-element verdicts (`judge_elements`, moved from notebook 03a, issue #40) and the geometry under them.
 
 `judge_elements` takes the element meshes, the scan points, a use mask and the rule constants (`VerdictRules`; `RULES` holds the values 03a used) and returns one verdict row per element.
-03b, 03c and 05b still carry their own copies of this logic. Below it: which scan points lie over an element's own face.
+05b still carries its own copy of this logic. Below it: which scan points lie over an element's own face.
 
 A point within BAND of an element is measured to the element's surface, but near the element's edges the nearest point of the surface is the
 edge itself, so a point past the end of a wall, or above its top, reads as an offset that is really a distance to the edge. Such a point belongs to
@@ -10,7 +10,7 @@ onto the element's own face lies on that face (issue #20: the own-face patch).
 """
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final, Protocol, TypedDict
 
 import numpy as np
@@ -387,11 +387,14 @@ def measure(els: Sequence[Mesh], faces: Sequence[np.ndarray], pts: np.ndarray, r
 
 
 def own_face_triangles(e: Mesh, face_set: np.ndarray) -> np.ndarray:
-    """The triangles that are the element's own face(s): a wall's room-facing broad faces (across its thickness axis), a slab's or covering's two broad faces (across z).
+    """The triangles that are the element's own face(s): a wall's room-facing broad faces (across its thickness axis), a slab's or covering's two broad faces (across z),
+    and for any other class (a window, a door) its two broad faces across its thinnest plan axis.
     A deep covering's side faces are not counted (#32): room B's 0.5 m Forros 1 is the only slab or covering deeper than 15 cm in room B and the held-out rooms, so no held-out room can check such a rule."""
     if e.ifc_class == "IfcWallStandardCase":
         return aligned_faces(e.vertices, e.faces, int(np.argmin(np.ptp(e.vertices[:, :2], axis=0))), among=face_set)
-    return aligned_faces(e.vertices, e.faces, 2)
+    if e.ifc_class in ("IfcSlab", "IfcCovering"):
+        return aligned_faces(e.vertices, e.faces, 2)
+    return aligned_faces(e.vertices, e.faces, int(np.argmin(np.ptp(e.vertices[:, :2], axis=0))))
 
 
 def past_edge_mask(els: Sequence[Mesh], face_sets: Sequence[np.ndarray], geom: np.ndarray, band: np.ndarray, walls: dict[int, WallInfo], pts: np.ndarray,
@@ -450,17 +453,15 @@ class Patches:
     past_of: list[np.ndarray]
     dropped_of: list[np.ndarray]
     junction_of: list[np.ndarray]
+    rules: VerdictRules  # the rules the patches were made with (`recut` checks that only the own-face ones differ)
 
     def view(self) -> PatchView:
         return PatchView(signed=self.signed, how=self.side.how, points_of=self.points_of, dropped_of=self.dropped_of, junction_of=self.junction_of, past_of=self.past_of, walls=self.side.walls)
 
 
-def assign_patches(scope: Sequence[Element], others: Sequence[Element], points: np.ndarray, lo: np.ndarray, hi: np.ndarray, rules: VerdictRules = RULES) -> Patches:
-    """Every scan point goes to the nearest element (the `scope`, which is judged, and `others`, the neighbours: never judged, they compete for points and are 'another element' at junctions).
-    Signed offset: walls against their room-facing faces (by the room box [lo, hi]), on the side each point was seen from; the neighbours get all-True faces: no verdict, no side test.
-    The scope comes first in the element list (index i < len(scope) is scope[i])."""
-    scope_fc = [judged_faces(e, lo, hi, rules) for e in scope]
-    geom, dist, sgn, nearest, side = measure([*scope, *others], scope_fc + [np.ones(len(e.faces), bool) for e in others], points, rules)
+def _own_face_cut(scope: Sequence[Element], scope_fc: Sequence[np.ndarray], points: np.ndarray, rules: VerdictRules, geom: np.ndarray, dist: np.ndarray, sgn: np.ndarray, nearest: np.ndarray,
+                  side: SideTest) -> Patches:
+    """Everything `assign_patches` does after `measure`: the masks and per-element index lists, with the own-face patch cut by `rules`. The one code path of `assign_patches` and `recut`."""
     n_scope = len(scope)
     bnd = dist <= rules.band
     past = past_edge_mask(scope, scope_fc, geom, bnd, side.walls, points, rules)  # band points past the edge of their element's own face (issue #20)
@@ -473,7 +474,29 @@ def assign_patches(scope: Sequence[Element], others: Sequence[Element], points: 
                    points_of=[np.flatnonzero((geom == i) & ib) for i in range(n_scope)],
                    past_of=[np.flatnonzero((geom == i) & pe) for i in range(n_scope)],
                    dropped_of=[np.flatnonzero((geom == i) & bk) for i in range(n_scope)],
-                   junction_of=[np.flatnonzero((geom == i) & jn) for i in range(n_scope)])
+                   junction_of=[np.flatnonzero((geom == i) & jn) for i in range(n_scope)],
+                   rules=rules)
+
+
+def assign_patches(scope: Sequence[Element], others: Sequence[Element], points: np.ndarray, lo: np.ndarray, hi: np.ndarray, rules: VerdictRules = RULES) -> Patches:
+    """Every scan point goes to the nearest element (the `scope`, which is judged, and `others`, the neighbours: never judged, they compete for points and are 'another element' at junctions).
+    Signed offset: walls against their room-facing faces (by the room box [lo, hi]), on the side each point was seen from; the neighbours get all-True faces: no verdict, no side test.
+    The scope comes first in the element list (index i < len(scope) is scope[i]). `scope` and `others` must be disjoint by `global_id`: an element in both would compete with itself."""
+    assert not {e.global_id for e in scope} & {e.global_id for e in others}, "an element is in both scope and others (same global_id)"
+    scope_fc = [judged_faces(e, lo, hi, rules) for e in scope]
+    geom, dist, sgn, nearest, side = measure([*scope, *others], scope_fc + [np.ones(len(e.faces), bool) for e in others], points, rules)
+    return _own_face_cut(scope, scope_fc, points, rules, geom, dist, sgn, nearest, side)
+
+
+def recut(patches: Patches, scope: Sequence[Element], points: np.ndarray, lo: np.ndarray, hi: np.ndarray, rules: VerdictRules = RULES) -> Patches:
+    """The `Patches` that `assign_patches(scope, others, points, lo, hi, rules)` would give, from the measurement already in `patches` (the expensive step, `measure`, is not repeated).
+    Only the own-face part is redone: `past_edge`, `in_band`, `points_of` and `past_of` (and the masks derived with them). `scope`, `points`, `lo` and `hi` must be those `patches` was made from.
+    Contract: only the own-face fields of `rules` (own_face, own_face_margin, own_face_classes, own_face_one_sided) may differ from `patches.rules`; anything else would change the measurement."""
+    own_face = {f: getattr(rules, f) for f in ("own_face", "own_face_margin", "own_face_classes", "own_face_one_sided")}
+    assert replace(patches.rules, **own_face) == rules, "recut: rules differ from the measured ones outside the own-face fields; measure again with assign_patches"
+    assert len(scope) == patches.n_scope, "recut: scope is not the one the patches were made from"
+    scope_fc = [judged_faces(e, lo, hi, rules) for e in scope]
+    return _own_face_cut(scope, scope_fc, points, rules, patches.geom_id, patches.distance, patches.signed, patches.signed_nearest, patches.side)
 
 
 class VerdictRow(TypedDict):
@@ -518,5 +541,6 @@ def judge_elements(scope: Sequence[Element], others: Sequence[Element], points: 
 
     `others` are the neighbouring elements (never judged: they take the points that are nearer to them and are 'another element' at a wall's junctions); [lo, hi] is the room box (it
     decides which faces of a wall are room-facing, not which points count); `use` is the mask of the points that enter the comparison (all True: without oracle labels).
-    03a calls `assign_patches` once and `element_rows` per mask, because the assignment (`measure`) is the expensive step; this is the one-call form."""
+    This is the one-call form, for one mask. For several masks (03a: no labels, oracle labels) call `assign_patches` once and `element_rows` per mask: that is the supported form, and `measure`,
+    the expensive step, is paid once. To compare own-face variants (patch off, on, all walls, other margins or classes) on one measurement, `recut` the patches instead of assigning again."""
     return element_rows(scope, assign_patches(scope, others, points, lo, hi, rules).view(), use, rules)
