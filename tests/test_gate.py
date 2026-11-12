@@ -1,29 +1,29 @@
 import csv
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 import pytest
 
-from scan_vs_bim.gate import combine, hand_check_result as _hand_check_result, perturbed_result as _perturbed_result, read_hand_check, registration_result, write_hand_check_template
+from scan_vs_bim.gate import HandCheckResult, HandRow, PerturbedResult, ScoreRow, combine, hand_check_result as _hand_check_result, perturbed_result as _perturbed_result, read_hand_check, registration_result, write_hand_check_template
 
 COLUMNS = ["n", "global_id", "ifc_class", "name", "verdict", "judgement", "note"]
 
 
-def hand_rows(verdicts: Sequence[str], judgements: Sequence[str]) -> list[dict[str, str | int]]:
-    return [dict(n=i + 1, global_id=f"g{i}", ifc_class="IfcWall", name=f"w{i}", verdict=v, judgement=j, note="")
+def hand_rows(verdicts: Sequence[str], judgements: Sequence[str]) -> list[HandRow]:
+    return [HandRow(n=str(i + 1), global_id=f"g{i}", ifc_class="IfcWall", name=f"w{i}", verdict=v, judgement=j, note="")
             for i, (v, j) in enumerate(zip(verdicts, judgements))]
 
 
-def hand_check_result(rows: list[dict[str, str | int]], n_required: int = 20, min_share: float = 0.8) -> dict[str, Any]:
+def hand_check_result(rows: list[HandRow], n_required: int = 20, min_share: float = 0.8) -> HandCheckResult:
     return _hand_check_result(rows, n_required=n_required, min_share=min_share)
 
 
-def perturbed_result(rows: list[dict[str, str]], max_false_share: float = 0.10) -> dict[str, Any]:
+def perturbed_result(rows: list[ScoreRow], max_false_share: float = 0.10) -> PerturbedResult:
     return _perturbed_result(rows, max_false_share=max_false_share)
 
 
-def write_csv(path: Path, rows: list[dict[str, str | int]]) -> None:
+def write_csv(path: Path, rows: list[HandRow]) -> None:
     with open(path, "w", newline="") as f:
         w = csv.DictWriter(f, COLUMNS)
         w.writeheader()
@@ -92,11 +92,11 @@ def test_write_hand_check_template_never_overwrites(tmp_path: Path) -> None:
     assert [r["judgement"] for r in read_hand_check(p)] == ["OK", "shifted"]
 
 
-def score_row(run: str = "r1", change: str = "", expected: str = "", actual: str = "OK", baseline: str = "OK") -> dict[str, str]:
-    return dict(run=run, change=change, expected=expected, actual=actual, baseline=baseline)
+def score_row(run: str = "r1", change: str = "", expected: str = "", actual: str = "OK", baseline: str = "OK") -> ScoreRow:
+    return ScoreRow(run=run, change=change, expected=expected, actual=actual, baseline=baseline)
 
 
-def run_rows(run: str, changed: dict[str, str], n_untouched: int = 34, **untouched_actuals: int) -> list[dict[str, str]]:
+def run_rows(run: str, changed: ScoreRow, n_untouched: int = 34, **untouched_actuals: int) -> list[ScoreRow]:
     """One 03b run: the changed row plus `n_untouched` untouched rows (all OK unless `shifted=k` etc. replaces the first k)."""
     untouched = [score_row(run, actual=a) for a, k in untouched_actuals.items() for _ in range(k)]
     return [changed] + untouched + [score_row(run) for _ in range(n_untouched - len(untouched))]
@@ -111,7 +111,7 @@ def test_perturbed_run_must_have_exactly_one_changed_row() -> None:
         perturbed_result(good + two)
 
 
-def seven_runs(**actual_by_run: str) -> list[dict[str, str]]:
+def seven_runs(**actual_by_run: str) -> list[ScoreRow]:
     """Seven runs shaped like 03b's: two 1 cm moves (control), 3 and 10 cm moves, three deletions; `actual_by_run` overrides the changed row's actual."""
     spec = [("move_1cm_away", "moved", "OK"), ("move_1cm_in", "moved", "OK"), ("move_3cm_in", "moved", "shifted"), ("move_10cm_in", "moved", "shifted"),
             ("delete_door", "deleted", "not confirmed"), ("delete_slab", "deleted", "not confirmed"), ("delete_wall", "deleted", "not confirmed")]
@@ -136,7 +136,7 @@ def test_perturbed_one_cm_move_expected_ok_is_a_control_not_part_of_the_criterio
 
 
 def test_perturbed_false_flag_clause_is_judged_per_run_on_the_worst_run() -> None:
-    def flagged(run: str, k: int) -> list[dict[str, str]]:
+    def flagged(run: str, k: int) -> list[ScoreRow]:
         return run_rows(run, score_row(run, "moved", "shifted", "shifted"), shifted=k)
     rows = flagged("a", 0) + flagged("b", 3) + flagged("c", 1)   # 34 untouched each: 3 of 34 = 8.8 %
     r = perturbed_result(rows)
@@ -200,9 +200,9 @@ def test_perturbed_untouched_row_without_a_valid_baseline_raises_naming_run_and_
     rows = [score_row("a", "deleted", "not confirmed", "not confirmed"), score_row("a", baseline=bad)]
     with pytest.raises(ValueError, match=f"'a'.*baseline.*'{bad}'"):
         perturbed_result(rows)
-    del rows[1]["baseline"]
+    no_baseline = dict(run="a", change="", expected="", actual="OK")
     with pytest.raises(ValueError, match="baseline"):
-        perturbed_result(rows)
+        perturbed_result([rows[0], cast(ScoreRow, no_baseline)])   # deliberately invalid: the column is missing
 
 
 def test_perturbed_returns_the_flagged_untouched_rows() -> None:
@@ -210,6 +210,8 @@ def test_perturbed_returns_the_flagged_untouched_rows() -> None:
     rows = [score_row("a", "deleted", "not confirmed", "not confirmed"), flagged, score_row("a")]
     r = perturbed_result(rows)
     assert r["false_rows"] == [flagged] and r["beyond_rows"] == [rows[0]]
+    # the very input objects, not copies: 05b matches them back to its rows by id() (#48)
+    assert r["false_rows"][0] is flagged and r["beyond_rows"][0] is rows[0]
 
 
 def test_perturbed_without_changes_beyond_tolerance_raises_not_passes_vacuously() -> None:
