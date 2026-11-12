@@ -6,7 +6,7 @@ import open3d as o3d
 import pytest
 
 from scan_vs_bim.pc2model import scale_of
-from scan_vs_bim.register import refine_icp, refine_plan, voxel_schedule
+from scan_vs_bim.register import CENTROID_MAX_M, ROT_MAX_DEG, SCALE_MAX_REL, refine_icp, refine_plan, register_sample, score, voxel_schedule
 
 # Gate thresholds (docs/roadmap.md) are 2 deg, 5 cm, 1 %; these tests ask for clearly tighter.
 ROT_DEG: float = 0.3
@@ -48,23 +48,19 @@ def cloud(pts: np.ndarray) -> o3d.geometry.PointCloud:
     return o3d.geometry.PointCloud(o3d.utility.Vector3dVector(pts))
 
 
-def errors(T: np.ndarray, T_gt: np.ndarray, pts: np.ndarray) -> tuple[float, float, float]:
-    A, B = T[:3, :3] / scale_of(T), T_gt[:3, :3] / scale_of(T_gt)
-    rot = np.degrees(np.arccos(np.clip((np.trace(A.T @ B) - 1) / 2, -1, 1)))
-    c = pts.mean(0)
-    cen = np.linalg.norm(T[:3, :3] @ c + T[:3, 3] - (T_gt[:3, :3] @ c + T_gt[:3, 3]))
-    return rot, cen, abs(scale_of(T) - scale_of(T_gt)) / scale_of(T_gt)
+def make_scene(scale: float, n_model: int = 120_000, n_scan: int = 60_000) -> tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray, np.ndarray]:
+    """model: the room; scan: an independent noisy sample of it, moved by inv(T_gt) so that T_gt (scale `scale`) maps the scan onto the model."""
+    rng = np.random.default_rng(0)
+    model = room_points(n_model, rng)
+    T_gt = similarity(scale, 20.0, (0.2, 0.3, 1.0), (4.0, -2.0, 1.0))
+    scan_in_model = room_points(n_scan, rng) + rng.normal(0, 0.003, (n_scan, 3))
+    scan = (scan_in_model - T_gt[:3, 3]) @ np.linalg.inv(T_gt[:3, :3]).T
+    return cloud(model), cloud(scan), T_gt, scan
 
 
 @pytest.fixture
 def scene() -> tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray, np.ndarray]:
-    """model: the room; scan: an independent noisy sample of it, moved by inv(T_gt) so that T_gt maps the scan onto the model."""
-    rng = np.random.default_rng(0)
-    model = room_points(120_000, rng)
-    T_gt = similarity(1.25, 20.0, (0.2, 0.3, 1.0), (4.0, -2.0, 1.0))
-    scan_in_model = room_points(60_000, rng) + rng.normal(0, 0.003, (60_000, 3))
-    scan = (scan_in_model - T_gt[:3, 3]) @ np.linalg.inv(T_gt[:3, :3]).T
-    return cloud(model), cloud(scan), T_gt, scan
+    return make_scene(1.25)
 
 
 def coarse_error(T_gt: np.ndarray, scale_off: float) -> np.ndarray:
@@ -75,8 +71,8 @@ def coarse_error(T_gt: np.ndarray, scale_off: float) -> np.ndarray:
 def test_scale_stage_recovers_a_scaled_scan(scene: tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray, np.ndarray]) -> None:
     model, scan, T_gt, pts = scene
     T = refine_icp(scan, model, coarse_error(T_gt, 0.05), scale_voxels=(0.4, 0.2, 0.1), rigid_voxels=(0.1, 0.05))
-    rot, cen, scale = errors(T, T_gt, pts)
-    assert rot <= ROT_DEG and cen <= CENTROID_M and scale <= SCALE_REL, (rot, cen, scale)
+    sc = score(T, T_gt, pts)
+    assert sc.rot_deg <= ROT_DEG and sc.centroid_m <= CENTROID_M and sc.scale_err <= SCALE_REL, sc
 
 
 def test_rigid_stages_leave_the_scale_alone_and_fix_the_pose(scene: tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray, np.ndarray]) -> None:
@@ -84,9 +80,9 @@ def test_rigid_stages_leave_the_scale_alone_and_fix_the_pose(scene: tuple[o3d.ge
     T0 = coarse_error(T_gt, 0.0)
     T = refine_icp(scan, model, T0, rigid_voxels=(0.2, 0.1, 0.05))
     assert scale_of(T) == pytest.approx(scale_of(T0), rel=1e-9)
-    rot, cen, scale = errors(T, T_gt, pts)
-    assert rot <= ROT_DEG and cen <= CENTROID_M and scale <= SCALE_REL, (rot, cen, scale)
-    assert cen < errors(T0, T_gt, pts)[1] / 5   # the stages did the work: the start was ~15 cm off
+    sc = score(T, T_gt, pts)
+    assert sc.rot_deg <= ROT_DEG and sc.centroid_m <= CENTROID_M and sc.scale_err <= SCALE_REL, sc
+    assert sc.centroid_m < score(T0, T_gt, pts).centroid_m / 5   # the stages did the work: the start was ~15 cm off
 
 
 def test_no_stages_is_a_no_op(scene: tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray, np.ndarray]) -> None:
@@ -116,3 +112,46 @@ def test_refine_plan_scale_stages_then_rigid_stages_down_to_the_floor(kwargs: di
     assert plan["scale_voxels"] == pytest.approx(scale_voxels)
     assert plan["rigid_voxels"] == pytest.approx(rigid_voxels)
 
+
+def test_register_sample_recovers_pose_and_scale_of_a_scaled_scan() -> None:
+    model, scan, T_gt, pts = make_scene(1.25, 40_000, 20_000)
+    result = register_sample(scan, model, voxel=0.08, scaled=True)
+    sc = score(result.T, T_gt, pts)
+    assert sc.rot_deg <= ROT_DEG and sc.centroid_m <= CENTROID_M and sc.scale_err <= SCALE_REL, sc
+    assert [d.seed for d in result.draws] == [0, 1, 2, 3, 4]
+
+
+def test_register_sample_unscaled_keeps_the_scale_at_one() -> None:
+    model, scan, T_gt, pts = make_scene(1.0, 40_000, 20_000)
+    result = register_sample(scan, model, voxel=0.08, scaled=False)
+    sc = score(result.T, T_gt, pts)
+    assert sc.rot_deg <= ROT_DEG and sc.centroid_m <= CENTROID_M, sc
+    assert scale_of(result.T) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_score_reports_each_error_of_a_hand_made_estimate() -> None:
+    pts = np.array([[0.0, 0.0, 1.0], [0.0, 0.0, 3.0]])   # centroid on the z axis: a turn about z or a scale about the origin is easy to read off
+    eye = np.eye(4)
+    turn = score(similarity(1.0, 1.5, (0, 0, 1), (0, 0, 0)), eye, pts)
+    assert (turn.rot_deg, turn.centroid_m, turn.scale_err) == pytest.approx((1.5, 0.0, 0.0))
+    move = score(similarity(1.0, 0.0, (0, 0, 1), (0.03, 0, 0.04)), eye, pts)
+    assert (move.rot_deg, move.centroid_m, move.scale_err) == pytest.approx((0.0, 0.05, 0.0))
+    grow = score(similarity(1.02, 0.0, (0, 0, 1), (0, 0, 0)), eye, pts)
+    assert (grow.rot_deg, grow.centroid_m, grow.scale_err) == pytest.approx((0.0, 0.04, 0.02))   # centroid (0, 0, 2) moves to (0, 0, 2.04)
+    assert score(similarity(1.25, 20.0, (0.2, 0.3, 1.0), (4.0, -2.0, 1.0)), similarity(1.0, 20.0, (0.2, 0.3, 1.0), (4.0, -2.0, 1.0)), pts).scale_err == pytest.approx(0.25)   # relative to the truth
+
+
+@pytest.mark.parametrize(
+    ("criterion", "limit"),
+    [("rotation", ROT_MAX_DEG), ("centroid", CENTROID_MAX_M), ("scale", SCALE_MAX_REL)],
+)
+def test_score_success_is_inclusive_at_each_threshold(criterion: str, limit: float) -> None:
+    pts = np.zeros((1, 3))
+
+    def estimate(value: float) -> np.ndarray:   # exactly one error, `value`, the other two zero
+        return {"rotation": similarity(1.0, value, (0, 0, 1), (0, 0, 0)),
+                "centroid": similarity(1.0, 0.0, (0, 0, 1), (value, 0, 0)),
+                "scale": similarity(1.0 + value, 0.0, (0, 0, 1), (0, 0, 0))}[criterion]
+
+    assert score(estimate(limit - 1e-9), np.eye(4), pts).success
+    assert not score(estimate(limit + 1e-9), np.eye(4), pts).success
