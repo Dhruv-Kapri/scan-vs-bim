@@ -43,7 +43,7 @@ class HandCheckResult(TypedDict):
 
 class RunFalseFlags(TypedDict):
     """One perturbed run's false-flag counts."""
-    n_untouched_all: int   # every untouched row, baseline-shifted included: NOT the denominator of share_false; use n_counted (#42: renamed from n_untouched)
+    n_untouched_all: int   # every untouched row, baseline-shifted included: NOT the denominator of share_false; use n_counted
     n_baseline_shifted: int
     n_counted: int   # n_untouched_all minus n_baseline_shifted: the denominator of share_false
     n_false: int
