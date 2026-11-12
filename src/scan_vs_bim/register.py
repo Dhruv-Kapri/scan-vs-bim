@@ -1,6 +1,7 @@
 """Registration as notebook 05a ran it, moved into the package (issue #37): FPFH + RANSAC + point-to-plane ICP over five seeds,
-the draw with the highest coarse ICP fitness, then finer ICP passes with an optional scale-aware stage (issue #20); and the score
-against a ground-truth transform (CONTEXT.md "Registration success")."""
+the draw with the highest coarse ICP fitness, then ICP passes that first fit a scale and then refine rigidly (issue #20), on every
+sample, without the benchmark's scaled flag (issue #38, docs/adr/0001-fit-scale-on-every-sample.md); and the score against a
+ground-truth transform (CONTEXT.md "Registration success")."""
 
 import time
 from collections.abc import Sequence
@@ -78,14 +79,14 @@ FINE_FLOOR_M: float = 0.025   # finest ICP voxel: half the gate's 5 cm centroid 
 SCALE_STAGES: int = 2       # scale-fitting stages (voxel/2, voxel/4); finer stages are rigid, at the scale those found
 
 
-def refine_plan(voxel: float, scaled: bool, n_scale: int = SCALE_STAGES, floor: float = FINE_FLOOR_M) -> RefinePlan:
-    """The stages notebook 05a runs after the coarse ICP at `voxel`: scale stages only on a sample flagged scaled.
+def refine_plan(voxel: float, n_scale: int = SCALE_STAGES, floor: float = FINE_FLOOR_M) -> RefinePlan:
+    """The stages notebook 05a runs after the coarse ICP at `voxel`, on every sample (ADR 0001).
 
     n_scale scale stages (the coarsest of the schedule), then rigid stages from the last of them down to `floor`;
-    n_scale=0 or an unscaled sample gives rigid stages only.
+    n_scale=0 gives rigid stages only (05c's candidate R, a tuning candidate, not a mode of the pipeline).
     """
     schedule = voxel_schedule(voxel, floor)
-    if not scaled or n_scale == 0:
+    if n_scale == 0:
         return RefinePlan(scale_voxels=[], rigid_voxels=schedule)
     n = min(n_scale, len(schedule))
     return RefinePlan(scale_voxels=schedule[:n], rigid_voxels=schedule[max(n - 1, 0):])
@@ -151,7 +152,11 @@ def coarse_draw(
     voxel: float,
     seed: int,
 ) -> Draw:
-    """RANSAC on FPFH matches, reseeded right before it so it does not depend on what ran before, then ICP (05a's register loop body)."""
+    """RANSAC on FPFH matches, then ICP (05a's register loop body).
+
+    Reseeds numpy's and Open3D's global RNG with `seed` right before RANSAC, so the draw does not depend on what ran before;
+    the global RNG state afterwards is that seed's.
+    """
     seed_all(seed)
     ransac = reg.registration_ransac_based_on_feature_matching(
         src, tgt, src_f, tgt_f, RANSAC_MUTUAL_FILTER, RANSAC_DISTANCE_X * voxel,
@@ -171,15 +176,19 @@ class SampleRegistration:
 
     T: np.ndarray   # the picked draw, refined
     seed: int   # the picked draw's seed
-    draws: list[Draw]   # one coarse draw per seed in SEEDS
+    draws: tuple[Draw, ...]   # one coarse draw per seed in SEEDS
     T_seed0: np.ndarray   # seed 0, refined (context only)
     coarse_s: float   # seconds in preprocess + the coarse draws
     refine_s: float   # seconds in the refinement
 
 
-def register_sample(scan: o3d.geometry.PointCloud, model: o3d.geometry.PointCloud, voxel: float, scaled: bool) -> SampleRegistration:
-    """05a's registration: scale estimate if `scaled`, a coarse draw per seed, pick the best coarse ICP fitness, refine it and seed 0."""
-    est_scale = rms_radius(model, voxel) / rms_radius(scan, voxel) if scaled else 1.0
+def register_sample(scan: o3d.geometry.PointCloud, model: o3d.geometry.PointCloud, voxel: float) -> SampleRegistration:
+    """05a's registration on every sample, whatever its true scale (ADR 0001): the RMS-radius scale estimate as the start, a coarse
+    draw per seed, pick the best coarse ICP fitness, refine it and seed 0 (scale-fitting stages, then rigid ones).
+
+    Reseeds numpy's and Open3D's global RNG (once per seed, see `coarse_draw`), so the global RNG state afterwards is the last seed's.
+    """
+    est_scale = rms_radius(model, voxel) / rms_radius(scan, voxel)
     S = np.diag([est_scale, est_scale, est_scale, 1.0])
     scaled_scan = o3d.geometry.PointCloud(scan)
     scaled_scan.transform(S)   # in place
@@ -193,11 +202,11 @@ def register_sample(scan: o3d.geometry.PointCloud, model: o3d.geometry.PointClou
     best, first = max(prescaled, key=lambda d: d.fitness), prescaled[0]   # coarse ICP fitness; ties: the earlier seed
 
     t1 = time.perf_counter()
-    plan = refine_plan(voxel, scaled)
+    plan = refine_plan(voxel)
     T_best = refine_icp(scaled_scan, model, best.T, **plan) @ S
     T_seed0 = T_best if best is first else refine_icp(scaled_scan, model, first.T, **plan) @ S
     refine_s = time.perf_counter() - t1
-    return SampleRegistration(T_best, best.seed, draws, T_seed0, coarse_s, refine_s)
+    return SampleRegistration(T_best, best.seed, tuple(draws), T_seed0, coarse_s, refine_s)
 
 
 def rotation_error_deg(T_est: np.ndarray, T_gt: np.ndarray) -> float:
