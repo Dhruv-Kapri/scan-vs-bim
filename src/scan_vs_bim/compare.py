@@ -205,6 +205,11 @@ def _triangle_normals(e: Mesh) -> np.ndarray:
     return np.asarray(_mesh_of(e).triangle_normals)
 
 
+def thin_plan_axis(e: Mesh) -> int:
+    """The element's thinnest axis in plan (0: x, 1: y): a wall's thickness axis, a door's or window's depth."""
+    return int(np.argmin(np.ptp(e.vertices[:, :2], axis=0)))
+
+
 def judge(s: np.ndarray, rules: VerdictRules = RULES) -> Judgement:
     """One element's verdict from its signed offsets `s` (metres, within the band). The element is judged on its whole patch, wherever it lies."""
     n = len(s)
@@ -289,7 +294,7 @@ def place_wall_points(e: Mesh, face_set: np.ndarray, p: np.ndarray, fallback: np
     Returns the offsets, how each point was decided (HOW_OWN: free space on one side only, HOW_PLANE: its plane's side, HOW_AMBIGUOUS: fallback) and the counts.
     The plane vote takes its share from `rules.vote_share` (None: no vote)."""
     n = _triangle_normals(e)
-    a = int(np.argmin(np.ptp(e.vertices[:, :2], axis=0)))  # the thickness axis in plan
+    a = thin_plan_axis(e)  # the thickness axis in plan
     assert np.all(np.minimum(np.abs(n[face_set, 0]), np.abs(n[face_set, 1])) < 1e-3), "a wall is not aligned with the model axes"
     broad = {s: face_set & (n[:, a] * s > 0.99) for s in (1, -1)}  # the wall's two big faces (end faces left out), by the sign of their normal along the axis
     sides = [s for s in (1, -1) if broad[s].any()]  # room-facing sides: 1 for a boundary wall, 2 for a partition inside the box
@@ -391,10 +396,10 @@ def own_face_triangles(e: Mesh, face_set: np.ndarray) -> np.ndarray:
     and for any other class (a window, a door) its two broad faces across its thinnest plan axis.
     A deep covering's side faces are not counted (#32): room B's 0.5 m Forros 1 is the only slab or covering deeper than 15 cm in room B and the held-out rooms, so no held-out room can check such a rule."""
     if e.ifc_class == "IfcWallStandardCase":
-        return aligned_faces(e.vertices, e.faces, int(np.argmin(np.ptp(e.vertices[:, :2], axis=0))), among=face_set)
+        return aligned_faces(e.vertices, e.faces, thin_plan_axis(e), among=face_set)
     if e.ifc_class in ("IfcSlab", "IfcCovering"):
         return aligned_faces(e.vertices, e.faces, 2)
-    return aligned_faces(e.vertices, e.faces, int(np.argmin(np.ptp(e.vertices[:, :2], axis=0))))
+    return aligned_faces(e.vertices, e.faces, thin_plan_axis(e))
 
 
 def past_edge_mask(els: Sequence[Mesh], face_sets: Sequence[np.ndarray], geom: np.ndarray, band: np.ndarray, walls: dict[int, WallInfo], pts: np.ndarray,
