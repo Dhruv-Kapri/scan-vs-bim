@@ -127,7 +127,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   The verdict rule, moved from 03a (#40, no rule change): `judge_elements(scope, others, points, use, lo, hi, rules)`
   gives one `VerdictRow` per scope element; `VerdictRules`/`RULES` hold the constants (LOA30 `tol` 15 mm). The two-step
   form `assign_patches` (runs the expensive `measure` once) + `element_rows(scope, view, use)` per use mask is what 03a
-  calls. 03b, 03c and 05b still keep their own copies until #41/#42.
+  calls, and 05b too (its close-ups' patches and categories, #42). 03b and 03c still keep their own copies until #41.
 - `src/scan_vs_bim/ramp.py`: `plane_gradient(x, y, values, groups)` (least-squares plane, one intercept per group and one shared
   (gx, gy), with residuals; refuses positions on a line) and `block_resamples` (seeded bootstrap of whole square blocks of cells):
   the seam of notebook 03d (#26).

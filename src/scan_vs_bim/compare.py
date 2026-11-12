@@ -1,7 +1,7 @@
 """The compare stage: per-element verdicts (`judge_elements`, moved from notebook 03a, issue #40) and the geometry under them.
 
 `judge_elements` takes the element meshes, the scan points, a use mask and the rule constants (`VerdictRules`; `RULES` holds the values 03a used) and returns one verdict row per element.
-03b, 03c and 05b still carry their own copies of this logic. Below it: which scan points lie over an element's own face.
+03b and 03c still carry their own copies of this logic. Below it: which scan points lie over an element's own face.
 
 A point within BAND of an element is measured to the element's surface, but near the element's edges the nearest point of the surface is the
 edge itself, so a point past the end of a wall, or above its top, reads as an offset that is really a distance to the edge. Such a point belongs to
