@@ -5,8 +5,9 @@ import numpy as np
 import open3d as o3d
 import pytest
 
+from scan_vs_bim import register
 from scan_vs_bim.pc2model import scale_of
-from scan_vs_bim.register import CENTROID_MAX_M, ROT_MAX_DEG, SCALE_MAX_REL, refine_icp, refine_plan, register_sample, score, voxel_schedule
+from scan_vs_bim.register import CENTROID_MAX_M, ROT_MAX_DEG, SCALE_MAX_REL, Draw, refine_icp, refine_plan, register_sample, score, voxel_schedule
 
 # Gate thresholds (docs/roadmap.md) are 2 deg, 5 cm, 1 %; these tests ask for clearly tighter.
 ROT_DEG: float = 0.3
@@ -129,6 +130,25 @@ def test_register_sample_unscaled_keeps_the_scale_at_one() -> None:
     assert scale_of(result.T) == pytest.approx(1.0, abs=1e-9)
 
 
+def test_register_sample_picks_the_best_coarse_fitness_and_the_earlier_seed_on_a_tie(monkeypatch: pytest.MonkeyPatch) -> None:
+    fitness: dict[int, float] = {0: 0.5, 1: 0.9, 2: 0.7, 3: 0.9, 4: 0.2}   # seeds 1 and 3 tie for the best
+
+    def T_of(seed: int) -> np.ndarray:   # a distinct, readable transform per seed: a shift of seed + 1 along x
+        return similarity(1.0, 0.0, (0, 0, 1), (seed + 1.0, 0, 0))
+
+    def fake_draw(src: Any, tgt: Any, src_f: Any, tgt_f: Any, voxel: float, seed: int) -> Draw:
+        return Draw(seed, T_of(seed), fitness[seed], T_of(seed), fitness[seed])
+
+    monkeypatch.setattr(register, "coarse_draw", fake_draw)
+    monkeypatch.setattr(register, "preprocess", lambda pcd, voxel: (pcd, None))
+    monkeypatch.setattr(register, "refine_icp", lambda scan, model, T, **plan: T)   # selection only: refinement passes through
+
+    result = register_sample(cloud(np.zeros((1, 3))), cloud(np.zeros((1, 3))), voxel=0.1, scaled=False)
+    assert result.seed == 1
+    assert np.array_equal(result.T, T_of(1))
+    assert np.array_equal(result.T_seed0, T_of(0))   # seed 0's, not the winner's
+
+
 def test_score_reports_each_error_of_a_hand_made_estimate() -> None:
     pts = np.array([[0.0, 0.0, 1.0], [0.0, 0.0, 3.0]])   # centroid on the z axis: a turn about z or a scale about the origin is easy to read off
     eye = np.eye(4)
@@ -145,7 +165,7 @@ def test_score_reports_each_error_of_a_hand_made_estimate() -> None:
     ("criterion", "limit"),
     [("rotation", ROT_MAX_DEG), ("centroid", CENTROID_MAX_M), ("scale", SCALE_MAX_REL)],
 )
-def test_score_success_is_inclusive_at_each_threshold(criterion: str, limit: float) -> None:
+def test_score_success_flips_at_each_threshold_and_is_inclusive_on_centroid(criterion: str, limit: float) -> None:
     pts = np.zeros((1, 3))
 
     def estimate(value: float) -> np.ndarray:   # exactly one error, `value`, the other two zero
@@ -155,3 +175,5 @@ def test_score_success_is_inclusive_at_each_threshold(criterion: str, limit: flo
 
     assert score(estimate(limit - 1e-9), np.eye(4), pts).success
     assert not score(estimate(limit + 1e-9), np.eye(4), pts).success
+    if criterion == "centroid":   # the only limit float arithmetic can hit exactly: a pure shift of (0.05, 0, 0); `<` would fail here
+        assert score(estimate(limit), np.eye(4), pts).success
