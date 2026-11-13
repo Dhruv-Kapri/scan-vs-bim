@@ -102,7 +102,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
                                           # the CRAS IFC and outputs/03a/*.csv from 03a; writes outputs/04a/)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3000 notebooks/05b_hand_check.ipynb
                                           # notebook 05b (20 random CRAS verdicts as close-ups + the overall Phase 0.5
-                                          # gate; ~4-6 min measured (340 s, 2026-11-08, on a loaded machine; 262 s on a quieter one; the close-ups rebuild 03a's element patches over all 135 elements and 03a's wall side test for the drawn walls), peak RSS 1.2-2.0 GB (1.2 GB in the 340 s run); needs outputs/03a, outputs/03b (run 03a
+                                          # gate; ~4-6 min measured (340 s, 2026-11-08, on a loaded machine; 262 s on a quieter one; the close-ups rebuild 03a's element patches and categories with compare.assign_patches over all 135 elements, #42; 1482 s on a heavily loaded machine, 2026-11-12), peak RSS 1.0-2.0 GB (0.99 GB in the 1482 s run); needs outputs/03a, outputs/03b (run 03a
                                           # then 03b first; re-run both if either changes) and outputs/05a; writes
                                           # outputs/05b/ and, only if absent, notebooks/05b_hand_check.csv, whose
                                           # `judgement` column the author fills; re-run after filling)
@@ -127,7 +127,8 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   The verdict rule, moved from 03a (#40, no rule change): `judge_elements(scope, others, points, use, lo, hi, rules)`
   gives one `VerdictRow` per scope element; `VerdictRules`/`RULES` hold the constants (LOA30 `tol` 15 mm). The two-step
   form `assign_patches` (runs the expensive `measure` once) + `element_rows(scope, view, use)` per use mask is what 03a
-  calls, as 03b and 03c do (#41); 03c compares own-face variants on one measurement with `recut`. 05b keeps its own copy until #42.
+  calls, as 03b and 03c do (#41), and 05b too (its close-ups' patches and categories, #42); 03c compares own-face variants on one
+  measurement with `recut`.
 - `src/scan_vs_bim/ramp.py`: `plane_gradient(x, y, values, groups)` (least-squares plane, one intercept per group and one shared
   (gx, gy), with residuals; refuses positions on a line) and `block_resamples` (seeded bootstrap of whole square blocks of cells):
   the seam of notebook 03d (#26).
@@ -141,6 +142,10 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   thresholds `ROT_MAX_DEG`/`CENTROID_MAX_M`/`SCALE_MAX_REL`), `apply(T, pts)`, `seed_all`, `rms_radius`; `refine_icp`
   (scale-fitting point-to-point ICP stages, then rigid point-to-plane stages, coarse to fine, after the coarse RANSAC + ICP),
   `refine_plan` (the stages 05a runs; chosen in 05c, issue #20) and `voxel_schedule`.
+  `apply_f32(T, pts)`: the CRAS notebooks' float32 transform (T cast to float32, float32 out; not `apply`, which rounds
+  differently: 05b's patch counts must equal 03a's exactly, #42).
+- `src/scan_vs_bim/tables.py`: `read_rows(path)`, a CSV as text rows in file order (03a's verdicts, 03b's scores, 05a's
+  registration, read back by 04a, 04b and 05b). `src/scan_vs_bim/memory.py`: `peak_rss_gb()` (macOS bytes, Linux KB).
 - In a git worktree, uv warns that `VIRTUAL_ENV` (the main checkout's venv, exported by the shell) "does not match the
   project environment". Run `unset VIRTUAL_ENV` in the worktree shell to silence it; each worktree has its own `.venv`.
 - `src/scan_vs_bim/fetch.py`: chunked, retried, resumable HTTP range downloads and single-member zip

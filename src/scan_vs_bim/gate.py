@@ -43,9 +43,9 @@ class HandCheckResult(TypedDict):
 
 class RunFalseFlags(TypedDict):
     """One perturbed run's false-flag counts."""
-    n_untouched: int   # every untouched row, baseline-shifted included: NOT the denominator of share_false; use n_counted
+    n_untouched_all: int   # every untouched row, baseline-shifted included: NOT the denominator of share_false; use n_counted
     n_baseline_shifted: int
-    n_counted: int   # n_untouched minus n_baseline_shifted: the denominator of share_false
+    n_counted: int   # n_untouched_all minus n_baseline_shifted: the denominator of share_false
     n_false: int
     share_false: float   # n_false / n_counted
     n_untouched_not_confirmed: int
@@ -66,9 +66,9 @@ class PerturbedResult(TypedDict):
     worst_share_false: float
     false_ok: bool
     max_false_share: float
-    n_untouched: int   # every untouched row, baseline-shifted included: NOT the denominator of pooled_share_false; use n_counted
+    n_untouched_all: int   # every untouched row, baseline-shifted included: NOT the denominator of pooled_share_false; use n_counted
     n_excluded: int
-    n_counted: int   # n_untouched minus n_excluded
+    n_counted: int   # n_untouched_all minus n_excluded
     n_false: int
     pooled_share_false: float   # n_false / n_counted, over all runs (context only)
     n_untouched_not_confirmed: int
@@ -141,7 +141,7 @@ def perturbed_result(rows: Sequence[ScoreRow], *, max_false_share: float) -> Per
     `excluded_rows`. ValueError on an untouched row whose `baseline` is missing or not one of VERDICTS (scores from a 03b without the column).
     The clause is applied **per run**: every run's share of falsely flagged elements among the counted ones (untouched minus baseline-shifted)
     must be <= max_false_share, so `false_ok` uses the worst run (`worst_run`, `worst_share_false`; the first run in the rows on a tie).
-    `per_run` has each run's n_untouched, n_baseline_shifted, n_counted, n_false, share_false (n_false / n_counted) and n_untouched_not_confirmed;
+    `per_run` has each run's n_untouched_all, n_baseline_shifted, n_counted, n_false, share_false (n_false / n_counted) and n_untouched_not_confirmed;
     `pooled_share_false` (all runs together) is context only. `n_untouched_not_confirmed` is pooled over the runs (context; "not confirmed" is not a false flag)."""
     for r in rows:
         if r["change"] not in ("", "moved", "deleted"):
@@ -177,19 +177,19 @@ def perturbed_result(rows: Sequence[ScoreRow], *, max_false_share: float) -> Per
         n_baseline_shifted = sum(r["run"] == run for r in excluded_rows)
         n_counted = len(untouched) - n_baseline_shifted
         n_false = sum(r["run"] == run for r in false_rows)
-        per_run[run] = RunFalseFlags(n_untouched=len(untouched), n_baseline_shifted=n_baseline_shifted, n_counted=n_counted, n_false=n_false,
+        per_run[run] = RunFalseFlags(n_untouched_all=len(untouched), n_baseline_shifted=n_baseline_shifted, n_counted=n_counted, n_false=n_false,
                                     share_false=n_false / n_counted if n_counted else 0.0,
                                     n_untouched_not_confirmed=sum(r["actual"] == "not confirmed" for r in untouched))
     worst_run = max(per_run, key=lambda run: per_run[run]["share_false"])
     worst_share = per_run[worst_run]["share_false"]
-    n_untouched = sum(p["n_untouched"] for p in per_run.values())
+    n_untouched_all = sum(p["n_untouched_all"] for p in per_run.values())
     n_counted = sum(p["n_counted"] for p in per_run.values())
     false_ok = worst_share <= max_false_share
     return PerturbedResult(status=PASS if changes_ok and false_ok else FAIL, beyond_rows=beyond, false_rows=false_rows, excluded_rows=excluded_rows,
                            n_beyond=len(beyond), n_beyond_right=n_right,
                            changes_ok=changes_ok, n_control=len(control), n_control_right=sum(r["actual"] == r["expected"] for r in control),
                            per_run=per_run, worst_run=worst_run, worst_share_false=worst_share, false_ok=false_ok, max_false_share=max_false_share,
-                           n_untouched=n_untouched, n_excluded=len(excluded_rows), n_counted=n_counted, n_false=len(false_rows),
+                           n_untouched_all=n_untouched_all, n_excluded=len(excluded_rows), n_counted=n_counted, n_false=len(false_rows),
                            pooled_share_false=len(false_rows) / n_counted if n_counted else 0.0,
                            n_untouched_not_confirmed=sum(p["n_untouched_not_confirmed"] for p in per_run.values()))
 
