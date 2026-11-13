@@ -120,7 +120,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   elements, 17 s instead of minutes for the 35 room elements (measured 2026-10-28); it cannot be combined with
   `exclude=`). `tests/run_notebook.py`: `run_notebook(path)`
   executes a notebook top to bottom for tests (nbclient; raises on any cell error).
-- `src/scan_vs_bim/compare.py`: `over_own_face(points, vertices, faces, margin)` (which scan points lie over an element's
+- `src/scan_vs_bim/compare.py`: `mesh_of(e, flip=False)` (an element as an Open3D mesh with triangle normals; `flip` reverses the winding; used by 03a/03b/03c, #41/#42), `over_own_face(points, vertices, faces, margin)` (which scan points lie over an element's
   own face; points past its edges do not) and `aligned_faces`: the geometry of the own-face patch in 03a/03b/03c (#20);
   `face_coverage(points, vertices, faces, axis, cell)`: share of an element's face covered by points, seen across its
   thickness axis (03c section 8b, #30: tested as a rule for label-free shifted, rejected; the rule is unchanged).
@@ -143,7 +143,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   (scale-fitting point-to-point ICP stages, then rigid point-to-plane stages, coarse to fine, after the coarse RANSAC + ICP),
   `refine_plan` (the stages 05a runs; chosen in 05c, issue #20) and `voxel_schedule`.
   `apply_f32(T, pts)`: the CRAS notebooks' float32 transform (T cast to float32, float32 out; not `apply`, which rounds
-  differently: 05b's patch counts must equal 03a's exactly, #42).
+  differently: 05b's patch counts must equal 03a's exactly, #42; 03a/03b/03c use it too, and `memory.peak_rss_gb`, since #41/#42 no notebook redefines them).
 - `src/scan_vs_bim/tables.py`: `read_rows(path)`, a CSV as text rows in file order (03a's verdicts, 03b's scores, 05a's
   registration, read back by 04a, 04b and 05b). `src/scan_vs_bim/memory.py`: `peak_rss_gb()` (macOS bytes, Linux KB).
 - In a git worktree, uv warns that `VIRTUAL_ENV` (the main checkout's venv, exported by the shell) "does not match the
