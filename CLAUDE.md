@@ -86,10 +86,10 @@ uv run python scripts/make_tuning_slice.py
                                           # holds: kept in the room, never scored or tuned on); ~10 min
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room.ipynb
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room_a.ipynb
-                                          # notebooks 03c (a copy of 03a's logic on a held-out room: baseline, hand-check proxy,
+                                          # notebooks 03c (03a's logic, from scan_vs_bim.compare, on a held-out room: baseline, hand-check proxy,
                                           # diagnosis, the own-face patch, known answers; ~15 and ~10 min, peak RSS 1.7 GB; write
                                           # outputs/03c/ and outputs/03c_room_a/). SLICE_JSON=01_cras_slice.json runs one on room B
-                                          # instead (tests/test_notebook_03c.py uses that to check the copy against outputs/03a)
+                                          # instead (tests/test_notebook_03c.py uses that to check it against outputs/03a)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03d_floor_ramp.ipynb
                                           # notebook 03d (why the scan floor ramps 0.084 degrees against the flat model floor, #26; room
                                           # height = ceiling minus floor per 1 m cell, one plane with block-bootstrap intervals, residual
@@ -127,7 +127,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   The verdict rule, moved from 03a (#40, no rule change): `judge_elements(scope, others, points, use, lo, hi, rules)`
   gives one `VerdictRow` per scope element; `VerdictRules`/`RULES` hold the constants (LOA30 `tol` 15 mm). The two-step
   form `assign_patches` (runs the expensive `measure` once) + `element_rows(scope, view, use)` per use mask is what 03a
-  calls. 03b, 03c and 05b still keep their own copies until #41/#42.
+  calls, as 03b and 03c do (#41); 03c compares own-face variants on one measurement with `recut`. 05b keeps its own copy until #42.
 - `src/scan_vs_bim/ramp.py`: `plane_gradient(x, y, values, groups)` (least-squares plane, one intercept per group and one shared
   (gx, gy), with residuals; refuses positions on a line) and `block_resamples` (seeded bootstrap of whole square blocks of cells):
   the seam of notebook 03d (#26).
