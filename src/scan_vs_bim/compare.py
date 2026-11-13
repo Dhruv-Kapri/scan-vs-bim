@@ -194,15 +194,17 @@ class SideTest:
     occ: dict[int, Occupancy]
 
 
-def _mesh_of(e: Mesh) -> o3d.geometry.TriangleMesh:
-    m = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(e.vertices), o3d.utility.Vector3iVector(e.faces))
+def mesh_of(e: Mesh, flip: bool = False) -> o3d.geometry.TriangleMesh:
+    """The element as an Open3D mesh with triangle normals; `flip` reverses the winding (every normal negated)."""
+    f = e.faces[:, [0, 2, 1]] if flip else e.faces
+    m = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(e.vertices), o3d.utility.Vector3iVector(f))
     m.compute_triangle_normals()
     return m
 
 
 def _triangle_normals(e: Mesh) -> np.ndarray:
     # Open3D's own normals (not `_unit_normals`): the verdicts of 03a were made with them, and they are bit-identical to what 03a computed.
-    return np.asarray(_mesh_of(e).triangle_normals)
+    return np.asarray(mesh_of(e).triangle_normals)
 
 
 def thin_plan_axis(e: Mesh) -> int:
@@ -354,7 +356,7 @@ def measure(els: Sequence[Mesh], faces: Sequence[np.ndarray], pts: np.ndarray, r
     first: list[int] = [0]
     t_meshes: list[o3d.t.geometry.TriangleMesh] = []
     for e in els:
-        m = _mesh_of(e)
+        m = mesh_of(e)
         normal_list.append(np.asarray(m.triangle_normals))
         t_meshes.append(o3d.t.geometry.TriangleMesh.from_legacy(m))
         scene.add_triangles(t_meshes[-1])  # geometry ids follow this order

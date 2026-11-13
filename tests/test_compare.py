@@ -6,7 +6,7 @@ import numpy as np
 import open3d as o3d
 import pytest
 
-from scan_vs_bim.compare import RULES, VerdictRow, VerdictRules, aligned_faces, assign_patches, face_coverage, judge, judge_elements, over_own_face, own_face_triangles, plane_vote, recut
+from scan_vs_bim.compare import RULES, VerdictRow, VerdictRules, aligned_faces, assign_patches, face_coverage, judge, judge_elements, mesh_of, over_own_face, own_face_triangles, plane_vote, recut
 from scan_vs_bim.load import ElementMesh
 
 
@@ -305,3 +305,12 @@ def test_assign_patches_refuses_an_element_in_both_scope_and_others() -> None:
     wall = element(0, 0.1, 0, 5, 0, 3)
     with pytest.raises(AssertionError, match="global_id"):
         assign_patches([wall], [wall], scan_plane(np.random.default_rng(0), 0.1), *BOUNDARY_BOX)
+
+
+def test_mesh_of_flip_negates_triangle_normals() -> None:
+    """`flip=True` reverses every triangle's winding, so each normal is the negation of the unflipped one."""
+    el = ElementMesh(global_id="g", ifc_class="IfcWall", vertices=V, faces=F)
+    plain = np.asarray(mesh_of(el).triangle_normals)
+    flipped = np.asarray(mesh_of(el, flip=True).triangle_normals)
+    assert np.abs(plain).sum() > 0
+    np.testing.assert_allclose(flipped, -plain)
