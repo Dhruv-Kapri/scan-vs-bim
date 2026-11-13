@@ -101,11 +101,10 @@ def test_voxel_schedule_halves_down_to_the_floor() -> None:
 @pytest.mark.parametrize(
     ("kwargs", "scale_voxels", "rigid_voxels"),
     [
-        pytest.param({"scaled": False, "floor": 0.025}, [], [0.2, 0.1, 0.05, 0.025], id="unscaled"),
         # the defaults are the plan 05c chose and 05a runs (two scale stages, floor 2.5 cm): literals on purpose, so changing them fails here
-        pytest.param({"scaled": True}, [0.2, 0.1], [0.1, 0.05, 0.025], id="scaled, defaults: rigid continues from the last scale voxel"),
-        pytest.param({"scaled": True, "n_scale": 0, "floor": 0.025}, [], [0.2, 0.1, 0.05, 0.025], id="05c candidate R: no scale stages"),
-        pytest.param({"scaled": True, "n_scale": 99, "floor": 0.05}, [0.2, 0.1, 0.05], [0.05], id="05c candidate S: scale at every stage"),
+        pytest.param({}, [0.2, 0.1], [0.1, 0.05, 0.025], id="defaults: rigid continues from the last scale voxel"),
+        pytest.param({"n_scale": 0, "floor": 0.025}, [], [0.2, 0.1, 0.05, 0.025], id="05c candidate R: no scale stages"),
+        pytest.param({"n_scale": 99, "floor": 0.05}, [0.2, 0.1, 0.05], [0.05], id="05c candidate S: scale at every stage"),
     ],
 )
 def test_refine_plan_scale_stages_then_rigid_stages_down_to_the_floor(kwargs: dict[str, Any], scale_voxels: list[float], rigid_voxels: list[float]) -> None:
@@ -116,18 +115,19 @@ def test_refine_plan_scale_stages_then_rigid_stages_down_to_the_floor(kwargs: di
 
 def test_register_sample_recovers_pose_and_scale_of_a_scaled_scan() -> None:
     model, scan, T_gt, pts = make_scene(1.25, 40_000, 20_000)
-    result = register_sample(scan, model, voxel=0.08, scaled=True)
+    result = register_sample(scan, model, voxel=0.08)
     sc = score(result.T, T_gt, pts)
     assert sc.rot_deg <= ROT_DEG and sc.centroid_m <= CENTROID_M and sc.scale_err <= SCALE_REL, sc
     assert [d.seed for d in result.draws] == [0, 1, 2, 3, 4]
 
 
-def test_register_sample_unscaled_keeps_the_scale_at_one() -> None:
+def test_register_sample_fits_scale_on_an_unscaled_scan_and_stays_at_one() -> None:
+    """ADR 0001: no scaled flag, the scale stages run on every sample, and a scan already at scale 1 must come out at 1 within 1 %."""
+    assert refine_plan(0.08)["scale_voxels"]   # the scale stages are in the plan, so the scale is free to move
     model, scan, T_gt, pts = make_scene(1.0, 40_000, 20_000)
-    result = register_sample(scan, model, voxel=0.08, scaled=False)
+    result = register_sample(scan, model, voxel=0.08)
     sc = score(result.T, T_gt, pts)
-    assert sc.rot_deg <= ROT_DEG and sc.centroid_m <= CENTROID_M, sc
-    assert scale_of(result.T) == pytest.approx(1.0, abs=1e-9)
+    assert sc.scale_err <= SCALE_MAX_REL and sc.rot_deg <= ROT_DEG and sc.centroid_m <= CENTROID_M, sc
 
 
 def test_register_sample_picks_the_best_coarse_fitness_and_the_earlier_seed_on_a_tie(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -143,7 +143,7 @@ def test_register_sample_picks_the_best_coarse_fitness_and_the_earlier_seed_on_a
     monkeypatch.setattr(register, "preprocess", lambda pcd, voxel: (pcd, None))
     monkeypatch.setattr(register, "refine_icp", lambda scan, model, T, **plan: T)   # selection only: refinement passes through
 
-    result = register_sample(cloud(np.zeros((1, 3))), cloud(np.zeros((1, 3))), voxel=0.1, scaled=False)
+    result = register_sample(cloud(np.eye(3)), cloud(np.eye(3)), voxel=0.1)   # not a point: its RMS radius is 0
     assert result.seed == 1
     assert np.array_equal(result.T, T_of(1))
     assert np.array_equal(result.T_seed0, T_of(0))   # seed 0's, not the winner's
