@@ -87,7 +87,8 @@ uv run python scripts/make_tuning_slice.py
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room.ipynb
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room_a.ipynb
                                           # notebooks 03c (03a's logic, from scan_vs_bim.compare, on a held-out room: baseline, hand-check proxy,
-                                          # diagnosis, the own-face patch, known answers; ~15 and ~10 min, peak RSS 1.7 GB; write
+                                          # diagnosis, the own-face patch, known answers, section 8c the side test fix #45; ~15 and ~10 min,
+                                          # ~70 min each on a loaded machine (2026-11-22), peak RSS 1.7 GB; write
                                           # outputs/03c/ and outputs/03c_room_a/). SLICE_JSON=01_cras_slice.json runs one on room B
                                           # instead (tests/test_notebook_03c.py uses that to check it against outputs/03a)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03d_floor_ramp.ipynb
@@ -128,7 +129,9 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   gives one `VerdictRow` per scope element; `VerdictRules`/`RULES` hold the constants (LOA30 `tol` 15 mm). The two-step
   form `assign_patches` (runs the expensive `measure` once) + `element_rows(scope, view, use)` per use mask is what 03a
   calls, as 03b and 03c do (#41), and 05b too (its close-ups' patches and categories, #42); 03c compares own-face variants on one
-  measurement with `recut`.
+  measurement with `recut`. `VerdictRules.side_shown` (#45, off by default until #47 re-runs room B): a wall point takes a side
+  from its own free space only if the scan shows the space beyond the wall's face on that side (`shown_along`); it acts in
+  `measure`, so it cannot be `recut` (03c section 8c measures once more with it on).
 - `src/scan_vs_bim/ramp.py`: `plane_gradient(x, y, values, groups)` (least-squares plane, one intercept per group and one shared
   (gx, gy), with residuals; refuses positions on a line) and `block_resamples` (seeded bootstrap of whole square blocks of cells):
   the seam of notebook 03d (#26).
