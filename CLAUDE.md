@@ -129,10 +129,10 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   form `assign_patches` (runs the expensive `measure` once) + `element_rows(scope, view, use)` per use mask is what 03a
   calls, as 03b and 03c do (#41), and 05b too (its close-ups' patches and categories, #42); 03c compares own-face variants on one
   measurement with `recut`.
-  Local plane (#46, on in `RULES`): an `IfcSlab`/`IfcCovering` with a plan extent of 6 m or more is judged with the tilt of
-  `local_plane` (a plane through its own 1 m cell medians) removed and its level kept; `VerdictRow` reports
-  `plane_gx_mm_per_m`, `plane_gy_mm_per_m`, `plane_tilt_deg` ("" without a plane); `local_plane_min_extent=None` turns it off.
-  Accepted on 03c section 8c (both held-out rooms). 03a/03b/05b outputs predate it until room B is re-run (#47).
+  Local plane (#46; off in `RULES` until room B is re-run, #47): with `local_plane_min_extent=LOCAL_PLANE_MIN_EXTENT` (6 m) an
+  `IfcSlab`/`IfcCovering` that large is judged with the tilt of `local_plane` (a plane through its own 1 m cell medians)
+  removed and its level kept; `VerdictRow` reports `plane_gx_mm_per_m`, `plane_gy_mm_per_m`, `plane_tilt_deg` ("" without a
+  plane). Accepted on 03c section 8c (both held-out rooms), which judges with it on (`PLANE`).
 - `src/scan_vs_bim/ramp.py`: `plane_gradient(x, y, values, groups)` (least-squares plane, one intercept per group and one shared
   (gx, gy), with residuals; refuses positions on a line) and `block_resamples` (seeded bootstrap of whole square blocks of cells):
   the seam of notebook 03d (#26).

@@ -6,7 +6,7 @@ import numpy as np
 import open3d as o3d
 import pytest
 
-from scan_vs_bim.compare import RULES, VerdictRow, VerdictRules, aligned_faces, assign_patches, face_coverage, judge, judge_elements, local_plane, mesh_of, over_own_face, own_face_triangles, plane_vote, recut
+from scan_vs_bim.compare import LOCAL_PLANE_MIN_EXTENT, RULES, VerdictRow, VerdictRules, aligned_faces, assign_patches, face_coverage, judge, judge_elements, local_plane, mesh_of, over_own_face, own_face_triangles, plane_vote, recut
 from scan_vs_bim.load import ElementMesh
 
 
@@ -321,12 +321,15 @@ SLAB_ROOM: tuple[np.ndarray, np.ndarray] = (np.array([-1.0, -1.0, -1.0]), np.arr
 TILT: float = float(np.tan(np.radians(0.1)))  # the 0.1 degrees of 03d's floor and ceiling ramp
 
 
-def tilted_top(length: float, width: float, tilt: float = TILT, raised: float = 0.0, rules: VerdictRules = RULES) -> VerdictRow:
+PLANE: VerdictRules = replace(RULES, local_plane_min_extent=LOCAL_PLANE_MIN_EXTENT)  # the local plane on (off in RULES until #47)
+
+
+def tilted_top(length: float, width: float, tilt: float = TILT, raised: float = 0.0, rules: VerdictRules | None = None) -> VerdictRow:
     """The row of a slab (x 0..length, y 0..width, z 0..0.15) whose top face is scanned on a 5 cm grid with 3 mm of noise, tilted by `tilt` m/m along x about the slab's middle and raised by `raised` m."""
     rng = np.random.default_rng(0)
     x, y = (a.ravel() for a in np.meshgrid(np.arange(0.025, length, 0.05), np.arange(0.025, width, 0.05)))
     z = 0.15 + raised + tilt * (x - length / 2) + rng.normal(0, 0.003, x.size)
-    return judge_first([element(0, length, 0, width, 0, 0.15, "IfcSlab")], [], [np.column_stack([x, y, z]).astype(np.float32)], SLAB_ROOM, rules)
+    return judge_first([element(0, length, 0, width, 0, 0.15, "IfcSlab")], [], [np.column_stack([x, y, z]).astype(np.float32)], SLAB_ROOM, PLANE if rules is None else rules)
 
 
 def test_a_large_slabs_tilt_is_absorbed_and_reported() -> None:
@@ -334,7 +337,7 @@ def test_a_large_slabs_tilt_is_absorbed_and_reported() -> None:
     assert row["verdict"] == "OK" and abs(row["median_signed_offset_mm"]) < 1
     assert abs(float(row["plane_tilt_deg"]) - 0.1) < 0.01
     assert abs(float(row["plane_gx_mm_per_m"]) - 1000 * TILT) < 0.05 and abs(float(row["plane_gy_mm_per_m"])) < 0.05
-    without = tilted_top(20, 10, rules=replace(RULES, local_plane_min_extent=None))
+    without = tilted_top(20, 10, rules=RULES)
     assert without["verdict"] == "not confirmed" and without["share_within_tol"] < RULES.min_frac_ok  # the tilt alone fails the slab: the test discriminates
 
 
@@ -346,7 +349,7 @@ def test_a_level_offset_of_a_large_slab_still_reads_shifted() -> None:
 def test_a_slab_below_the_large_extent_gets_no_plane_and_is_judged_as_before() -> None:
     row = tilted_top(4, 3)
     assert (row["plane_gx_mm_per_m"], row["plane_gy_mm_per_m"], row["plane_tilt_deg"]) == ("", "", "")
-    assert row == tilted_top(4, 3, rules=replace(RULES, local_plane_min_extent=None))
+    assert row == tilted_top(4, 3, rules=RULES)
 
 
 def test_local_plane_needs_the_minimum_number_of_counting_cells() -> None:

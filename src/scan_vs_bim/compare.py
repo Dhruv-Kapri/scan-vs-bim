@@ -21,6 +21,7 @@ import open3d as o3d
 
 from scan_vs_bim.ramp import plane_gradient
 
+LOCAL_PLANE_MIN_EXTENT: Final[float] = 6.0  # m (judgement call, issue #46, accepted on 03c's held-out rooms): 03d's shared tilt of 1.5 to 1.7 mm/m moves the far edges of a 6 m element by 4.5 to 5 mm, a third of LOA30's 15 mm
 NUMERIC_TOL: float = 1e-4  # m: float32 closest-point noise; a point that projects onto the face is within this of its foot point's plane
 
 
@@ -135,7 +136,7 @@ class VerdictRules:
     own_face_classes: tuple[str, ...] = ("IfcWallStandardCase", "IfcSlab", "IfcCovering")  # (judgement call, tuned) the classes with one or two broad faces
     own_face_one_sided: bool = True  # (judgement call, tuned) a wall is patched only if exactly one of its faces is room-facing: a partition is left as it was
     local_plane_classes: tuple[str, ...] = ("IfcSlab", "IfcCovering")  # (judgement call, issue #46) the classes judged against a plane fitted to their own points: the broad horizontal surfaces whose scan ramps (03d)
-    local_plane_min_extent: float | None = 6.0  # (judgement call, issue #46) m, the largest plan extent (bounding box in x or y) of a "large" element; None: no local plane. 03d's shared tilt of 1.5 to 1.7 mm/m moves the far edges of a 6 m element by 4.5 to 5 mm, a third of LOA30's 15 mm
+    local_plane_min_extent: float | None = None  # (judgement call, issue #46) m, the largest plan extent (bounding box in x or y) of a "large" element; None: no local plane. Off by default until room B is re-run (#47); the accepted value, with its reason, is LOCAL_PLANE_MIN_EXTENT
     local_plane_cell: float = 1.0  # (judgement call, issue #46) m, the plan cell the offsets are binned in (03d's)
     local_plane_min_cell_points: int = 100  # (judgement call, issue #46) counted points a cell needs to count
     local_plane_min_cells: int = 8  # (judgement call, issue #46) cells needed for a plane (03d's GROUP_MIN_CELLS); fewer: no plane, the element is judged on its offsets as they are
