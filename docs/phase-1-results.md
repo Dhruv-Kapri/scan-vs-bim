@@ -2,15 +2,15 @@
 
 Command: `uv run python scripts/run_benchmark.py`
 
-Commit(s): df946cc
+Commit(s): b32ab33, df946cc
 
-Samples present: 136 of 137
+Samples present: 137 of 137
 
 Cost: 2.9 h summed over the samples' run_s; largest per-sample peak RSS 2.01 GB (veh_002-sketchfab)
 
 Generated from outputs/phase1/registration.csv by `uv run python scripts/write_phase1_results.py`.
 
-Success: rotation error <= 2.0 deg, centroid error <= 0.05 m, relative scale error <= 0.01 (judgement calls, CONTEXT.md "Registration success"). Unseen = neither a Phase 0.5 gate sample nor one of 05c's tuning samples.
+Success: rotation error <= 2.0 deg, centroid error <= 0.05 m, relative scale error <= 0.01 (judgement calls, CONTEXT.md "Registration success"). Unseen = neither a Phase 0.5 gate sample nor one of 05c's tuning samples. A model with no triangles left at load (below) counts as a failure; its errors are not measured, so the medians and p90s leave it out.
 
 | group | scale | n | success, all (k/n) | success, unseen only (k/n) | seed 0 success (context) | rot_deg median / p90 | centroid_m median / p90 | scale_err_pct median / p90 |
 |---|---|---|---|---|---|---|---|---|
@@ -26,13 +26,13 @@ Success: rotation error <= 2.0 deg, centroid error <= 0.05 m, relative scale err
 | home_decor | scaled | 12 | 8/12 (67%) | 8/12 | 8/12 | 0.004367 / 180 | 0.0005049 / 1.731 | 0.02267 / 0.02988 |
 | mechanical | unscaled | 13 | 6/13 (46%) | 6/13 | 5/13 | 0.02063 / 178.4 | 0.003386 / 1.243 | 0.03409 / 5.12 |
 | mechanical | scaled | 12 | 7/12 (58%) | 7/12 | 6/12 | 0.009419 / 176.4 | 0.002534 / 0.7134 | 0.03134 / 0.06743 |
-| vehicle | unscaled | 9 | 1/9 (11%) | 1/9 | 2/9 | 3.505 / 171.1 | 0.2559 / 0.7106 | 9.818 / 26.2 |
+| vehicle | unscaled | 10 | 1/10 (10%) | 1/10 | 2/10 | 3.505 / 171.1 | 0.2559 / 0.7106 | 9.818 / 26.2 |
 | vehicle | scaled | 15 | 8/15 (53%) | 8/15 | 7/15 | 0.09182 / 2.207 | 0.003644 / 0.1806 | 0.1844 / 8.613 |
 | building (37) | unscaled | 20 | 12/20 (60%) | 8/14 | 8/20 | 0.02906 / 113.6 | 0.005881 / 1.758 | 0.08105 / 8.163 |
 | building (37) | scaled | 17 | 11/17 (65%) | 8/11 | 9/17 | 0.01565 / 101.9 | 0.003218 / 3.302 | 0.05085 / 3.361 |
-| objects (100) | unscaled | 45 | 22/45 (49%) | 22/45 | 19/45 | 0.008234 / 178.4 | 0.006826 / 1.51 | 0.03634 / 10.58 |
+| objects (100) | unscaled | 46 | 22/46 (48%) | 22/46 | 19/46 | 0.008234 / 178.4 | 0.006826 / 1.51 | 0.03634 / 10.58 |
 | objects (100) | scaled | 54 | 32/54 (59%) | 31/53 | 27/54 | 0.007783 / 140.8 | 0.002398 / 2.863 | 0.02934 / 8.051 |
-| all | unscaled | 65 | 34/65 (52%) | 30/59 | 27/65 | 0.02063 / 177.2 | 0.006826 / 1.709 | 0.04 / 8.888 |
+| all | unscaled | 66 | 34/66 (52%) | 30/60 | 27/66 | 0.02063 / 177.2 | 0.006826 / 1.709 | 0.04 / 8.888 |
 | all | scaled | 71 | 43/71 (61%) | 39/64 | 36/71 | 0.008224 / 133.2 | 0.002517 / 3.08 | 0.02996 / 7.383 |
 
 ## Agreement with the Phase 0.5 gate (05a)
@@ -57,7 +57,7 @@ all agree: yes
 
 Samples whose run raised (scripts/run_benchmark.py logs the error):
 
-- veh_008-sketchfab
+none
 
 ## Models with non-triangle faces
 
@@ -83,4 +83,4 @@ Open3D's OBJ reader skips faces that are not triangles, without an error, so the
 | house_24-sketchfab | 96.9% | False |
 | house_19-sketchfab | 97.3% | False |
 | veh_012-sketchfab | 98.0% | False |
-| veh_008-sketchfab | 100.0% | not scored |
+| veh_008-sketchfab | 100.0% | False |
