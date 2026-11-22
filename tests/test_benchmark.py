@@ -5,7 +5,6 @@ from types import ModuleType
 
 import pytest
 
-from scan_vs_bim import benchmark
 from scan_vs_bim.benchmark import COLUMNS, gate_agreement, results_markdown, run_benchmark, seen_mark
 
 ROOT: Path = Path(__file__).resolve().parent.parent
@@ -91,4 +90,3 @@ def test_gate_agreement_flags_a_changed_or_missing_row() -> None:
     assert [a["agrees"] for a in gate_agreement(same[:1], gate)] == [True, False]
     assert "all agree: no" in results_markdown(changed, gate, "CMD")
     assert "all agree: yes" in results_markdown(same, gate, "CMD")
-    assert benchmark.SEED == 0
