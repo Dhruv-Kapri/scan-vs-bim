@@ -257,16 +257,23 @@ def floor(rng: np.random.Generator, x0: float, x1: float) -> np.ndarray:
     return np.column_stack([xx.ravel(), yy.ravel(), np.full(xx.size, -0.15) + rng.normal(0, 0.003, xx.size)]).astype(np.float32)
 
 
-def test_clutter_in_front_and_unscanned_space_behind_keeps_the_points_on_the_room_facing_face() -> None:
+MIRRORED_BOX: tuple[np.ndarray, np.ndarray] = (np.array([-4.0, 0.5, 0.0]), np.array([0.11, 4.9, 3.0]))  # only the -x face (x = 0) is room-facing
+
+
+@pytest.mark.parametrize("s", [pytest.param(1, id="room on +x"), pytest.param(-1, id="room on -x")])
+def test_clutter_in_front_and_unscanned_space_behind_keeps_the_points_on_the_room_facing_face(s: int) -> None:
     # Clutter covers the room face 12 cm in front of it (outside the band, inside the side test's reach); nothing behind the wall was scanned. The old rule reads the free space
     # behind as "seen from the neighbouring room" and drops the whole face; with side_shown that space is unscanned, the side ambiguous, the nearest room-facing face decides.
+    # The face is uneven: its top part lies 1.5 cm behind the rest. Columns measured from the point would hold that part and read the space behind as shown; measured from the
+    # wall's far face they do not.
     rng = np.random.default_rng(0)
-    room_face = scan_plane(rng, 0.1)
-    planes = [room_face, scan_plane(rng, 0.22), floor(rng, 0.1, 1.0)]
-    wall = element(0, 0.1, 0, 5, 0, 3)
-    assert judge_first([wall], [], planes, BOUNDARY_BOX)["points_other_side"] == len(room_face)
-    row = judge_first([wall], [], planes, BOUNDARY_BOX, SHOWN)
-    assert (row["verdict"], row["point_count"], row["points_other_side"]) == ("OK", len(room_face), 0)
+    face = 0.1 if s == 1 else 0.0
+    room_face = np.concatenate([scan_plane(rng, face, z1=2.0), scan_plane(rng, face - s * 0.015, z0=2.0)])
+    planes = [room_face, scan_plane(rng, face + s * 0.12), floor(rng, *sorted((face, face + s * 0.9)))]
+    wall, box = element(0, 0.1, 0, 5, 0, 3), BOUNDARY_BOX if s == 1 else MIRRORED_BOX
+    assert judge_first([wall], [], planes, box, replace(RULES, side_shown=False))["points_other_side"] == len(room_face)  # the rule before #45 drops the whole face
+    row = judge_first([wall], [], planes, box, SHOWN)
+    assert (row["point_count"], row["points_other_side"]) == (len(room_face), 0)
     assert abs(row["median_signed_offset_mm"]) < 3
 
 
