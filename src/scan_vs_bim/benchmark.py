@@ -128,7 +128,6 @@ _LINES: list[tuple[str, tuple[str, ...]]] = [
     ("mechanical", ("mechanical",)),
     ("vehicle", ("vehicle",)),
 ]
-_TOTAL = 137
 
 
 def _is(v: str) -> bool:
@@ -160,6 +159,18 @@ def _line(label: str, rows: Sequence[Mapping[str, str]]) -> list[str]:
     return out
 
 
+def non_triangle_share(obj: Path) -> float:
+    """Share of an OBJ's faces that are not triangles: Open3D's reader drops them silently, so the model is sampled without them
+    (all of veh_008's faces are quads: no triangles left, and the load fails)."""
+    n = other = 0
+    with obj.open() as f:
+        for line in f:
+            if line.startswith("f "):
+                n += 1
+                other += len(line.split()) != 4
+    return other / n if n else 0.0
+
+
 def gate_agreement(rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mapping[str, str]]) -> list[dict[str, object]]:
     """Per 05a row (by `sample`): the benchmark row's success against 05a's, the absolute differences, and whether they agree.
     A sample with no benchmark row is `missing` and does not agree."""
@@ -177,9 +188,18 @@ def gate_agreement(rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mappin
     return out
 
 
-def results_markdown(rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mapping[str, str]], command: str) -> str:
-    """The body of docs/phase-1-results.md from the benchmark CSV rows and 05a's registration.csv rows (all values text)."""
+def results_markdown(
+    rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mapping[str, str]], command: str, *,
+    expected: Sequence[str], non_triangle: Mapping[str, float],
+) -> str:
+    """The body of docs/phase-1-results.md from the benchmark CSV rows and 05a's registration.csv rows (all values text).
+    `expected`: every sample's zip folder (those without a row are listed as not scored); `non_triangle`: share of non-triangle
+    faces by sample name, for the models that have any (`non_triangle_share`)."""
     commits = ", ".join(sorted({r["commit"] for r in rows})) or "-"
+    heaviest = max(rows, key=lambda r: float(r["peak_rss_gb"]), default=None)
+    cost = "-" if heaviest is None else (
+        f"{sum(float(r['run_s']) for r in rows) / 3600:.1f} h summed over the samples' run_s; largest per-sample peak RSS "
+        f"{float(heaviest['peak_rss_gb']):.2f} GB ({heaviest['sample']})")
     head = ["| group | scale | n | success, all (k/n) | success, unseen only (k/n) | seed 0 success (context) | rot_deg median / p90 | centroid_m median / p90 | scale_err_pct median / p90 |",
             "|---|---|---|---|---|---|---|---|---|"]
     body: list[str] = []
@@ -198,13 +218,25 @@ def results_markdown(rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mapp
             glines.append(f"| {a['sample']} | {a['bench_success']} | {a['gate_success']} | {a['d_rot_deg']:.3g} | {a['d_centroid_m']:.3g} | "
                           f"{a['d_scale_pct']:.3g} | {'yes' if a['agrees'] else 'no'} |")
     all_agree = bool(agree) and all(a["agrees"] for a in agree)
+
+    scored = {r["folder"] for r in rows}
+    unscored = [f"- {Path(f).name}" for f in expected if f not in scored] or ["none"]
+    success = {r["sample"]: r["success"] for r in rows}
+    lost = ["| sample | faces dropped at load | success |", "|---|---|---|"]
+    lost += [f"| {name} | {100 * share:.1f}% | {success.get(name, 'not scored')} |"
+             for name, share in sorted(non_triangle.items(), key=lambda kv: kv[1]) if share > 0]
     return "\n".join([
         "# Phase 1 registration benchmark", "",
-        f"Command: `{command}`", "", f"Commit(s): {commits}", "", f"Samples present: {len(rows)} of {_TOTAL}", "",
+        f"Command: `{command}`", "", f"Commit(s): {commits}", "", f"Samples present: {len(rows)} of {len(expected)}", "", f"Cost: {cost}", "",
+        "Generated from outputs/phase1/registration.csv by `uv run python scripts/write_phase1_results.py`.", "",
         f"Success: rotation error <= {ROT_MAX_DEG} deg, centroid error <= {CENTROID_MAX_M} m, relative scale error <= {SCALE_MAX_REL} "
         "(judgement calls, CONTEXT.md \"Registration success\"). Unseen = neither a Phase 0.5 gate sample nor one of 05c's tuning samples.", "",
         *head, *body, "",
         "## Agreement with the Phase 0.5 gate (05a)", "",
         f"A gate row agrees when its success equals 05a's and the differences are within {AGREE_ROT_DEG} deg, {AGREE_CENTROID_M} m and "
         f"{AGREE_SCALE_PCT} percentage points (judgement calls; registration is seeded, so near-exact is expected).", "",
-        *glines, "", f"all agree: {'yes' if all_agree else 'no'}", ""])
+        *glines, "", f"all agree: {'yes' if all_agree else 'no'}", "",
+        "## Not scored", "", "Samples whose run raised (scripts/run_benchmark.py logs the error):", "", *unscored, "",
+        "## Models with non-triangle faces", "",
+        "Open3D's OBJ reader skips faces that are not triangles, without an error, so these models were sampled from their triangles "
+        "only (05a's loader, kept frozen). The share counts faces, not area.", "", *lost, ""])

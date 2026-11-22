@@ -5,7 +5,7 @@ from types import ModuleType
 
 import pytest
 
-from scan_vs_bim.benchmark import COLUMNS, gate_agreement, results_markdown, run_benchmark, seen_mark
+from scan_vs_bim.benchmark import COLUMNS, gate_agreement, non_triangle_share, results_markdown, run_benchmark, seen_mark
 
 ROOT: Path = Path(__file__).resolve().parent.parent
 SCRIPT: Path = ROOT / "scripts" / "run_benchmark.py"
@@ -26,7 +26,7 @@ def _row(folder: str, category: str, seen: str = "unseen", scaled: bool = False,
          rot: float = 0.1, cen: float = 0.01, scale_err: float = 0.1) -> dict[str, str]:
     return {"sample": Path(folder).name, "folder": folder, "category": category, "seen": seen, "scaled": str(scaled),
             "rot_deg": str(rot), "centroid_m": str(cen), "scale_err_pct": str(scale_err), "success": str(success),
-            "seed0_success": str(seed0), "commit": "abc1234"}
+            "seed0_success": str(seed0), "run_s": "60", "peak_rss_gb": "0.4", "commit": "abc1234"}
 
 
 def test_seen_mark_gate_wins_over_tuning() -> None:
@@ -70,7 +70,7 @@ def test_unseen_rates_exclude_gate_and_tuning_and_scaled_is_split() -> None:
         _row("PC2Model_v1.4/house/h_3", "house", "unseen", scaled=True, success=True),
         _row("PC2Model_v1.4/furniture/f_1", "furniture", "tuning", success=True),
     ]
-    md = results_markdown(rows, [], "CMD")
+    md = results_markdown(rows, [], "CMD", expected=[], non_triangle={})
     house = [ln for ln in md.splitlines() if ln.startswith("| house")]
     unscaled, scaled = house[0], house[1]
     assert "unscaled" in unscaled and "scaled" in scaled and "unscaled" not in scaled
@@ -88,5 +88,23 @@ def test_gate_agreement_flags_a_changed_or_missing_row() -> None:
     changed = [_row(f1, "house"), _row(f2, "house", success=False)]
     assert [a["agrees"] for a in gate_agreement(changed, gate)] == [True, False]
     assert [a["agrees"] for a in gate_agreement(same[:1], gate)] == [True, False]
-    assert "all agree: no" in results_markdown(changed, gate, "CMD")
-    assert "all agree: yes" in results_markdown(same, gate, "CMD")
+    assert "all agree: no" in results_markdown(changed, gate, "CMD", expected=[], non_triangle={})
+    assert "all agree: yes" in results_markdown(same, gate, "CMD", expected=[], non_triangle={})
+
+
+def test_non_triangle_share_counts_faces_open3d_drops(tmp_path: Path) -> None:
+    """Open3D's OBJ reader skips every face that is not a triangle (veh_008: all quads, no triangles left); the share is what it drops."""
+    obj = tmp_path / "m.obj"
+    obj.write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3\nf 1/1/1 3/3/3 4/4/4\nf 1 2 3 4\n")
+    assert non_triangle_share(obj) == 1 / 3
+
+
+def test_results_list_unscored_samples_and_models_losing_faces() -> None:
+    rows = [_row("PC2Model_v1.4/house/h_1", "house"), _row("PC2Model_v1.4/house/h_2", "house", success=False)]
+    md = results_markdown(rows, [], "CMD", expected=[r["folder"] for r in rows] + ["PC2Model_v1.4/vehicle/v_9"],
+                          non_triangle={"h_2": 0.8, "v_9": 1.0})
+    assert "Samples present: 2 of 3" in md
+    unscored = md.split("## Not scored")[1].split("##")[0]
+    assert "v_9" in unscored and "h_1" not in unscored
+    lost = md.split("## Models with non-triangle faces")[1].split("##")[0]
+    assert "| h_2 | 80.0% | False |" in lost and "| v_9 | 100.0% | not scored |" in lost and "h_1" not in lost

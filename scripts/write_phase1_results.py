@@ -1,9 +1,11 @@
-"""Write docs/phase-1-results.md from the benchmark CSV and 05a's registration.csv (issue #39); prints whether the gate rows agree."""
+"""Write docs/phase-1-results.md from the benchmark CSV and 05a's registration.csv (issue #39); prints whether the gate rows agree.
+Also reads outputs/pc2model_scales.csv (the samples expected) and every model OBJ in data/pc2model (its non-triangle faces)."""
 
 import argparse
 from pathlib import Path
 
-from scan_vs_bim.benchmark import gate_agreement, results_markdown
+from scan_vs_bim.benchmark import gate_agreement, non_triangle_share, results_markdown
+from scan_vs_bim.pc2model import download_order
 from scan_vs_bim.tables import read_rows
 
 REPO = Path(__file__).resolve().parent.parent
@@ -14,10 +16,14 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--csv", type=Path, default=REPO / "outputs" / "phase1" / "registration.csv")
     ap.add_argument("--gate-csv", type=Path, default=REPO / "outputs" / "05a" / "registration.csv")
+    ap.add_argument("--scales", type=Path, default=REPO / "outputs" / "pc2model_scales.csv")
+    ap.add_argument("--data", type=Path, default=REPO / "data" / "pc2model")
     ap.add_argument("--out", type=Path, default=REPO / "docs" / "phase-1-results.md")
     args = ap.parse_args(argv)
     rows, gate_rows = read_rows(args.csv), read_rows(args.gate_csv)
-    args.out.write_text(results_markdown(rows, gate_rows, COMMAND))
+    expected = download_order(read_rows(args.scales))
+    non_triangle = {Path(f).name: non_triangle_share(next((args.data / Path(f).name).glob("model_*.obj"))) for f in expected}
+    args.out.write_text(results_markdown(rows, gate_rows, COMMAND, expected=expected, non_triangle=non_triangle))
     agree = gate_agreement(rows, gate_rows)
     print(f"wrote {args.out}; gate rows agreeing: {sum(bool(a['agrees']) for a in agree)}/{len(agree)}")
 
