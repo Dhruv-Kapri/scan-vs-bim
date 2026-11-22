@@ -62,6 +62,15 @@ def score_sample(folder: str, data_dir: Path, seen: str, commit: str) -> dict[st
         raise FileNotFoundError(f"{d} lacks model/transform/scan files: run scripts/fetch_all_samples.py") from None
     mesh = o3d.io.read_triangle_mesh(obj)
     T_gt = parse_transform(txt.read_text())
+    gt_scale = scale_of(T_gt)
+    if not mesh.has_triangles():   # an OBJ of quads only (veh_008): Open3D's reader drops them, 05a's pipeline cannot register it
+        nan = float("nan")
+        return dict(
+            sample=Path(folder).name, folder=folder, category=folder.split("/")[1], seen=seen, scaled=abs(gt_scale - 1) > SCALED_TOL,
+            gt_scale=gt_scale, est_scale=nan, rot_deg=nan, centroid_m=nan, scale_err_pct=nan, success=False, best_seed=-1,
+            seed0_rot_deg=nan, seed0_centroid_m=nan, seed0_scale_err_pct=nan, seed0_success=False, n_scan_points=0, voxel_m=nan,
+            load_s=time.perf_counter() - t0, coarse_s=0.0, refine_s=0.0, run_s=time.perf_counter() - t0, peak_rss_gb=peak_rss_gb(),
+            commit=commit)
     seed_all(SEED)
     model = mesh.sample_points_uniformly(MODEL_POINTS)
     scan = load_e57(e57, MAX_SCAN_POINTS, SEED, CHUNK_POINTS)
@@ -72,7 +81,6 @@ def score_sample(folder: str, data_dir: Path, seen: str, commit: str) -> dict[st
     voxel = VOXEL_FRACTION * diag
     res = register_sample(scan, model, voxel)
     sc, sc0 = score(res.T, T_gt, pts), score(res.T_seed0, T_gt, pts)
-    gt_scale = scale_of(T_gt)
     return dict(
         sample=Path(folder).name, folder=folder, category=folder.split("/")[1], seen=seen, scaled=abs(gt_scale - 1) > SCALED_TOL,
         gt_scale=gt_scale, est_scale=scale_of(res.T), rot_deg=sc.rot_deg, centroid_m=sc.centroid_m, scale_err_pct=100 * sc.scale_err,
@@ -139,9 +147,9 @@ def _rate(rows: Sequence[Mapping[str, str]], key: str = "success") -> str:
 
 
 def _stat(rows: Sequence[Mapping[str, str]], key: str) -> str:
-    if not rows:
+    v = [float(r[key]) for r in rows if r[key] != "nan"]   # nan: a model with no triangles, failed and not measured
+    if not v:
         return "-"
-    v = [float(r[key]) for r in rows]
     return f"{np.percentile(v, 50):.4g} / {np.percentile(v, 90):.4g}"
 
 
@@ -230,7 +238,8 @@ def results_markdown(
         f"Command: `{command}`", "", f"Commit(s): {commits}", "", f"Samples present: {len(rows)} of {len(expected)}", "", f"Cost: {cost}", "",
         "Generated from outputs/phase1/registration.csv by `uv run python scripts/write_phase1_results.py`.", "",
         f"Success: rotation error <= {ROT_MAX_DEG} deg, centroid error <= {CENTROID_MAX_M} m, relative scale error <= {SCALE_MAX_REL} "
-        "(judgement calls, CONTEXT.md \"Registration success\"). Unseen = neither a Phase 0.5 gate sample nor one of 05c's tuning samples.", "",
+        "(judgement calls, CONTEXT.md \"Registration success\"). Unseen = neither a Phase 0.5 gate sample nor one of 05c's tuning samples. "
+        "A model with no triangles left at load (below) counts as a failure; its errors are not measured, so the medians and p90s leave it out.", "",
         *head, *body, "",
         "## Agreement with the Phase 0.5 gate (05a)", "",
         f"A gate row agrees when its success equals 05a's and the differences are within {AGREE_ROT_DEG} deg, {AGREE_CENTROID_M} m and "

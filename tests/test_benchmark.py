@@ -1,11 +1,12 @@
 import csv
+import math
 import importlib.util
 from pathlib import Path
 from types import ModuleType
 
 import pytest
 
-from scan_vs_bim.benchmark import COLUMNS, gate_agreement, non_triangle_share, results_markdown, run_benchmark, seen_mark
+from scan_vs_bim.benchmark import COLUMNS, gate_agreement, non_triangle_share, results_markdown, run_benchmark, score_sample, seen_mark
 
 ROOT: Path = Path(__file__).resolve().parent.parent
 SCRIPT: Path = ROOT / "scripts" / "run_benchmark.py"
@@ -108,3 +109,17 @@ def test_results_list_unscored_samples_and_models_losing_faces() -> None:
     assert "v_9" in unscored and "h_1" not in unscored
     lost = md.split("## Models with non-triangle faces")[1].split("##")[0]
     assert "| h_2 | 80.0% | False |" in lost and "| v_9 | 100.0% | not scored |" in lost and "h_1" not in lost
+
+
+def test_a_model_with_no_triangles_is_a_failed_row_not_a_skipped_sample(tmp_path: Path) -> None:
+    """veh_008: its OBJ is all quads, Open3D's reader drops them all, so 05a's pipeline cannot register it; that is a failure of the
+    pipeline, scored as such (errors NaN, success False), not a sample left out of the benchmark."""
+    d = tmp_path / "veh_9-x"
+    d.mkdir()
+    (d / "model_veh_9-x.obj").write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n")
+    (d / "transformation_matrix_veh_9-x.txt").write_text("2 0 0 0\n0 2 0 0\n0 0 2 0\n0 0 0 1\n")
+    (d / "pointcloud_veh_9-x_transformed.e57").write_bytes(b"")   # never read: the model fails first
+    row = score_sample("PC2Model_v1.4/vehicle/veh_9-x", tmp_path, "unseen", "abc1234")
+    assert list(row) == COLUMNS
+    assert row["success"] is False and row["seed0_success"] is False and row["scaled"] is True
+    assert all(math.isnan(float(str(row[k]))) for k in ("rot_deg", "centroid_m", "scale_err_pct", "est_scale"))
