@@ -7,6 +7,9 @@ A point within BAND of an element is measured to the element's surface, but near
 edge itself, so a point past the end of a wall, or above its top, reads as an offset that is really a distance to the edge. Such a point belongs to
 whatever stands beyond the edge (a neighbour, the ceiling above a wall), not to the element's face. `over_own_face` finds the points whose projection
 onto the element's own face lies on that face (issue #20: the own-face patch).
+
+A large slab or covering (`VerdictRules.local_plane_*`) is judged against a plane fitted to its own counted points instead of the model's flat face (#46): `local_plane` removes the tilt of the
+offsets and keeps their level, so a scan that ramps over the element's length (03d) does not fail it, and a real offset still reads shifted. The fitted tilt is reported in the element's row.
 """
 
 from collections.abc import Sequence
@@ -15,6 +18,8 @@ from typing import Final, Protocol, TypedDict
 
 import numpy as np
 import open3d as o3d
+
+from scan_vs_bim.ramp import plane_gradient
 
 NUMERIC_TOL: float = 1e-4  # m: float32 closest-point noise; a point that projects onto the face is within this of its foot point's plane
 
@@ -129,6 +134,11 @@ class VerdictRules:
     own_face_margin: float = 0.01  # (judgement call, tuned on held-out rooms) edge allowance in m of the own-face patch: 1 cm is the scan's voxel
     own_face_classes: tuple[str, ...] = ("IfcWallStandardCase", "IfcSlab", "IfcCovering")  # (judgement call, tuned) the classes with one or two broad faces
     own_face_one_sided: bool = True  # (judgement call, tuned) a wall is patched only if exactly one of its faces is room-facing: a partition is left as it was
+    local_plane_classes: tuple[str, ...] = ("IfcSlab", "IfcCovering")  # (judgement call, issue #46) the classes judged against a plane fitted to their own points: the broad horizontal surfaces whose scan ramps (03d)
+    local_plane_min_extent: float | None = 6.0  # (judgement call, issue #46) m, the largest plan extent (bounding box in x or y) of a "large" element; None: no local plane. 03d's shared tilt of 1.5 to 1.7 mm/m moves the far edges of a 6 m element by 4.5 to 5 mm, a third of LOA30's 15 mm
+    local_plane_cell: float = 1.0  # m, the plan cell the offsets are binned in (03d's)
+    local_plane_min_cell_points: int = 100  # (judgement call, issue #46) counted points a cell needs to count
+    local_plane_min_cells: int = 8  # cells needed for a plane (03d's GROUP_MIN_CELLS); fewer: no plane, the element is judged on its offsets as they are
 
     @property
     def vote_half(self) -> int:
@@ -230,6 +240,56 @@ def judge(s: np.ndarray, rules: VerdictRules = RULES) -> Judgement:
     else:
         verdict, reason = "not confirmed", "inconsistent offsets"
     return Judgement(verdict=verdict, reason=reason, point_count=n, median_m=median, spread_m=spread, share_within_tol=share, cluster_share=one_cluster)
+
+
+@dataclass(frozen=True)
+class LocalPlane:
+    """A plane fitted to an element's offsets: `gx` and `gy` are metres of offset per metre along x and y, about the point (`x0`, `y0`), from `n_cells` cells."""
+
+    gx: float
+    gy: float
+    x0: float
+    y0: float
+    n_cells: int
+
+    @property
+    def tilt_deg(self) -> float:
+        return float(np.degrees(np.arctan(np.hypot(self.gx, self.gy))))
+
+    def detilt(self, xy: np.ndarray, s: np.ndarray) -> np.ndarray:
+        """The offsets `s` at plan positions `xy` with the plane's tilt removed and its level kept: s - gx (x - x0) - gy (y - y0)."""
+        return s - self.gx * (xy[:, 0] - self.x0) - self.gy * (xy[:, 1] - self.y0)
+
+
+def local_plane(xy: np.ndarray, s: np.ndarray, rules: VerdictRules = RULES) -> LocalPlane | None:
+    """The plane through an element's offsets `s` (metres) at plan positions `xy`, or None (issue #46).
+
+    The points go into square plan cells of side `rules.local_plane_cell`, anchored at multiples of it. A cell with at least `rules.local_plane_min_cell_points` points counts; its value is the median
+    offset and its position the mean position of its points. With fewer than `rules.local_plane_min_cells` counting cells, or with cells that lie on a line, there is no plane. Otherwise
+    the plane is the least-squares one through the cell values (`ramp.plane_gradient`), about the mean position of the counting cells."""
+    xy, s = np.asarray(xy, np.float64), np.asarray(s, np.float64)
+    if len(s) == 0:
+        return None
+    ij = np.floor(xy / rules.local_plane_cell).astype(np.int64)
+    ij -= ij.min(0)
+    key = ij[:, 0] * (ij[:, 1].max() + 1) + ij[:, 1]
+    order = np.argsort(key)  # by cell; a cell's points are then one slice
+    key = key[order]
+    first = np.flatnonzero(np.concatenate([[True], key[1:] != key[:-1]]))  # the first point of each cell
+    size = np.diff(np.concatenate([first, [len(s)]]))
+    counting = np.flatnonzero(size >= rules.local_plane_min_cell_points)
+    if len(counting) < rules.local_plane_min_cells:
+        return None
+    median, cx, cy = (np.empty(len(counting)) for _ in range(3))
+    for k, c in enumerate(counting):  # a loop over cells (a few hundred on the largest element), not points
+        cell = order[first[c]:first[c] + size[c]]
+        median[k] = np.median(s[cell])
+        cx[k], cy[k] = xy[cell].mean(0)
+    try:
+        g = plane_gradient(cx, cy, median)
+    except ValueError:  # the cells lie on a line: the tilt across it is not determined
+        return None
+    return LocalPlane(gx=g.gx, gy=g.gy, x0=float(cx.mean()), y0=float(cy.mean()), n_cells=len(median))
 
 
 def room_facing(e: Mesh, lo: np.ndarray, hi: np.ndarray, rules: VerdictRules = RULES) -> np.ndarray:
@@ -437,6 +497,7 @@ class PatchView:
     junction_of: list[np.ndarray]
     past_of: list[np.ndarray]
     walls: dict[int, WallInfo]
+    points: np.ndarray  # the scan points (model frame) the patches were made from, by reference
 
 
 @dataclass
@@ -460,10 +521,12 @@ class Patches:
     past_of: list[np.ndarray]
     dropped_of: list[np.ndarray]
     junction_of: list[np.ndarray]
-    rules: VerdictRules  # the rules the patches were made with (`recut` checks that only the own-face ones differ)
+    rules: VerdictRules  # the rules the patches were made with (`recut` checks that only the own-face and local-plane ones differ)
+    points: np.ndarray  # the scan points (model frame) the patches were made from, held by reference, never copied
 
     def view(self) -> PatchView:
-        return PatchView(signed=self.signed, how=self.side.how, points_of=self.points_of, dropped_of=self.dropped_of, junction_of=self.junction_of, past_of=self.past_of, walls=self.side.walls)
+        return PatchView(signed=self.signed, how=self.side.how, points_of=self.points_of, dropped_of=self.dropped_of, junction_of=self.junction_of, past_of=self.past_of, walls=self.side.walls,
+                         points=self.points)
 
 
 def _own_face_cut(scope: Sequence[Element], scope_fc: Sequence[np.ndarray], points: np.ndarray, rules: VerdictRules, geom: np.ndarray, dist: np.ndarray, sgn: np.ndarray, nearest: np.ndarray,
@@ -482,7 +545,7 @@ def _own_face_cut(scope: Sequence[Element], scope_fc: Sequence[np.ndarray], poin
                    past_of=[np.flatnonzero((geom == i) & pe) for i in range(n_scope)],
                    dropped_of=[np.flatnonzero((geom == i) & bk) for i in range(n_scope)],
                    junction_of=[np.flatnonzero((geom == i) & jn) for i in range(n_scope)],
-                   rules=rules)
+                   rules=rules, points=points)
 
 
 def assign_patches(scope: Sequence[Element], others: Sequence[Element], points: np.ndarray, lo: np.ndarray, hi: np.ndarray, rules: VerdictRules = RULES) -> Patches:
@@ -495,11 +558,15 @@ def assign_patches(scope: Sequence[Element], others: Sequence[Element], points: 
     return _own_face_cut(scope, scope_fc, points, rules, geom, dist, sgn, nearest, side)
 
 
+RECUT_FIELDS: Final[tuple[str, ...]] = ("own_face", "own_face_margin", "own_face_classes", "own_face_one_sided", "local_plane_classes", "local_plane_min_extent", "local_plane_cell",
+                                         "local_plane_min_cell_points", "local_plane_min_cells")  # the rules `measure` does not read: `recut` may change them
+
+
 def recut(patches: Patches, scope: Sequence[Element], points: np.ndarray, lo: np.ndarray, hi: np.ndarray, rules: VerdictRules = RULES) -> Patches:
     """The `Patches` that `assign_patches(scope, others, points, lo, hi, rules)` would give, from the measurement already in `patches` (the expensive step, `measure`, is not repeated).
     Only the own-face part is redone: `past_edge`, `in_band`, `points_of` and `past_of` (and the masks derived with them). `scope`, `points`, `lo` and `hi` must be those `patches` was made from.
-    Contract: only the own-face fields of `rules` (own_face, own_face_margin, own_face_classes, own_face_one_sided) may differ from `patches.rules`; anything else would change the measurement."""
-    own_face = {f: getattr(rules, f) for f in ("own_face", "own_face_margin", "own_face_classes", "own_face_one_sided")}
+    Contract: only the own-face fields of `rules` (own_face, own_face_margin, own_face_classes, own_face_one_sided) and the local-plane ones (`local_plane_*`, which only `element_rows` reads) may differ from `patches.rules`; anything else would change the measurement."""
+    own_face = {f: getattr(rules, f) for f in RECUT_FIELDS}
     assert replace(patches.rules, **own_face) == rules, "recut: rules differ from the measured ones outside the own-face fields; measure again with assign_patches"
     assert len(scope) == patches.n_scope, "recut: scope is not the one the patches were made from"
     scope_fc = [judged_faces(e, lo, hi, rules) for e in scope]
@@ -522,24 +589,41 @@ class VerdictRow(TypedDict):
     ambiguous_share: float | str  # walls: the share of the counted points whose side the scan could not tell ("" for other classes)
     reference_side: str  # walls: the outward normal that the offsets are expressed along ("" for other classes)
     room_facing_sides: int | str  # walls: 1 or 2 ("" for other classes)
+    plane_gx_mm_per_m: float | str  # elements judged against a local plane (#46): the fitted gradient of the offsets along x, mm per m, along the face normal (the sign of median_signed_offset_mm); "" without a plane
+    plane_gy_mm_per_m: float | str  # the same along y
+    plane_tilt_deg: float | str  # the fitted tilt in degrees, atan(hypot(gx, gy)); "" without a plane
+
+
+def _wants_local_plane(e: Mesh, rules: VerdictRules) -> bool:
+    """Is the element a large one of a class judged against a local plane (#46)?"""
+    return rules.local_plane_min_extent is not None and e.ifc_class in rules.local_plane_classes and float(np.ptp(e.vertices[:, :2], axis=0).max()) >= rules.local_plane_min_extent
 
 
 def element_rows(scope: Sequence[Element], view: PatchView, use: np.ndarray, rules: VerdictRules = RULES) -> list[VerdictRow]:
     """One verdict row per element of `scope`. `use`: boolean mask over the points that enter the comparison (all True: no labels; the oracle's scan classes: with labels).
     For a wall, `points_other_side` counts the points (of those in `use`) that were seen from the neighbouring room and left out, `points_at_junction` those left out for lying within the
     junction margin of another element, `points_past_edge` those left out for lying past the edge of the element's own face (any class), `ambiguous_share` the share of the counted points
-    whose side the scan could not tell, `reference_side` the outward normal that its offsets are expressed along (a wall with two room-facing sides: the one with more points)."""
+    whose side the scan could not tell, `reference_side` the outward normal that its offsets are expressed along (a wall with two room-facing sides: the one with more points).
+    A slab or covering of a class in `rules.local_plane_classes` whose largest plan extent is at least `rules.local_plane_min_extent` is judged on its offsets with the tilt of a plane fitted
+    to its own counted points removed (`local_plane`; the level stays, so a real offset still reads shifted), and the row reports the fitted gradient and tilt (#46). Other elements, and large ones the fit
+    gives no plane for, are judged on their offsets as they are, and those three columns are blank."""
     rows: list[VerdictRow] = []
     for i, e in enumerate(scope):
         idx = view.points_of[i]
-        j = judge(view.signed[idx[use[idx]]].astype(np.float64), rules)
+        counted = idx[use[idx]]
+        s = view.signed[counted].astype(np.float64)
+        plane = local_plane(view.points[counted, :2], s, rules) if _wants_local_plane(e, rules) else None
+        if plane is not None:
+            s = plane.detilt(view.points[counted, :2], s)
+        j = judge(s, rules)
         w = view.walls.get(i)
         rows.append(VerdictRow(
             global_id=e.global_id, ifc_class=e.ifc_class, verdict=j["verdict"], point_count=j["point_count"], median_signed_offset_mm=j["median_m"] * 1000,
             share_within_tol=j["share_within_tol"], share_near_median=j["cluster_share"], spread_mm=j["spread_m"] * 1000, reason=j["reason"],
             points_other_side=int(use[view.dropped_of[i]].sum()) if w else 0, points_at_junction=int(use[view.junction_of[i]].sum()) if w else 0, points_past_edge=int(use[view.past_of[i]].sum()),
             ambiguous_share=float(np.mean(view.how[idx[use[idx]]] == HOW_AMBIGUOUS)) if w and j["point_count"] else (0.0 if w else ""),
-            reference_side=(("+" if w["ref"] > 0 else "-") + "xy"[w["axis"]]) if w else "", room_facing_sides=len(w["sides"]) if w else ""))
+            reference_side=(("+" if w["ref"] > 0 else "-") + "xy"[w["axis"]]) if w else "", room_facing_sides=len(w["sides"]) if w else "",
+            plane_gx_mm_per_m=plane.gx * 1000 if plane else "", plane_gy_mm_per_m=plane.gy * 1000 if plane else "", plane_tilt_deg=plane.tilt_deg if plane else ""))
     return rows
 
 
@@ -549,5 +633,6 @@ def judge_elements(scope: Sequence[Element], others: Sequence[Element], points: 
     `others` are the neighbouring elements (never judged: they take the points that are nearer to them and are 'another element' at a wall's junctions); [lo, hi] is the room box (it
     decides which faces of a wall are room-facing, not which points count); `use` is the mask of the points that enter the comparison (all True: without oracle labels).
     This is the one-call form, for one mask. For several masks (03a: no labels, oracle labels) call `assign_patches` once and `element_rows` per mask: that is the supported form, and `measure`,
-    the expensive step, is paid once. To compare own-face variants (patch off, on, all walls, other margins or classes) on one measurement, `recut` the patches instead of assigning again."""
+    the expensive step, is paid once. To compare own-face variants (patch off, on, all walls, other margins or classes) on one measurement, `recut` the patches instead of assigning again.
+    A large slab or covering is judged against a plane fitted to its own points, tilt removed and level kept, and its row reports the tilt (`element_rows`, #46)."""
     return element_rows(scope, assign_patches(scope, others, points, lo, hi, rules).view(), use, rules)
