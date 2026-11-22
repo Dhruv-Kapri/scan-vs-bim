@@ -136,9 +136,9 @@ class VerdictRules:
     own_face_one_sided: bool = True  # (judgement call, tuned) a wall is patched only if exactly one of its faces is room-facing: a partition is left as it was
     local_plane_classes: tuple[str, ...] = ("IfcSlab", "IfcCovering")  # (judgement call, issue #46) the classes judged against a plane fitted to their own points: the broad horizontal surfaces whose scan ramps (03d)
     local_plane_min_extent: float | None = 6.0  # (judgement call, issue #46) m, the largest plan extent (bounding box in x or y) of a "large" element; None: no local plane. 03d's shared tilt of 1.5 to 1.7 mm/m moves the far edges of a 6 m element by 4.5 to 5 mm, a third of LOA30's 15 mm
-    local_plane_cell: float = 1.0  # m, the plan cell the offsets are binned in (03d's)
+    local_plane_cell: float = 1.0  # (judgement call, issue #46) m, the plan cell the offsets are binned in (03d's)
     local_plane_min_cell_points: int = 100  # (judgement call, issue #46) counted points a cell needs to count
-    local_plane_min_cells: int = 8  # cells needed for a plane (03d's GROUP_MIN_CELLS); fewer: no plane, the element is judged on its offsets as they are
+    local_plane_min_cells: int = 8  # (judgement call, issue #46) cells needed for a plane (03d's GROUP_MIN_CELLS); fewer: no plane, the element is judged on its offsets as they are
 
     @property
     def vote_half(self) -> int:
@@ -565,7 +565,7 @@ RECUT_FIELDS: Final[tuple[str, ...]] = ("own_face", "own_face_margin", "own_face
 def recut(patches: Patches, scope: Sequence[Element], points: np.ndarray, lo: np.ndarray, hi: np.ndarray, rules: VerdictRules = RULES) -> Patches:
     """The `Patches` that `assign_patches(scope, others, points, lo, hi, rules)` would give, from the measurement already in `patches` (the expensive step, `measure`, is not repeated).
     Only the own-face part is redone: `past_edge`, `in_band`, `points_of` and `past_of` (and the masks derived with them). `scope`, `points`, `lo` and `hi` must be those `patches` was made from.
-    Contract: only the own-face fields of `rules` (own_face, own_face_margin, own_face_classes, own_face_one_sided) and the local-plane ones (`local_plane_*`, which only `element_rows` reads) may differ from `patches.rules`; anything else would change the measurement."""
+    Contract: only the fields in `RECUT_FIELDS` (the own-face ones, and the local-plane ones, which only `element_rows` reads) may differ from `patches.rules`; anything else would change the measurement."""
     own_face = {f: getattr(rules, f) for f in RECUT_FIELDS}
     assert replace(patches.rules, **own_face) == rules, "recut: rules differ from the measured ones outside the own-face fields; measure again with assign_patches"
     assert len(scope) == patches.n_scope, "recut: scope is not the one the patches were made from"
