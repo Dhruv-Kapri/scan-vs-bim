@@ -247,6 +247,36 @@ def test_the_use_mask_decides_which_points_count_and_which_are_reported_left_out
     assert (row["verdict"], row["point_count"], row["points_other_side"]) == ("OK", len(room_face) // 2, 0)
 
 
+# The wall side test with `side_shown` (#45, #27): a point may take a side from its own free space only if the scan shows the space on that side. Floors at z = -0.15 lie
+# outside the band (no floor point is counted as the wall's) but inside the wall's occupancy grid, where they show which spaces were scanned.
+SHOWN: VerdictRules = replace(RULES, side_shown=True)
+
+
+def floor(rng: np.random.Generator, x0: float, x1: float) -> np.ndarray:
+    xx, yy = np.meshgrid(np.arange(x0, x1, 0.01), np.arange(0.6, 4.4, 0.01))
+    return np.column_stack([xx.ravel(), yy.ravel(), np.full(xx.size, -0.15) + rng.normal(0, 0.003, xx.size)]).astype(np.float32)
+
+
+def test_clutter_in_front_and_unscanned_space_behind_keeps_the_points_on_the_room_facing_face() -> None:
+    # Clutter covers the room face 12 cm in front of it (outside the band, inside the side test's reach); nothing behind the wall was scanned. The old rule reads the free space
+    # behind as "seen from the neighbouring room" and drops the whole face; with side_shown that space is unscanned, the side ambiguous, the nearest room-facing face decides.
+    rng = np.random.default_rng(0)
+    room_face = scan_plane(rng, 0.1)
+    planes = [room_face, scan_plane(rng, 0.22), floor(rng, 0.1, 1.0)]
+    wall = element(0, 0.1, 0, 5, 0, 3)
+    assert judge_first([wall], [], planes, BOUNDARY_BOX)["points_other_side"] == len(room_face)
+    row = judge_first([wall], [], planes, BOUNDARY_BOX, SHOWN)
+    assert (row["verdict"], row["point_count"], row["points_other_side"]) == ("OK", len(room_face), 0)
+    assert abs(row["median_signed_offset_mm"]) < 3
+
+
+def test_a_scanned_neighbouring_room_still_drops_the_back_of_the_wall() -> None:
+    rng = np.random.default_rng(0)
+    room_face, back = scan_plane(rng, 0.1), scan_plane(rng, 0.0)
+    row = judge_first([element(0, 0.1, 0, 5, 0, 3)], [], [room_face, back, floor(rng, 0.1, 1.0), floor(rng, -1.0, 0.0)], BOUNDARY_BOX, SHOWN)
+    assert (row["verdict"], row["point_count"], row["points_other_side"]) == ("OK", len(room_face), len(back))
+
+
 def test_the_tolerance_is_the_usibd_loa30_bound_not_a_tuning_value() -> None:
     assert RULES.tol == 0.015  # USIBD LOA30: at most 15 mm at 2 sigma
 
