@@ -1,11 +1,11 @@
 """Parity check of notebook 01's slice (01_cras_slice.json) against a re-run (#50): pure functions over JSON-like trees.
 
-Open3D's multi-threaded ICP drifts from run to run (about 1e-4 m on the translation, 5e-4 / 7e-4 degrees on yaw / tilt, the 5th
-significant digit of the distance statistics, up to +-600 of 3.67 M scan points in the room box; a single-threaded re-run
-against the committed slice, 2026-11-23: 1.9e-4 m, 6.8e-4 / 5.8e-5 degrees, 45 points, and one scanner position's last
-rounded digit flipped by 1 mm). The tolerances below are 3x (room box points) to 10x or more that drift, and 1 mm is well under
-USIBD LOA30's 15 mm, so drift within them is thread noise, not a changed result. Every field without a tolerance must match
-exactly."""
+01's registration drifts from run to run with the same seeds (about 1e-4 m on the translation, 5e-4 / 7e-4 degrees on yaw / tilt,
+the 5th significant digit of the distance statistics, up to +-600 of 3.67 M scan points in the room box). Pinning Open3D to one
+thread (o3d.utility.set_max_threads(1)) does not stop it: two such runs, 2026-11-23, differed by 2.8e-4 m and 1.3e-3 degrees,
+367 room-box points, and the scanner position by one 2 cm floor-map cell. The tolerances below are 3x (room-box points) to 10x
+or more the drift seen, and 1 mm is well under USIBD LOA30's 15 mm, so drift within them is run-to-run noise, not a changed
+result. Every field without a tolerance must match exactly."""
 
 from collections.abc import Mapping
 from typing import Any, TypeGuard
@@ -22,9 +22,10 @@ SLICE_TOLERANCES: dict[str, float] = {
     **{f"frame.p90_distance_m.{k}": 1e-4 for k in _DISTANCE_KEYS},  # m
     "room.scan_points_in_box": 2000,  # points; the box edge cuts a registered cloud that moves by fractions of a mm
     "uvigo.median_distance_after_ground_truth_m": 1e-4,  # m
-    # m; written rounded to 1 mm, so 0.2 mm of transform drift can flip the last digit (15.906 -> 15.905 seen in a re-run)
-    "scanner_positions.positions_model_frame": 2e-3,
-    "scanner_positions.positions_scan_frame": 2e-3,
+    # m; the hole detector snaps to 2 cm floor-map cells, so sub-mm drift can move a position by one cell (17.009 vs 16.989 m
+    # seen); one cell plus the 1 mm rounding, well inside 01's own 5 cm known-answer check of the detector
+    "scanner_positions.positions_model_frame": 0.025,
+    "scanner_positions.positions_scan_frame": 0.025,
 }
 
 

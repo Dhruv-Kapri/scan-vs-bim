@@ -12,7 +12,7 @@ NEEDS = [ROOT / "data" / "cras" / "cras_voxel_1cm.npz", ROOT / "data" / "cras" /
 
 
 def test_notebook_01_runs_with_known_answers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Known answers are asserted inside 01: the synthetic hole detector recovers its holes, the CRAS scan is far off the model's frame and the estimated transform fixes it, the room box holds walls, a door and windows, UVigo scale is 1. Its last cell checks the run against the committed 01_cras_slice.json within slice_parity's tolerances (ICP drift is Open3D thread noise, #50) and, without WRITE_SLICE=1, leaves that file alone."""
+    """Known answers are asserted inside 01: the synthetic hole detector recovers its holes, the CRAS scan is far off the model's frame and the estimated transform fixes it, the room box holds walls, a door and windows, UVigo scale is 1. Its last cell checks the run against the committed 01_cras_slice.json within slice_parity's tolerances (registration drifts run to run, #50) and, without WRITE_SLICE=1, leaves that file alone."""
     for p in NEEDS:
         if not p.exists():
             pytest.skip(f"{p.relative_to(ROOT)} not downloaded (see scripts/fetch_data.py and CLAUDE.md)")

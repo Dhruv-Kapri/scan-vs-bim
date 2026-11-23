@@ -62,7 +62,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # re-run notebook 01 in place (needs the CRAS cache + IFC; ~5-6 min, peak
                                           # RSS under 3 GB); writes outputs/01/01_cras_slice.json and checks it against the
                                           # committed notebooks/01_cras_slice.json within slice_parity's tolerances (ICP drift
-                                          # is Open3D thread noise, #50); WRITE_SLICE=1 rewrites the committed slice (then
+                                          # is run-to-run noise, #50); WRITE_SLICE=1 rewrites the committed slice (then
                                           # re-run 03a, 03b, 05b and make_tuning_slice.py)
 uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
   notebooks/00_pipeline_overview.ipynb    # notebook 00 (toy room, no downloaded data); the flag drops timing
