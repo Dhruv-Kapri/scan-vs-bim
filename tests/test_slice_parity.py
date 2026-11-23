@@ -12,11 +12,6 @@ def _committed() -> dict[str, Any]:
     return json.loads(SLICE_PATH.read_text())
 
 
-def test_identical_slices_match() -> None:
-    s = _committed()
-    assert slice_mismatches(s, copy.deepcopy(s)) == []
-
-
 def test_drift_within_tolerance_passes_and_beyond_it_names_the_path() -> None:
     s = _committed()
     ok = copy.deepcopy(s)

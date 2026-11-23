@@ -1,12 +1,14 @@
 """Parity check of notebook 01's slice (01_cras_slice.json) against a re-run (#50): pure functions over JSON-like trees.
 
 Open3D's multi-threaded ICP drifts from run to run (about 1e-4 m on the translation, 5e-4 / 7e-4 degrees on yaw / tilt, the 5th
-significant digit of the distance statistics, up to +-600 of 3.67 M scan points in the room box). The tolerances below are about
-10x the drift observed in #50, and 1 mm is well under USIBD LOA30's 15 mm, so drift within them is thread noise, not a changed
-result. Every field without a tolerance must match exactly."""
+significant digit of the distance statistics, up to +-600 of 3.67 M scan points in the room box; a single-threaded re-run
+against the committed slice, 2026-11-23: 1.9e-4 m, 6.8e-4 / 5.8e-5 degrees, 45 points, and one scanner position's last
+rounded digit flipped by 1 mm). The tolerances below are 3x (room box points) to 10x or more that drift, and 1 mm is well under
+USIBD LOA30's 15 mm, so drift within them is thread noise, not a changed result. Every field without a tolerance must match
+exactly."""
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, TypeGuard
 
 _DISTANCE_KEYS = ("as delivered", "translation only", "translation + ICP")
 
@@ -26,25 +28,25 @@ SLICE_TOLERANCES: dict[str, float] = {
 }
 
 
-def _is_number(x: object) -> bool:
+def _is_number(x: object) -> TypeGuard[int | float]:
     return isinstance(x, int | float) and not isinstance(x, bool)
 
 
 def _close(c: object, r: object, path: str, tol: float, out: list[str]) -> None:
     """Numbers (or equally shaped nested lists of numbers) within `tol`, elementwise."""
     if isinstance(c, list) and isinstance(r, list) and len(c) == len(r):
-        for i, (a, b) in enumerate(zip(c, r)):
+        for i, (a, b) in enumerate(zip(c, r, strict=True)):
             _close(a, b, f"{path}[{i}]", tol, out)
     elif _is_number(c) and _is_number(r):
-        if abs(c - r) > tol:  # type: ignore[operator]
-            out.append(f"{path}: committed {c!r}, re-run {r!r}, differ by {abs(c - r):.3g} > tolerance {tol:g}")  # type: ignore[operator]
+        if abs(c - r) > tol:
+            out.append(f"{path}: committed {c!r}, re-run {r!r}, differ by {abs(c - r):.3g} > tolerance {tol:g}")
     else:
         out.append(f"{path}: committed {c!r}, re-run {r!r}, shapes or types differ (tolerance {tol:g})")
 
 
-def _walk(c: object, r: object, path: str, tolerances: Mapping[str, float], out: list[str]) -> None:
-    if path in tolerances:
-        _close(c, r, path, tolerances[path], out)
+def _walk(c: object, r: object, path: str, out: list[str]) -> None:
+    if path in SLICE_TOLERANCES:
+        _close(c, r, path, SLICE_TOLERANCES[path], out)
     elif isinstance(c, dict) and isinstance(r, dict):
         for k in c.keys() | r.keys():
             sub = f"{path}.{k}" if path else str(k)
@@ -53,22 +55,21 @@ def _walk(c: object, r: object, path: str, tolerances: Mapping[str, float], out:
             elif k not in c:
                 out.append(f"{sub}: in the re-run, missing from the committed slice (exact)")
             else:
-                _walk(c[k], r[k], sub, tolerances, out)
+                _walk(c[k], r[k], sub, out)
     elif isinstance(c, list) and isinstance(r, list):
         if len(c) != len(r):
             out.append(f"{path}: committed list has {len(c)} items, re-run {len(r)} (exact)")
         else:
-            for i, (a, b) in enumerate(zip(c, r)):
-                _walk(a, b, f"{path}[{i}]", tolerances, out)
-    elif c != r or type(c) is not type(r) and not (_is_number(c) and _is_number(r)):
+            for i, (a, b) in enumerate(zip(c, r, strict=True)):
+                _walk(a, b, f"{path}[{i}]", out)
+    elif c != r or (type(c) is not type(r) and not (_is_number(c) and _is_number(r))):
         out.append(f"{path}: committed {c!r}, re-run {r!r} (exact)")
 
 
-def slice_mismatches(committed: Mapping[str, Any], rerun: Mapping[str, Any],
-                     tolerances: Mapping[str, float] = SLICE_TOLERANCES) -> list[str]:
-    """One message per difference between two slices; empty = parity. Paths in `tolerances` may differ by at most that much, all else exactly."""
+def slice_mismatches(committed: Mapping[str, Any], rerun: Mapping[str, Any]) -> list[str]:
+    """One message per difference between two slices; empty = parity. Paths in SLICE_TOLERANCES may differ by at most that much, all else exactly."""
     out: list[str] = []
-    _walk(dict(committed), dict(rerun), "", tolerances, out)
+    _walk(dict(committed), dict(rerun), "", out)
     return sorted(out)
 
 
