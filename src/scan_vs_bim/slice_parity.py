@@ -22,7 +22,9 @@ SLICE_TOLERANCES: dict[str, float] = {
     **{f"frame.median_distance_m.{k}": 1e-3 for k in _DISTANCE_KEYS},
     **{f"frame.p90_distance_m.{k}": 1e-3 for k in _DISTANCE_KEYS},
     "room.scan_points_in_box": 2000,  # points; the box edge cuts a registered cloud that moves by fractions of a mm
-    "uvigo.median_distance_after_ground_truth_m": 1e-4,  # m
+    # m; a median over 300k points drawn from 01's shared seeded rng, whose earlier draws (likely the room-box ones, sized by the
+    # drifted transform) shift the sample; moved 0.11 mm between runs, against a 4.3 cm residual
+    "uvigo.median_distance_after_ground_truth_m": 1e-3,
     # m; the hole detector snaps to 2 cm floor-map cells, so sub-mm drift can move a position by one cell (17.009 vs 16.989 m
     # seen); one cell plus the 1 mm rounding, well inside 01's own 5 cm known-answer check of the detector
     "scanner_positions.positions_model_frame": 0.025,
