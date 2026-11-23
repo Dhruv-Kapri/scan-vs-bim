@@ -5,10 +5,11 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import numpy as np
+import open3d as o3d
 import pytest
 
 from scan_vs_bim.fetch import data_start
-from scan_vs_bim.pc2model import Sample, download_order, fetch_samples, group_samples, parse_transform, pick_gate_samples, pick_smallest_scaled, read_member, scale_of
+from scan_vs_bim.pc2model import Sample, download_order, fetch_samples, group_samples, load_model_mesh, parse_transform, pick_gate_samples, pick_smallest_scaled, read_member, scale_of
 
 
 def matrix_text(scale: float = 1.0, rotate: bool = False) -> str:
@@ -238,3 +239,41 @@ def test_fetch_samples_rejects_a_folder_missing_from_the_zip(tmp_path: Path) -> 
     _, infos, _ = _two_sample_zip()
     with pytest.raises(ValueError, match="Z/house/nope"):
         fetch_samples(lambda s, e: b"", infos, ["Z/house/nope"], tmp_path)
+
+
+def test_load_model_mesh_keeps_the_area_of_quads_and_ngons(tmp_path: Path) -> None:
+    """Open3D's reader drops every non-triangle face (#53); the loader fans them into triangles, whatever the token form."""
+    obj = tmp_path / "model_m.obj"
+    obj.write_text(
+        "mtllib m.mtl\n"
+        "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\n"             # unit quad: area 1
+        "v 3 0 0\nv 4 0 0\nv 5 1 0\nv 4 2 0\nv 3 1 0\n"     # convex pentagon (area by the shoelace formula below)
+        "v 6 0 0\nv 8 0 0\nv 6 2 0\n"                         # triangle: area 2
+        "vt 0 0\nvn 0 0 1\n"
+        "usemtl a\n"
+        "f 1/1/1 2/1/1 3/1/1 4/1/1\n"
+        "f 5 6 7 8 9\n"
+        "f -3 -2 -1\n"
+        "f 1//1 2//1 3//1 4//1\n"                              # the quad again, v//vn tokens: area 1
+    )
+    mesh = load_model_mesh(obj)
+    pentagon = 0.5 * abs(sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in
+                             zip([(3, 0), (4, 0), (5, 1), (4, 2), (3, 1)], [(4, 0), (5, 1), (4, 2), (3, 1), (3, 0)])))
+    assert len(mesh.triangles) == 2 + 3 + 1 + 2
+    assert mesh.get_surface_area() == pytest.approx(1 + pentagon + 2 + 1)
+    assert [p.name for p in tmp_path.iterdir()] == ["model_m.obj"]   # the temporary OBJ is gone
+
+
+def test_load_model_mesh_of_a_triangle_only_model_is_what_open3d_reads(tmp_path: Path) -> None:
+    obj = tmp_path / "model_t.obj"
+    obj.write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 1\nf 1 2 3\nf 1/1 3/2 4/3\n")
+    mesh, plain = load_model_mesh(obj), o3d.io.read_triangle_mesh(obj)
+    assert np.array_equal(np.asarray(mesh.vertices), np.asarray(plain.vertices))
+    assert np.array_equal(np.asarray(mesh.triangles), np.asarray(plain.triangles))
+
+
+def test_load_model_mesh_loads_a_model_of_quads_only(tmp_path: Path) -> None:
+    """veh_008's case: no triangle at all, so Open3D alone returns an empty mesh."""
+    obj = tmp_path / "model_q.obj"
+    obj.write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n")
+    assert len(load_model_mesh(obj).triangles) == 2

@@ -14,7 +14,7 @@ import open3d as o3d
 
 from scan_vs_bim.load import load_e57
 from scan_vs_bim.memory import peak_rss_gb
-from scan_vs_bim.pc2model import BUILDING_CATEGORIES, parse_transform, scale_of
+from scan_vs_bim.pc2model import BUILDING_CATEGORIES, load_model_mesh, parse_transform, scale_of
 from scan_vs_bim.register import CENTROID_MAX_M, ROT_MAX_DEG, SCALE_MAX_REL, register_sample, score, seed_all
 
 log = logging.getLogger(__name__)
@@ -53,17 +53,17 @@ def seen_mark(folder: str, gate: Collection[str], tuning: Collection[str]) -> st
 
 
 def score_sample(folder: str, data_dir: Path, seen: str, commit: str) -> dict[str, object]:
-    """Load (as 05a's load_sample does, same call order), register and score one sample; the row, keyed by COLUMNS."""
+    """Load (as 05a's load_sample does, same call order, via `load_model_mesh`), register and score one sample; the row, keyed by COLUMNS."""
     t0 = time.perf_counter()
     d = data_dir / Path(folder).name
     try:
         obj, txt, e57 = (next(d.glob(g)) for g in ("model_*.obj", "transformation_matrix_*.txt", "pointcloud_*_transformed.e57"))
     except StopIteration:
         raise FileNotFoundError(f"{d} lacks model/transform/scan files: run scripts/fetch_all_samples.py") from None
-    mesh = o3d.io.read_triangle_mesh(obj)
+    mesh = load_model_mesh(obj)
     T_gt = parse_transform(txt.read_text())
     gt_scale = scale_of(T_gt)
-    if not mesh.has_triangles():   # an OBJ of quads only (veh_008): Open3D's reader drops them, 05a's pipeline cannot register it
+    if not mesh.has_triangles():   # an OBJ with no faces at all: nothing to register
         nan = float("nan")
         return dict(
             sample=Path(folder).name, folder=folder, category=folder.split("/")[1], seen=seen, scaled=abs(gt_scale - 1) > SCALED_TOL,
@@ -168,8 +168,7 @@ def _line(label: str, rows: Sequence[Mapping[str, str]]) -> list[str]:
 
 
 def non_triangle_share(obj: Path) -> float:
-    """Share of an OBJ's faces that are not triangles: Open3D's reader drops them silently, so the model is sampled without them
-    (all of veh_008's faces are quads: no triangles left, and the load fails)."""
+    """Share of an OBJ's faces that are not triangles: Open3D's reader drops them silently; `load_model_mesh` fans them into triangles (#53)."""
     n = other = 0
     with obj.open() as f:
         for line in f:
@@ -198,11 +197,12 @@ def gate_agreement(rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mappin
 
 def results_markdown(
     rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mapping[str, str]], command: str, *,
-    expected: Sequence[str], non_triangle: Mapping[str, float],
+    expected: Sequence[str], non_triangle: Mapping[str, float], before: Sequence[Mapping[str, str]] | None = None,
 ) -> str:
     """The body of docs/phase-1-results.md from the benchmark CSV rows and 05a's registration.csv rows (all values text).
     `expected`: every sample's zip folder (those without a row are listed as not scored); `non_triangle`: share of non-triangle
-    faces by sample name, for the models that have any (`non_triangle_share`)."""
+    faces by sample name, for the models that have any (`non_triangle_share`); `before`: the benchmark rows from before #53, when
+    given the table of those models shows success, rot_deg and centroid_m before and now."""
     commits = ", ".join(sorted({r["commit"] for r in rows})) or "-"
     heaviest = max(rows, key=lambda r: float(r["peak_rss_gb"]), default=None)
     cost = "-" if heaviest is None else (
@@ -230,9 +230,25 @@ def results_markdown(
     scored = {r["folder"] for r in rows}
     unscored = [f"- {Path(f).name}" for f in expected if f not in scored] or ["none"]
     success = {r["sample"]: r["success"] for r in rows}
-    lost = ["| sample | faces dropped at load | success |", "|---|---|---|"]
-    lost += [f"| {name} | {100 * share:.1f}% | {success.get(name, 'not scored')} |"
-             for name, share in sorted(non_triangle.items(), key=lambda kv: kv[1]) if share > 0]
+    by_name = {r["sample"]: r for r in rows}
+    old_by_name = {r["sample"]: r for r in before or []}
+
+    def value(r: Mapping[str, str] | None, key: str) -> str:
+        return "-" if r is None or r[key] == "nan" else f"{float(r[key]):.4g}"
+
+    lost = ["| sample | non-triangle faces | success |", "|---|---|---|"]
+    if before is not None:
+        lost = ["| sample | non-triangle faces | success before | success now | rot_deg before | rot_deg now | centroid_m before | centroid_m now |",
+                "|---|---|---|---|---|---|---|---|"]
+    for name, share in sorted(non_triangle.items(), key=lambda kv: kv[1]):
+        if share <= 0:
+            continue
+        now, was = by_name.get(name), old_by_name.get(name)
+        if before is None:
+            lost.append(f"| {name} | {100 * share:.1f}% | {success.get(name, 'not scored')} |")
+        else:
+            lost.append(f"| {name} | {100 * share:.1f}% | {was['success'] if was else 'not scored'} | {success.get(name, 'not scored')} | "
+                        f"{value(was, 'rot_deg')} | {value(now, 'rot_deg')} | {value(was, 'centroid_m')} | {value(now, 'centroid_m')} |")
     return "\n".join([
         "# Phase 1 registration benchmark", "",
         f"Command: `{command}`", "", f"Commit(s): {commits}", "", f"Samples present: {len(rows)} of {len(expected)}", "", f"Cost: {cost}", "",
@@ -247,5 +263,5 @@ def results_markdown(
         *glines, "", f"all agree: {'yes' if all_agree else 'no'}", "",
         "## Not scored", "", "Samples whose run raised (scripts/run_benchmark.py logs the error):", "", *unscored, "",
         "## Models with non-triangle faces", "",
-        "Open3D's OBJ reader skips faces that are not triangles, without an error, so these models were sampled from their triangles "
-        "only (05a's loader, kept frozen). The share counts faces, not area.", "", *lost, ""])
+        "These faces are fan-triangulated at load (`pc2model.load_model_mesh`, #53). Before #53 Open3D's OBJ reader skipped them without an "
+        "error, so these models were sampled from their triangles only. The share counts faces, not area.", "", *lost, ""])

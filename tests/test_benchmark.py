@@ -109,14 +109,26 @@ def test_results_list_unscored_samples_and_models_losing_faces() -> None:
     assert "v_9" in unscored and "h_1" not in unscored
     lost = md.split("## Models with non-triangle faces")[1].split("##")[0]
     assert "| h_2 | 80.0% | False |" in lost and "| v_9 | 100.0% | not scored |" in lost and "h_1" not in lost
+    assert "non-triangle faces" in lost and "success before" not in lost
+
+
+def test_results_show_before_and_now_for_models_with_non_triangle_faces() -> None:
+    """With the rows from before #53, each model's row shows success, rot_deg and centroid_m before and now."""
+    now = [_row("PC2Model_v1.4/house/h_2", "house", success=True, rot=0.2, cen=0.02)]
+    before = [_row("PC2Model_v1.4/house/h_2", "house", success=False, rot=9.0, cen=1.5)]
+    md = results_markdown(now, [], "CMD", expected=[r["folder"] for r in now] + ["PC2Model_v1.4/vehicle/v_9"],
+                          non_triangle={"h_2": 0.8, "v_9": 1.0}, before=before)
+    lost = md.split("## Models with non-triangle faces")[1].split("##")[0]
+    assert "| h_2 | 80.0% | False | True | 9 | 0.2 | 1.5 | 0.02 |" in lost
+    assert "| v_9 | 100.0% | not scored | not scored | - | - | - | - |" in lost
 
 
 def test_a_model_with_no_triangles_is_a_failed_row_not_a_skipped_sample(tmp_path: Path) -> None:
-    """veh_008: its OBJ is all quads, Open3D's reader drops them all, so 05a's pipeline cannot register it; that is a failure of the
+    """A model with no faces at all cannot be registered by 05a's pipeline; that is a failure of the
     pipeline, scored as such (errors NaN, success False), not a sample left out of the benchmark."""
     d = tmp_path / "veh_9-x"
     d.mkdir()
-    (d / "model_veh_9-x.obj").write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n")
+    (d / "model_veh_9-x.obj").write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\n")
     (d / "transformation_matrix_veh_9-x.txt").write_text("2 0 0 0\n0 2 0 0\n0 0 2 0\n0 0 0 1\n")
     (d / "pointcloud_veh_9-x_transformed.e57").write_bytes(b"")   # never read: the model fails first
     row = score_sample("PC2Model_v1.4/vehicle/veh_9-x", tmp_path, "unseen", "abc1234")

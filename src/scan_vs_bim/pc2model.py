@@ -1,6 +1,7 @@
 """PC2Model data prep: find samples by their transform file without downloading the 10 GB zip."""
 
 import logging
+import tempfile
 import zipfile
 import zlib
 from collections.abc import Iterable, Mapping, Sequence
@@ -8,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import open3d as o3d
 
 from scan_vs_bim.fetch import ReadRange, data_start, extract_zip_member
 
@@ -128,3 +130,27 @@ def fetch_samples(read_range: ReadRange, infos: Sequence[zipfile.ZipInfo], folde
         for info in members:
             extract_zip_member(read_range, info, data_dir / Path(folder).name / Path(info.filename).name)
         log.info("done %d/%d: %s", n, len(folders), folder)
+
+
+def load_model_mesh(obj: Path) -> o3d.geometry.TriangleMesh:
+    """Read a model OBJ with every quad and n-gon fanned into triangles: Open3D's reader (ASSIMP) silently drops non-triangle faces (#53).
+    A model of triangles only is read from the original file, unchanged."""
+    lines = obj.read_text().splitlines(keepends=True)
+    out: list[str] = []
+    changed = False
+    for line in lines:
+        tokens = line.split()
+        if len(tokens) > 4 and tokens[0] == "f":
+            out += [f"f {tokens[1]} {tokens[i]} {tokens[i + 1]}\n" for i in range(2, len(tokens) - 1)]
+            changed = True
+        else:
+            out.append(line)
+    if not changed:
+        return o3d.io.read_triangle_mesh(obj)
+    # beside the original, so a relative `mtllib` still resolves; the name does not match model_*.obj
+    with tempfile.NamedTemporaryFile("w", dir=obj.parent, prefix=".triangulated_", suffix=".obj", delete=False) as tmp:
+        tmp.writelines(out)
+    try:
+        return o3d.io.read_triangle_mesh(Path(tmp.name))
+    finally:
+        Path(tmp.name).unlink()
