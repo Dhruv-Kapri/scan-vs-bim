@@ -191,3 +191,23 @@ def test_apply_f32_is_the_float32_transform_the_verdict_notebooks_were_run_with(
     assert got.dtype == np.float32 and np.array_equal(got, copy_03a)
     assert not np.array_equal(got, register.apply(T, p32).astype(np.float32))   # the float64 route rounds differently: the test can tell them apart
     assert register.apply_f32(T, p32.astype(np.float64)).dtype == np.float32
+
+
+def partial_scene() -> tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray, np.ndarray]:
+    """A scale-1 scene whose scan sees only the part of the room with x < 5.2 m, so the RMS-radius ratio is clearly not 1."""
+    model, _, T_gt, _ = make_scene(1.0, 40_000, 20_000)
+    pts_in_model = np.asarray(model.points)
+    pts_in_model = pts_in_model[pts_in_model[:, 0] < 5.2]
+    scan_pts = (pts_in_model - T_gt[:3, 3]) @ np.linalg.inv(T_gt[:3, :3]).T
+    return model, cloud(scan_pts), T_gt, scan_pts
+
+
+def test_register_sample_metric_keeps_the_scale_at_exactly_one_where_the_rms_start_is_off() -> None:
+    """#52: a user-declared metric scan gets no RMS-radius start and no scale stages, so the scale is 1 to float precision."""
+    model, scan, T_gt, pts = partial_scene()
+    assert abs(register.rms_radius(model, 0.08) / register.rms_radius(scan, 0.08) - 1) > 0.05   # precondition: the estimate would be off
+    result = register_sample(scan, model, voxel=0.08, metric=True)
+    sc = score(result.T, T_gt, pts)
+    assert abs(scale_of(result.T) - 1) < 1e-9
+    assert sc.rot_deg <= ROT_DEG and sc.centroid_m <= CENTROID_M, sc
+
