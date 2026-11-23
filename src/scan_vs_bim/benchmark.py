@@ -168,7 +168,7 @@ def _line(label: str, rows: Sequence[Mapping[str, str]]) -> list[str]:
 
 
 def non_triangle_share(obj: Path) -> float:
-    """Share of an OBJ's faces that are not triangles: Open3D's reader drops them silently; `load_model_mesh` fans them into triangles (#53)."""
+    """Share of an OBJ's faces that are not triangles: Open3D's reader drops them silently; `load_model_mesh` triangulates them (#53)."""
     n = other = 0
     with obj.open() as f:
         for line in f:
@@ -264,5 +264,5 @@ def results_markdown(
         *glines, "", f"all agree: {'yes' if all_agree else 'no'}", "",
         "## Not scored", "", "Samples whose run raised (scripts/run_benchmark.py logs the error):", "", *unscored, "",
         "## Models with non-triangle faces", "",
-        "These faces are fan-triangulated at load (`pc2model.load_model_mesh`, #53). Before #53 Open3D's OBJ reader skipped them without an "
+        "These faces are triangulated at load (`pc2model.load_model_mesh`, #53: convex ones as a fan, concave ones by ear clipping). Before #53 Open3D's OBJ reader skipped them without an "
         "error, so these models were sampled from their triangles only. The share counts faces, not area.", "", *ngons, ""])

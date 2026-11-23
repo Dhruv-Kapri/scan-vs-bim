@@ -277,3 +277,43 @@ def test_load_model_mesh_loads_a_model_of_quads_only(tmp_path: Path) -> None:
     obj = tmp_path / "model_q.obj"
     obj.write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n")
     assert len(load_model_mesh(obj).triangles) == 2
+
+
+def _rotation(angle: float, axis: tuple[float, float, float]) -> np.ndarray:
+    """Rodrigues' rotation matrix about a unit-length-normalised axis."""
+    k = np.asarray(axis, dtype=float)
+    k /= np.linalg.norm(k)
+    cross = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    return np.eye(3) + np.sin(angle) * cross + (1 - np.cos(angle)) * cross @ cross
+
+
+@pytest.mark.parametrize("tilted", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_load_model_mesh_triangulates_a_concave_ngon_without_leaving_its_face(tmp_path: Path, tilted: bool, reverse: bool) -> None:
+    """An L-shape (area 3) listed from a reflex-side vertex: a fan from (2,1) has area 4, 1 of it outside the face (#53). Tilted, so the projection is exercised;
+    reversed, so the winding follows the face's own order."""
+    corners = [(2, 1), (1, 1), (1, 2), (0, 2), (0, 0), (2, 0)]
+    if reverse:
+        corners.reverse()
+    points = np.array([(x, y, 0.0) for x, y in corners])
+    if tilted:
+        points = points @ _rotation(0.7, (1, 2, 3)).T + np.array([5.0, -2.0, 1.0])
+    newell = sum(np.cross(a, b) for a, b in zip(points, np.roll(points, -1, axis=0)))
+    obj = tmp_path / "model_l.obj"
+    obj.write_text("".join(f"v {x:.9f} {y:.9f} {z:.9f}\n" for x, y, z in points) + "f 1 2 3 4 5 6\n")
+    mesh = load_model_mesh(obj)
+    mesh.compute_triangle_normals()
+    assert len(mesh.triangles) == 4
+    assert mesh.get_surface_area() == pytest.approx(3)
+    assert np.all(np.asarray(mesh.triangle_normals) @ newell > 0)
+
+
+def test_load_model_mesh_fans_a_convex_ngon_exactly_as_before(tmp_path: Path) -> None:
+    """Convex n-gons keep the plain fan from the first vertex, so benchmark rows already computed for such models stay valid (#53)."""
+    obj, fan = tmp_path / "model_c.obj", tmp_path / "fan.obj"
+    vertices = "v 0 0 0\nv 1 0 0\nv 2 1 0\nv 1 2 0\nv 0 1 0\nv 0.5 0.5 0\n"   # convex pentagon; a stray vertex, so the index mapping matters
+    obj.write_text(vertices + "f 1 2 3 4 5\n")
+    fan.write_text(vertices + "f 1 2 3\nf 1 3 4\nf 1 4 5\n")
+    mesh, expected = load_model_mesh(obj), o3d.io.read_triangle_mesh(fan)
+    assert np.array_equal(np.asarray(mesh.vertices), np.asarray(expected.vertices))
+    assert np.array_equal(np.asarray(mesh.triangles), np.asarray(expected.triangles))

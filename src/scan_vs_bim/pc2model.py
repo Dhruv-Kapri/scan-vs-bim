@@ -132,16 +132,89 @@ def fetch_samples(read_range: ReadRange, infos: Sequence[zipfile.ZipInfo], folde
         log.info("done %d/%d: %s", n, len(folders), folder)
 
 
+def _newell_normal(points: np.ndarray) -> np.ndarray:
+    """Normal of a (planar) polygon, length = twice its area; points the way the polygon winds (counter-clockwise seen from its tip)."""
+    return np.cross(points, np.roll(points, -1, axis=0)).sum(axis=0)
+
+
+def _is_convex(points: np.ndarray, normal: np.ndarray) -> bool:
+    """Every consecutive turn bends the way the polygon winds (no reflex vertex); collinear points pass, within a tolerance relative to its size."""
+    edges = np.roll(points, -1, axis=0) - points
+    turns = np.cross(np.roll(edges, 1, axis=0), edges) @ (normal / np.linalg.norm(normal))
+    return bool(np.all(turns >= -1e-6 * np.ptp(points, axis=0).max() ** 2))
+
+
+def _fan(n: int) -> list[tuple[int, int, int]]:
+    """Triangles (0, i, i + 1) of an n-gon, as vertex positions in the polygon."""
+    return [(0, i, i + 1) for i in range(1, n - 1)]
+
+
+def _ear_clip(points: np.ndarray, normal: np.ndarray) -> list[tuple[int, int, int]]:
+    """Triangles of a simple planar polygon by ear clipping in 2D: repeatedly cut off a convex vertex whose triangle holds no other vertex.
+    Triangles keep the polygon's winding. With no ear left (a degenerate or self-intersecting polygon) the remaining polygon is fanned."""
+    n_hat = normal / np.linalg.norm(normal)
+    u = np.cross(n_hat, np.eye(3)[np.argmin(np.abs(n_hat))])
+    u /= np.linalg.norm(u)
+    xy = np.column_stack((points @ u, points @ np.cross(n_hat, u)))  # (u, v, n_hat) is right-handed: the polygon runs counter-clockwise in xy
+    tol = 1e-12 * np.ptp(points, axis=0).max() ** 2
+
+    def cross(a: int, b: int, c: int) -> float:
+        (bx, by), (cx, cy) = xy[b] - xy[a], xy[c] - xy[a]
+        return float(bx * cy - by * cx)
+
+    def is_ear(a: int, b: int, c: int, others: list[int]) -> bool:
+        if cross(a, b, c) <= tol:
+            return False
+        return not any(
+            cross(a, b, q) >= -tol and cross(b, c, q) >= -tol and cross(c, a, q) >= -tol
+            for q in others
+            if not any(np.array_equal(xy[q], xy[t]) for t in (a, b, c))
+        )
+
+    remaining = list(range(len(points)))
+    triangles: list[tuple[int, int, int]] = []
+    while len(remaining) > 3:
+        for k, b in enumerate(remaining):
+            a, c = remaining[k - 1], remaining[(k + 1) % len(remaining)]
+            if is_ear(a, b, c, remaining):
+                triangles.append((a, b, c))
+                del remaining[k]
+                break
+        else:
+            return triangles + [(remaining[0], remaining[i], remaining[i + 1]) for i in range(1, len(remaining) - 1)]
+    return triangles + [(remaining[0], remaining[1], remaining[2])]
+
+
+def _triangulate(points: np.ndarray) -> list[tuple[int, int, int]]:
+    """Fan for a convex polygon (or one with no area), ear clipping for a concave one: a fan over a concave face adds surface outside it (#53)."""
+    normal = _newell_normal(points)
+    if np.linalg.norm(normal) == 0 or _is_convex(points, normal):
+        return _fan(len(points))
+    return _ear_clip(points, normal)
+
+
+def _vertex_index(token: str, seen: int) -> int:
+    """0-based vertex index of an OBJ face token (`v`, `v/vt`, `v//vn`, `v/vt/vn`; 1-based, negative = relative to the `seen` vertices read so far)."""
+    index = int(token.split("/")[0])
+    return index - 1 if index > 0 else seen + index
+
+
 def load_model_mesh(obj: Path) -> o3d.geometry.TriangleMesh:
-    """Read a model OBJ with every quad and n-gon fanned into triangles: Open3D's reader (ASSIMP) silently drops non-triangle faces (#53).
+    """Read a model OBJ with every quad and n-gon cut into triangles: Open3D's reader (ASSIMP) silently drops non-triangle faces (#53).
+    A convex face is fanned from its first vertex; a concave one is ear-clipped, since a fan over it adds surface outside the face.
     A model of triangles only is read from the original file, unchanged."""
     lines = obj.read_text().splitlines(keepends=True)
     out: list[str] = []
+    vertices: list[list[float]] = []
     changed = False
     for line in lines:
         tokens = line.split()
+        if len(tokens) > 3 and tokens[0] == "v":
+            vertices.append([float(t) for t in tokens[1:4]])
         if len(tokens) > 4 and tokens[0] == "f":
-            out += [f"f {tokens[1]} {tokens[i]} {tokens[i + 1]}\n" for i in range(2, len(tokens) - 1)]
+            corners = tokens[1:]
+            points = np.array([vertices[_vertex_index(t, len(vertices))] for t in corners])
+            out += [f"f {corners[a]} {corners[b]} {corners[c]}\n" for a, b, c in _triangulate(points)]
             changed = True
         else:
             out.append(line)
