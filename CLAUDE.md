@@ -161,7 +161,8 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   differently: 05b's patch counts must equal 03a's exactly, #42; 03a/03b/03c use it too, and `memory.peak_rss_gb`, since #41/#42 no notebook redefines them).
 - `src/scan_vs_bim/benchmark.py`: the Phase 1 benchmark (#39). `score_sample` loads a sample as 05a's `load_sample` does (`pc2model.load_model_mesh`, same
   constants and call order, so the nine gate rows reproduce 05a's) and registers + scores it; `run_benchmark` runs each sample in a
-  spawned child and appends its row (resumable); `results_markdown` (optionally with the pre-#53 rows, `write_phase1_results.py --before`) +
+  spawned child and appends its row (resumable); `results_markdown` (optionally with the pre-#53 rows, `write_phase1_results.py --before`, default
+  outputs/phase1/registration_before_53.csv: a copy of the CSV taken before #53's re-run of the 19 models with non-triangle faces) +
   `gate_agreement` build docs/phase-1-results.md.
 - `src/scan_vs_bim/pc2model.py` `load_model_mesh(obj)`: Open3D's OBJ reader drops quads/n-gons silently (19 of 137 models; veh_008 is all quads), so
   face lines with more than 3 vertices are fanned into triangles (via a hidden temp OBJ beside the original); triangle-only models are read as before (#53).

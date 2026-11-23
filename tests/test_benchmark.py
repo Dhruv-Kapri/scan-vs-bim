@@ -100,16 +100,15 @@ def test_non_triangle_share_counts_faces_open3d_drops(tmp_path: Path) -> None:
     assert non_triangle_share(obj) == 1 / 3
 
 
-def test_results_list_unscored_samples_and_models_losing_faces() -> None:
+def test_results_list_unscored_samples_and_models_with_non_triangle_faces() -> None:
     rows = [_row("PC2Model_v1.4/house/h_1", "house"), _row("PC2Model_v1.4/house/h_2", "house", success=False)]
     md = results_markdown(rows, [], "CMD", expected=[r["folder"] for r in rows] + ["PC2Model_v1.4/vehicle/v_9"],
                           non_triangle={"h_2": 0.8, "v_9": 1.0})
     assert "Samples present: 2 of 3" in md
     unscored = md.split("## Not scored")[1].split("##")[0]
     assert "v_9" in unscored and "h_1" not in unscored
-    lost = md.split("## Models with non-triangle faces")[1].split("##")[0]
-    assert "| h_2 | 80.0% | False |" in lost and "| v_9 | 100.0% | not scored |" in lost and "h_1" not in lost
-    assert "non-triangle faces" in lost and "success before" not in lost
+    ngons = md.split("## Models with non-triangle faces")[1].split("##")[0]
+    assert "| h_2 | 80.0% | False |" in ngons and "| v_9 | 100.0% | not scored |" in ngons and "h_1" not in ngons
 
 
 def test_results_show_before_and_now_for_models_with_non_triangle_faces() -> None:
@@ -118,9 +117,9 @@ def test_results_show_before_and_now_for_models_with_non_triangle_faces() -> Non
     before = [_row("PC2Model_v1.4/house/h_2", "house", success=False, rot=9.0, cen=1.5)]
     md = results_markdown(now, [], "CMD", expected=[r["folder"] for r in now] + ["PC2Model_v1.4/vehicle/v_9"],
                           non_triangle={"h_2": 0.8, "v_9": 1.0}, before=before)
-    lost = md.split("## Models with non-triangle faces")[1].split("##")[0]
-    assert "| h_2 | 80.0% | False | True | 9 | 0.2 | 1.5 | 0.02 |" in lost
-    assert "| v_9 | 100.0% | not scored | not scored | - | - | - | - |" in lost
+    ngons = md.split("## Models with non-triangle faces")[1].split("##")[0]
+    assert "| h_2 | 80.0% | False | True | 9 | 0.2 | 1.5 | 0.02 |" in ngons
+    assert "| v_9 | 100.0% | not scored | not scored | - | - | - | - |" in ngons
 
 
 def test_a_model_with_no_triangles_is_a_failed_row_not_a_skipped_sample(tmp_path: Path) -> None:

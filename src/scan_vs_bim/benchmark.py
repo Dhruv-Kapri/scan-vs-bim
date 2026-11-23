@@ -233,22 +233,23 @@ def results_markdown(
     by_name = {r["sample"]: r for r in rows}
     old_by_name = {r["sample"]: r for r in before or []}
 
-    def value(r: Mapping[str, str] | None, key: str) -> str:
+    def metric(r: Mapping[str, str] | None, key: str) -> str:
         return "-" if r is None or r[key] == "nan" else f"{float(r[key]):.4g}"
 
-    lost = ["| sample | non-triangle faces | success |", "|---|---|---|"]
-    if before is not None:
-        lost = ["| sample | non-triangle faces | success before | success now | rot_deg before | rot_deg now | centroid_m before | centroid_m now |",
-                "|---|---|---|---|---|---|---|---|"]
+    if before is None:
+        ngons = ["| sample | non-triangle faces | success |", "|---|---|---|"]
+    else:
+        ngons = ["| sample | non-triangle faces | success before | success now | rot_deg before | rot_deg now | centroid_m before | centroid_m now |",
+                 "|---|---|---|---|---|---|---|---|"]
     for name, share in sorted(non_triangle.items(), key=lambda kv: kv[1]):
         if share <= 0:
             continue
         now, was = by_name.get(name), old_by_name.get(name)
         if before is None:
-            lost.append(f"| {name} | {100 * share:.1f}% | {success.get(name, 'not scored')} |")
+            ngons.append(f"| {name} | {100 * share:.1f}% | {success.get(name, 'not scored')} |")
         else:
-            lost.append(f"| {name} | {100 * share:.1f}% | {was['success'] if was else 'not scored'} | {success.get(name, 'not scored')} | "
-                        f"{value(was, 'rot_deg')} | {value(now, 'rot_deg')} | {value(was, 'centroid_m')} | {value(now, 'centroid_m')} |")
+            ngons.append(f"| {name} | {100 * share:.1f}% | {was['success'] if was else 'not scored'} | {success.get(name, 'not scored')} | "
+                         f"{metric(was, 'rot_deg')} | {metric(now, 'rot_deg')} | {metric(was, 'centroid_m')} | {metric(now, 'centroid_m')} |")
     return "\n".join([
         "# Phase 1 registration benchmark", "",
         f"Command: `{command}`", "", f"Commit(s): {commits}", "", f"Samples present: {len(rows)} of {len(expected)}", "", f"Cost: {cost}", "",
@@ -264,4 +265,4 @@ def results_markdown(
         "## Not scored", "", "Samples whose run raised (scripts/run_benchmark.py logs the error):", "", *unscored, "",
         "## Models with non-triangle faces", "",
         "These faces are fan-triangulated at load (`pc2model.load_model_mesh`, #53). Before #53 Open3D's OBJ reader skipped them without an "
-        "error, so these models were sampled from their triangles only. The share counts faces, not area.", "", *lost, ""])
+        "error, so these models were sampled from their triangles only. The share counts faces, not area.", "", *ngons, ""])
