@@ -3,9 +3,9 @@
 01's registration drifts from run to run with the same seeds (about 1e-4 m on the translation, 5e-4 / 7e-4 degrees on yaw / tilt,
 the 5th significant digit of the distance statistics, up to +-600 of 3.67 M scan points in the room box). Pinning Open3D to one
 thread (o3d.utility.set_max_threads(1)) does not stop it: two such runs, 2026-11-23, differed by 2.8e-4 m and 1.3e-3 degrees,
-367 room-box points, and the scanner position by one 2 cm floor-map cell. The tolerances below are 3x (room-box points) to 10x
-or more the drift seen, and 1 mm is well under USIBD LOA30's 15 mm, so drift within them is run-to-run noise, not a changed
-result. Every field without a tolerance must match exactly."""
+1.0e-4 m on the p90 distance, 367 room-box points, and the scanner position by one 2 cm floor-map cell. The tolerances below
+are 3x (translation, room-box points) to 10x the largest drift seen, and 1 mm is well under USIBD LOA30's 15 mm, so drift within
+them is run-to-run noise, not a changed result. Every field without a tolerance must match exactly."""
 
 from collections.abc import Mapping
 from typing import Any, TypeGuard
@@ -18,8 +18,9 @@ SLICE_TOLERANCES: dict[str, float] = {
     "frame.translation_m": 1e-3,  # m
     "frame.yaw_deg": 0.01,  # degrees
     "frame.tilt_deg": 0.01,  # degrees
-    **{f"frame.median_distance_m.{k}": 1e-4 for k in _DISTANCE_KEYS},  # m; 5th significant digit drifts
-    **{f"frame.p90_distance_m.{k}": 1e-4 for k in _DISTANCE_KEYS},  # m
+    # m; the same 1 mm as the translation, as these are measured through the transform (p90 moved 0.10 mm between two runs)
+    **{f"frame.median_distance_m.{k}": 1e-3 for k in _DISTANCE_KEYS},
+    **{f"frame.p90_distance_m.{k}": 1e-3 for k in _DISTANCE_KEYS},
     "room.scan_points_in_box": 2000,  # points; the box edge cuts a registered cloud that moves by fractions of a mm
     "uvigo.median_distance_after_ground_truth_m": 1e-4,  # m
     # m; the hole detector snaps to 2 cm floor-map cells, so sub-mm drift can move a position by one cell (17.009 vs 16.989 m
