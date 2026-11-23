@@ -25,8 +25,10 @@ Decision: `register_sample(..., metric=True)`, a user-declared "scan is metric" 
 scanner is metric: a fact the user has, not a benchmark oracle). It skips the RMS estimate (start scale 1) and runs
 rigid stages only, so the scale is exactly 1. The benchmark stays label-free and runs with `metric=False`; setting it
 per sample would be the oracle flag again, so its numbers do not change. With `metric=True` the path is the pre-#38
-`scaled=False` one, so 05a's Phase 0.5 rows on the five unscaled gate samples are its measurement: 4 of 5 succeed
-(real UVigo fails at 12 cm, as before #38).
+`scaled=False` one, so the Phase 0.5 05a rows on the five unscaled gate samples (the "with the flag" column of #38's
+comment table) are its measurement: 4 of 5 succeed (real UVigo fails at 12 cm), against 3 of 5 with scale fitted in
+#39's benchmark (both UVigo samples fail).
 
-Rejected: a multi-start or better scale start. Fitness is not comparable across scales, and choosing one after seeing
-the 137-sample results risks tuning on test data.
+Rejected: a multi-start or better scale start. Picking among starts by coarse fitness assumes fitness is comparable
+across scales, which nothing here has measured, and choosing a start after seeing the 137-sample results risks tuning
+on test data.
