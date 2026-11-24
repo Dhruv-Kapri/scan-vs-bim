@@ -2,7 +2,7 @@
 
 Command: `uv run python scripts/run_benchmark.py`
 
-Commit(s): 551f3b3, 5a7d301, b3824fc, df946cc
+Commit(s), rows each: df946cc (118), b3824fc (10), 5a7d301 (7), 551f3b3 (2) (per row: the CSV's commit column)
 
 Samples present: 137 of 137
 

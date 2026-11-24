@@ -80,6 +80,14 @@ def test_unseen_rates_exclude_gate_and_tuning_and_scaled_is_split() -> None:
     assert "CMD" in md and "abc1234" in md
 
 
+def test_results_name_each_commit_with_its_row_count() -> None:
+    """Rows re-run on later commits (#53) keep their own commit: the doc says which commit produced how many rows, most first."""
+    rows = [_row(f"PC2Model_v1.4/house/h_{k}", "house") for k in range(3)]
+    rows[2]["commit"] = "def5678"
+    md = results_markdown(rows, [], "CMD", expected=[], non_triangle={})
+    assert "Commit(s), rows each: abc1234 (2), def5678 (1)" in md
+
+
 def test_gate_agreement_flags_a_changed_or_missing_row() -> None:
     f1, f2 = "PC2Model_v1.4/house/h_1", "PC2Model_v1.4/house/h_2"
     gate = [{"sample": "h_1", "success": "True", "rot_deg": "0.1", "centroid_m": "0.01", "scale_err_pct": "0.1"},

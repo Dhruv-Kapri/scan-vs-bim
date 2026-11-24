@@ -6,6 +6,7 @@ import csv
 import logging
 import multiprocessing
 import time
+from collections import Counter
 from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
 
@@ -203,7 +204,8 @@ def results_markdown(
     `expected`: every sample's zip folder (those without a row are listed as not scored); `non_triangle`: share of non-triangle
     faces by sample name, for the models that have any (`non_triangle_share`); `before`: the benchmark rows from before #53, when
     given the table of those models shows success, rot_deg and centroid_m before and now."""
-    commits = ", ".join(sorted({r["commit"] for r in rows})) or "-"
+    per_commit = Counter(r["commit"] for r in rows)  # rows re-run on a later commit keep that commit (the CSV's commit column, per row)
+    commits = ", ".join(f"{c} ({n})" for c, n in sorted(per_commit.items(), key=lambda kv: (-kv[1], kv[0]))) or "-"
     heaviest = max(rows, key=lambda r: float(r["peak_rss_gb"]), default=None)
     cost = "-" if heaviest is None else (
         f"{sum(float(r['run_s']) for r in rows) / 3600:.1f} h summed over the samples' run_s; largest per-sample peak RSS "
@@ -252,7 +254,7 @@ def results_markdown(
                          f"{metric(was, 'rot_deg')} | {metric(now, 'rot_deg')} | {metric(was, 'centroid_m')} | {metric(now, 'centroid_m')} |")
     return "\n".join([
         "# Phase 1 registration benchmark", "",
-        f"Command: `{command}`", "", f"Commit(s): {commits}", "", f"Samples present: {len(rows)} of {len(expected)}", "", f"Cost: {cost}", "",
+        f"Command: `{command}`", "", f"Commit(s), rows each: {commits} (per row: the CSV's commit column)", "", f"Samples present: {len(rows)} of {len(expected)}", "", f"Cost: {cost}", "",
         "Generated from outputs/phase1/registration.csv by `uv run python scripts/write_phase1_results.py`.", "",
         f"Success: rotation error <= {ROT_MAX_DEG} deg, centroid error <= {CENTROID_MAX_M} m, relative scale error <= {SCALE_MAX_REL} "
         "(judgement calls, CONTEXT.md \"Registration success\"). Unseen = neither a Phase 0.5 gate sample nor one of 05c's tuning samples. "
