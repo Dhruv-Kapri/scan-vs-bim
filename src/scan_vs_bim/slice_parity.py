@@ -8,11 +8,11 @@ are 3x (translation, room-box points) to 10x the largest drift seen, and 1 mm is
 them is run-to-run noise, not a changed result. Every field without a tolerance must match exactly."""
 
 from collections.abc import Mapping
-from typing import Any, TypeGuard
+from typing import Any, Final, TypeGuard
 
-_DISTANCE_KEYS = ("as delivered", "translation only", "translation + ICP")
+_DISTANCE_KEYS: Final[tuple[str, ...]] = ("as delivered", "translation only", "translation + ICP")
 
-# dotted path -> absolute tolerance, in the unit of the field
+# dotted path -> absolute tolerance, in the unit of the field. Each is a judgement call: a multiple of the drift measured between re-runs (module docstring)
 SLICE_TOLERANCES: dict[str, float] = {
     "frame.scan_to_model_4x4": 1e-3,  # elementwise: 1 mm on the translation column (m), ~0.06 degrees on the rotation entries
     "frame.translation_m": 1e-3,  # m

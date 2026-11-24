@@ -119,9 +119,14 @@ HOW_PLANE: Final = 2  # its plane's side,
 HOW_AMBIGUOUS: Final = 3  # neither (the nearest room-facing face decides)
 
 
+# The classes whose own faces are their two broad faces across z. A class added to `own_face_classes` that is neither a wall nor in here is cut across its thinnest plan axis.
+HORIZONTAL_CLASSES: Final[tuple[str, ...]] = ("IfcSlab", "IfcCovering")
+
+
 @dataclass(frozen=True)
 class VerdictRules:
-    """The constants of the verdict rules, in metres. Judgement calls are marked (not from a standard); the defaults are the values 03a ran with."""
+    """The constants of the verdict rules, in metres. Judgement calls are marked (not from a standard); the defaults are the values 03a ran with, so the rules
+    accepted on 03c's held-out rooms but not yet re-run on room B (`side_shown`, #45; `local_plane_min_extent`, #46) default to off until #47."""
 
     tol: float = 0.015  # USIBD LOA30: at most 15 mm at 2 sigma (95 %)
     band: float = 0.10  # (judgement call) scan points further than this from every element surface are ignored
@@ -144,7 +149,7 @@ class VerdictRules:
     own_face_margin: float = 0.01  # (judgement call, tuned on held-out rooms) edge allowance in m of the own-face patch: 1 cm is the scan's voxel
     own_face_classes: tuple[str, ...] = ("IfcWallStandardCase", "IfcSlab", "IfcCovering")  # (judgement call, tuned) the classes with one or two broad faces; see HORIZONTAL_CLASSES for how `own_face_triangles` cuts them
     own_face_one_sided: bool = True  # (judgement call, tuned) a wall is patched only if exactly one of its faces is room-facing: a partition is left as it was
-    local_plane_classes: tuple[str, ...] = ("IfcSlab", "IfcCovering")  # (judgement call, issue #46) the classes judged against a plane fitted to their own points: the broad horizontal surfaces whose scan ramps (03d)
+    local_plane_classes: tuple[str, ...] = HORIZONTAL_CLASSES  # (judgement call, issue #46) the classes judged against a plane fitted to their own points: the broad horizontal surfaces whose scan ramps (03d)
     local_plane_min_extent: float | None = None  # (judgement call, issue #46) m, the largest plan extent (bounding box in x or y) of a "large" element; None: no local plane. Off by default until room B is re-run (#47); the accepted value, with its reason, is LOCAL_PLANE_MIN_EXTENT
     local_plane_cell: float = 1.0  # (judgement call, issue #46) m, the plan cell the offsets are binned in (03d's)
     local_plane_min_cell_points: int = 100  # (judgement call, issue #46) counted points a cell needs to count
@@ -162,11 +167,9 @@ class VerdictRules:
 
 RULES: Final = VerdictRules()
 
-# The rules `measure` does not read, which `recut` may change. A new own-face rule must keep the `own_face` prefix to be included (#46 adds `local_plane_*` fields here).
-RECUT_FIELDS: Final[tuple[str, ...]] = tuple(f.name for f in fields(VerdictRules) if f.name.startswith(("own_face", "local_plane")))  # the rules `measure` does not read: `recut` may change them
-
-# The classes whose own faces are their two broad faces across z. A class added to `own_face_classes` that is neither a wall nor in here is cut across its thinnest plan axis.
-HORIZONTAL_CLASSES: Final[tuple[str, ...]] = ("IfcSlab", "IfcCovering")
+# The rules `measure` does not read, which `recut` may change: the own-face and local-plane rules. A new rule of either group must keep its prefix to be included,
+# and a rule `measure` reads must not take either prefix.
+RECUT_FIELDS: Final[tuple[str, ...]] = tuple(f.name for f in fields(VerdictRules) if f.name.startswith(("own_face", "local_plane")))
 
 
 class Mesh(Protocol):

@@ -55,10 +55,12 @@ uv run python scripts/run_benchmark.py    # the Phase 1 registration benchmark (
                                           # benchmark.TUNING_SAMPLES; commit per row). Resumable: scored samples are skipped. Each
                                           # sample runs in a spawned child, so peak_rss_gb is per sample; a failing sample is
                                           # logged and skipped, exit non-zero at the end. --only FOLDER restricts it. Measured 2026-11-22 on
-                                          # a loaded machine (load average 20-40): 137 samples in 2.9 h (10,567 s), per-sample
+                                          # a loaded machine (load average 20-40): 137 samples in 2.9 h wall (10,567 s), per-sample
                                           # peak RSS 0.16-2.01 GB (veh_002 the largest; the runner itself stays small);
-                                          # 137 rows; veh_008 is a failed row (its OBJ is all quads, which Open3D's reader drops,
-                                          # so no triangles are left; #53). Other errors skip the sample, so a re-run retries it.
+                                          # docs/phase-1-results.md's 4.0 h sums run_s over the rows, incl. those #53 re-ran.
+                                          # 137 rows, all scored since #53 (veh_008's all-quad OBJ loads). A model with no
+                                          # triangles at load is a failed row (errors NaN); other errors skip the sample, so a
+                                          # re-run retries it.
                                           # Run it detached:
                                           # `mkdir -p outputs/jobs; nohup sh -c 'uv run python scripts/run_benchmark.py; echo "exit=$?" > outputs/jobs/bench.status' >> outputs/jobs/bench.log 2>&1 &`
                                           # then poll `grep -c '^done' outputs/jobs/bench.log` and the `.status` file.

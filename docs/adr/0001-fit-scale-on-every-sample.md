@@ -18,8 +18,8 @@ the pipeline could not know.
 
 #38 measured the RMS-radius scale start 12.5 % off on both UVigo samples, and the scale stages cannot recover it:
 simulated UVigo went from a 2 mm success to a 57 cm / 6.0 % failure, real UVigo from 12 cm to 1.48 m / 8.3 %, and 05a
-from 7 to 6 of 9. #39's benchmark: 34 of 66 unscaled samples succeed, and 26 of the 32 unscaled failures end above
-1 % scale error.
+from 7 to 6 of 9. #39's benchmark (as regenerated after #53): 36 of 66 unscaled samples succeed, and 24 of the 30 unscaled failures end
+above 1 % scale error (outputs/phase1/registration.csv, 2026-11-24).
 
 Decision: `register_sample(..., metric=True)`, a user-declared "scan is metric" switch for real projects (a real
 scanner is metric: a fact the user has, not a benchmark oracle). It skips the RMS estimate (start scale 1) and runs
