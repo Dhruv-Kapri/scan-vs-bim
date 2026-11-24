@@ -10,10 +10,12 @@ requires-python = ">=3.12"
 dependencies = [
     "bcf-client>=0.9.0",
     "ifcopenshell==0.9.*",
+    "mapbox-earcut>=2.1.0",
     "open3d==0.20.*",
     "pye57>=0.4.19",
     "remotezip>=0.12.6",
     "requests>=2.34.2",
+    "shapely>=2.2",
 ]
 
 [build-system]
@@ -47,4 +49,9 @@ ignore_missing_imports = true
 # remotezip ships no stubs and no py.typed, and no types-remotezip package exists on PyPI. Only scripts/ import it.
 [[tool.mypy.overrides]]
 module = ["remotezip"]
+ignore_missing_imports = true
+
+# shapely ships no stubs; imported by pc2model.py and scripts/check_model_areas.py.
+[[tool.mypy.overrides]]
+module = ["shapely", "shapely.*"]
 ignore_missing_imports = true

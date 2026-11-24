@@ -12,7 +12,7 @@ the research framing (`docs/research-outline.md`). Read the roadmap before start
 ## Commands
 
 ```sh
-uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57; dev: pytest,
+uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57, mapbox-earcut, shapely; dev: pytest,
                                           # jupyter/ipykernel, nbclient, matplotlib, scipy, mypy
 uv run pytest                             # tests
 uv run mypy                               # type check src/scan_vs_bim + tests (config in pyproject.toml: every def
@@ -49,6 +49,24 @@ uv run python scripts/fetch_all_samples.py  # all 137 PC2Model samples listed in
                                           # Run it detached:
                                           # `mkdir -p outputs/jobs; nohup sh -c 'uv run python scripts/fetch_all_samples.py; echo "exit=$?" > outputs/jobs/fetch-all.status' > outputs/jobs/fetch-all.log 2>&1 &`
                                           # then poll `grep -c '^done' outputs/jobs/fetch-all.log` and the `.status` file.
+uv run python scripts/run_benchmark.py    # the Phase 1 registration benchmark (#39): 05a's load + register_sample + score on
+                                          # every sample in data/pc2model, building samples first, one row per sample appended
+                                          # to outputs/phase1/registration.csv (seen mark from outputs/05a/gate_samples.csv and
+                                          # benchmark.TUNING_SAMPLES; commit per row). Resumable: scored samples are skipped. Each
+                                          # sample runs in a spawned child, so peak_rss_gb is per sample; a failing sample is
+                                          # logged and skipped, exit non-zero at the end. --only FOLDER restricts it. Measured 2026-11-22 on
+                                          # a loaded machine (load average 20-40): 137 samples in 2.9 h (10,567 s), per-sample
+                                          # peak RSS 0.16-2.01 GB (veh_002 the largest; the runner itself stays small);
+                                          # 137 rows; veh_008 is a failed row (its OBJ is all quads, which Open3D's reader drops,
+                                          # so no triangles are left; #53). Other errors skip the sample, so a re-run retries it.
+                                          # Run it detached:
+                                          # `mkdir -p outputs/jobs; nohup sh -c 'uv run python scripts/run_benchmark.py; echo "exit=$?" > outputs/jobs/bench.status' >> outputs/jobs/bench.log 2>&1 &`
+                                          # then poll `grep -c '^done' outputs/jobs/bench.log` and the `.status` file.
+uv run python scripts/check_model_areas.py # #53's check, face by face, on each PC2Model model with non-triangle faces: no face's triangles
+                                          # cover less than its outline (self-touching faces by covered area, shapely), the loaded mesh
+                                          # holds every face's triangles, flat faces' excess within 1e-6; ~15 min
+uv run python scripts/write_phase1_results.py # docs/phase-1-results.md from outputs/phase1/registration.csv and 05a's
+                                          # outputs/05a/registration.csv (success tables, error medians/p90, gate agreement)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05c_registration_tuning.ipynb
                                           # notebook 05c (tunes 05a's registration refinement on held-out PC2Model samples:
                                           # fur_010, house_6, indoor_modelling_5-GM, real-indoor_modelling_5-GM and a
@@ -144,6 +162,18 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   `refine_plan` (the stages 05a runs; chosen in 05c, issue #20) and `voxel_schedule`.
   `apply_f32(T, pts)`: the CRAS notebooks' float32 transform (T cast to float32, float32 out; not `apply`, which rounds
   differently: 05b's patch counts must equal 03a's exactly, #42; 03a/03b/03c use it too, and `memory.peak_rss_gb`, since #41/#42 no notebook redefines them).
+- `src/scan_vs_bim/benchmark.py`: the Phase 1 benchmark (#39). `score_sample` loads a sample as 05a's `load_sample` does (`pc2model.load_model_mesh`, same
+  constants and call order, so the nine gate rows reproduce 05a's) and registers + scores it; `run_benchmark` runs each sample in a
+  spawned child and appends its row (resumable); `results_markdown` (optionally with the pre-#53 rows, `write_phase1_results.py --before`, default
+  outputs/phase1/registration_before_53.csv: a copy of the CSV taken before #53's re-run of the 19 models with non-triangle faces) +
+  `gate_agreement` build docs/phase-1-results.md.
+- `src/scan_vs_bim/pc2model.py` `load_model_mesh(obj)`: Open3D's OBJ reader drops quads/n-gons silently (19 of 137 models; veh_008 is all quads), so
+  face lines with more than 3 vertices are cut into triangles (via a hidden temp OBJ beside the original): a convex face is fanned from its first vertex (unless a fan triangle would flip: a notch below the convexity tolerance),
+  a concave one (house_11, house_19 have thousands; a fan adds +36% / +23% to the model's area) is split at repeated vertex positions into rings (outline + holes:
+  keyhole bridges and pinches make these faces touch themselves, where a fan or a plain ear clip overlaps) and each outline with its holes goes to
+  `mapbox-earcut` in the face's Newell plane (earcut always returns counter-clockwise triangles = the face's winding); a face whose edges cross (bowtie
+  quads) is cut into the cells it covers (shapely), the crossings appended as new `v` lines at the end of the temp OBJ; a face earcut gives no triangle for is
+  fanned; triangle-only models are read as before, convex-only ones are byte-identical to the old fan (#53).
 - `src/scan_vs_bim/tables.py`: `read_rows(path)`, a CSV as text rows in file order (03a's verdicts, 03b's scores, 05a's
   registration, read back by 04a, 04b and 05b). `src/scan_vs_bim/memory.py`: `peak_rss_gb()` (macOS bytes, Linux KB).
 - In a git worktree, uv warns that `VIRTUAL_ENV` (the main checkout's venv, exported by the shell) "does not match the
