@@ -108,7 +108,7 @@ uv run python scripts/make_tuning_slice.py
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room.ipynb
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3600 notebooks/03c_tuning_room_a.ipynb
                                           # notebooks 03c (03a's logic, from scan_vs_bim.compare, on a held-out room: baseline, hand-check proxy,
-                                          # diagnosis, the own-face patch, known answers, section 8c the side test fix #45; ~15 and ~10 min,
+                                          # diagnosis, the own-face patch, known answers, section 8c the side test fix #45, 8d the local plane #46; ~15 and ~10 min,
                                           # ~70 min each on a loaded machine (2026-11-22), peak RSS 1.7 GB; write
                                           # outputs/03c/ and outputs/03c_room_a/). SLICE_JSON=01_cras_slice.json runs one on room B
                                           # instead (tests/test_notebook_03c.py uses that to check it against outputs/03a)
@@ -151,6 +151,10 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   measurement with `recut`. `VerdictRules.side_shown` (#45, off by default until #47 re-runs room B): a wall point takes a side
   from its own free space only if the scan shows the space beyond the wall's face on that side (`shown_along`); it acts in
   `measure`, so it cannot be `recut` (03c section 8c measures once more with it on).
+  Local plane (#46; off in `RULES` until room B is re-run, #47): with `local_plane_min_extent=LOCAL_PLANE_MIN_EXTENT` (6 m) an
+  `IfcSlab`/`IfcCovering` that large is judged with the tilt of `local_plane` (a plane through its own 1 m cell medians)
+  removed and its level kept; `VerdictRow` reports `plane_gx_mm_per_m`, `plane_gy_mm_per_m`, `plane_tilt_deg` ("" without a
+  plane). Accepted on 03c section 8d (both held-out rooms), which judges with it on (`PLANE`).
 - `src/scan_vs_bim/slice_parity.py`: `slice_mismatches` (a re-run of 01's slice against the committed one, with `SLICE_TOLERANCES` per
   path, all else exact) and `max_abs_drift`: the parity check at the end of notebook 01 (#50).
 - `src/scan_vs_bim/ramp.py`: `plane_gradient(x, y, values, groups)` (least-squares plane, one intercept per group and one shared
