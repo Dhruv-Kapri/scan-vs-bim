@@ -54,6 +54,7 @@ __all__ = [
     "plane_vote",
     "recut",
     "room_facing",
+    "shown_along",
     "thin_plan_axis",
 ]
 
@@ -122,6 +123,9 @@ class VerdictRules:
     side_far: float = 0.20  # to this far: past a 10 cm drywall's other face, short of most furniture, in
     side_step: float = 0.02  # steps of one occupancy voxel
     occ_voxel: float = 0.02  # (judgement call) occupancy grid voxel of the side test
+    side_shown: bool = False  # (judgement call, #45) a point takes a side from its own free space only if the scan shows the space on that side: some voxel occupied, at any height
+    # of the wall's grid, `side_near` to `side_far` along it (the neighbouring space's floor or ceiling). Free space with nothing scanned beyond it is unscanned, not "seen from there": the point
+    # is ambiguous. False: the rule before #45 (the default until room B is re-run with it, #47)
     vote_bin: float = 0.005  # plane vote: 5 mm bins along the thickness axis; the window is `vote_window` each side (`vote_half` bins)
     vote_window: float = 0.015  # (judgement call) half-width of a plane in the plane vote: LOA30's 15 mm, the same as `tol`, but its own field so a `tol` sweep does not move the vote window (#51)
     vote_share: float | None = 0.5  # (judgement call) a plane takes the side that more than this share of its points show by themselves; None: no plane vote (03a's section 3 gives the reason)
@@ -299,8 +303,18 @@ def occupied_along(occ: Occupancy, p: np.ndarray, axis: int, sign: int, rules: V
         q[:, axis] += sign * d
         j = np.floor((q - lo) / rules.occ_voxel).astype(int)
         inside = ((j >= 0) & (j < grid.shape)).all(1)
-        hit[inside] |= grid[j[inside, 0], j[inside, 1], j[inside, 2]]
+        hit[inside] |= grid[tuple(j[inside].T)]
     return hit
+
+
+def shown_along(occ: Occupancy, p: np.ndarray, axis: int, sign: int, face: float, rules: VerdictRules = RULES) -> np.ndarray:
+    """Per point: does the scan show the space on side `sign` of a wall (`axis`: its thickness axis in plan)? True if any voxel, at any height of the grid, is occupied from
+    `side_near` to `side_far` beyond the wall's face on that side (at `face` along `axis`), or beyond the point where it lies past that face. Measured from the face, the columns
+    leave out the wall's own scanned surface, however uneven. Outside the grid counts as not shown."""
+    lo, grid = occ
+    q = p[:, :2].astype(np.float64)
+    q[:, axis] = sign * np.maximum(sign * q[:, axis], sign * face)  # the further of the point and the face along sign * axis
+    return occupied_along((lo[:2], grid.any(axis=2)), q, axis, sign, rules)
 
 
 def plane_vote(u: np.ndarray, facing: np.ndarray, rules: VerdictRules = RULES) -> np.ndarray:
@@ -330,6 +344,10 @@ def place_wall_points(e: Mesh, face_set: np.ndarray, p: np.ndarray, fallback: np
     assert sides, "a wall has no room-facing side"
     free_plus, free_minus = ~occupied_along(occ, p, a, +1, rules), ~occupied_along(occ, p, a, -1, rules)
     own = np.where(free_plus & ~free_minus, 1, np.where(~free_plus & free_minus, -1, 0))  # the direction the surface was seen from; 0: ambiguous
+    if rules.side_shown:  # #45: a side whose free space the scan does not show is unscanned, not seen from; it only ever turns a side into ambiguous
+        u = e.vertices[:, a]
+        own[(own == 1) & ~shown_along(occ, p, a, +1, float(u.max()), rules)] = 0
+        own[(own == -1) & ~shown_along(occ, p, a, -1, float(u.min()), rules)] = 0
     plane = plane_vote(p[:, a], own, rules)
     facing = np.where(plane != 0, plane, own)  # a plane that most of its own points see from one side takes that side, also from the ones that say otherwise
     off: dict[int, np.ndarray] = {}  # per room-facing side: the offset to that side's faces, along its outward normal

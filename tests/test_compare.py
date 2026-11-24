@@ -233,6 +233,43 @@ def test_the_use_mask_decides_which_points_count_and_which_are_reported_left_out
     assert (row["verdict"], row["point_count"], row["points_other_side"]) == ("OK", len(room_face) // 2, 0)
 
 
+# The wall side test with `side_shown` (#45, #27): a point may take a side from its own free space only if the scan shows the space on that side. Floors at z = -0.15 lie
+# outside the band (no floor point is counted as the wall's) but inside the wall's occupancy grid, where they show which spaces were scanned.
+SHOWN: VerdictRules = replace(RULES, side_shown=True)
+
+
+def floor(rng: np.random.Generator, x0: float, x1: float) -> np.ndarray:
+    xx, yy = np.meshgrid(np.arange(x0, x1, 0.01), np.arange(0.6, 4.4, 0.01))
+    return np.column_stack([xx.ravel(), yy.ravel(), np.full(xx.size, -0.15) + rng.normal(0, 0.003, xx.size)]).astype(np.float32)
+
+
+MIRRORED_BOX: tuple[np.ndarray, np.ndarray] = (np.array([-4.0, 0.5, 0.0]), np.array([0.11, 4.9, 3.0]))  # only the -x face (x = 0) is room-facing
+
+
+@pytest.mark.parametrize("s", [pytest.param(1, id="room on +x"), pytest.param(-1, id="room on -x")])
+def test_clutter_in_front_and_unscanned_space_behind_keeps_the_points_on_the_room_facing_face(s: int) -> None:
+    # Clutter covers the room face 12 cm in front of it (outside the band, inside the side test's reach); nothing behind the wall was scanned. The old rule reads the free space
+    # behind as "seen from the neighbouring room" and drops the whole face; with side_shown that space is unscanned, the side ambiguous, the nearest room-facing face decides.
+    # The face is uneven: its top part lies 1.5 cm behind the rest. Columns measured from the point would hold that part and read the space behind as shown; measured from the
+    # wall's far face they do not.
+    rng = np.random.default_rng(0)
+    face = 0.1 if s == 1 else 0.0
+    room_face = np.concatenate([scan_plane(rng, face, z1=2.0), scan_plane(rng, face - s * 0.015, z0=2.0)])
+    planes = [room_face, scan_plane(rng, face + s * 0.12), floor(rng, *sorted((face, face + s * 0.9)))]
+    wall, box = element(0, 0.1, 0, 5, 0, 3), BOUNDARY_BOX if s == 1 else MIRRORED_BOX
+    assert judge_first([wall], [], planes, box, replace(RULES, side_shown=False))["points_other_side"] == len(room_face)  # the rule before #45 drops the whole face
+    row = judge_first([wall], [], planes, box, SHOWN)
+    assert (row["point_count"], row["points_other_side"]) == (len(room_face), 0)
+    assert abs(row["median_signed_offset_mm"]) < 3
+
+
+def test_a_scanned_neighbouring_room_still_drops_the_back_of_the_wall() -> None:
+    rng = np.random.default_rng(0)
+    room_face, back = scan_plane(rng, 0.1), scan_plane(rng, 0.0)
+    row = judge_first([element(0, 0.1, 0, 5, 0, 3)], [], [room_face, back, floor(rng, 0.1, 1.0), floor(rng, -1.0, 0.0)], BOUNDARY_BOX, SHOWN)
+    assert (row["verdict"], row["point_count"], row["points_other_side"]) == ("OK", len(room_face), len(back))
+
+
 def test_the_tolerance_is_the_usibd_loa30_bound_not_a_tuning_value() -> None:
     assert RULES.tol == 0.015  # USIBD LOA30: at most 15 mm at 2 sigma
 
