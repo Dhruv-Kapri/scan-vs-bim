@@ -62,8 +62,9 @@ uv run python scripts/run_benchmark.py    # the Phase 1 registration benchmark (
                                           # Run it detached:
                                           # `mkdir -p outputs/jobs; nohup sh -c 'uv run python scripts/run_benchmark.py; echo "exit=$?" > outputs/jobs/bench.status' >> outputs/jobs/bench.log 2>&1 &`
                                           # then poll `grep -c '^done' outputs/jobs/bench.log` and the `.status` file.
-uv run python scripts/check_model_areas.py # #53's check: each PC2Model model with non-triangle faces, loaded area (load_model_mesh) vs
-                                          # its OBJ's own polygon areas; non-planar n-gons reported, a gap up to their area accepted
+uv run python scripts/check_model_areas.py # #53's check, face by face, on each PC2Model model with non-triangle faces: no face's triangles
+                                          # cover less than its outline (self-touching faces by covered area, shapely), the loaded mesh
+                                          # holds every face's triangles, flat faces' excess within 1e-6; ~15 min
 uv run python scripts/write_phase1_results.py # docs/phase-1-results.md from outputs/phase1/registration.csv and 05a's
                                           # outputs/05a/registration.csv (success tables, error medians/p90, gate agreement)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05c_registration_tuning.ipynb
@@ -167,7 +168,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   outputs/phase1/registration_before_53.csv: a copy of the CSV taken before #53's re-run of the 19 models with non-triangle faces) +
   `gate_agreement` build docs/phase-1-results.md.
 - `src/scan_vs_bim/pc2model.py` `load_model_mesh(obj)`: Open3D's OBJ reader drops quads/n-gons silently (19 of 137 models; veh_008 is all quads), so
-  face lines with more than 3 vertices are cut into triangles (via a hidden temp OBJ beside the original): a convex face is fanned from its first vertex,
+  face lines with more than 3 vertices are cut into triangles (via a hidden temp OBJ beside the original): a convex face is fanned from its first vertex (unless a fan triangle would flip: a notch below the convexity tolerance),
   a concave one (house_11, house_19 have thousands; a fan adds +36% / +23% to the model's area) is split at repeated vertex positions into rings (outline + holes:
   keyhole bridges and pinches make these faces touch themselves, where a fan or a plain ear clip overlaps) and each outline with its holes goes to
   `mapbox-earcut` in the face's Newell plane (earcut always returns counter-clockwise triangles = the face's winding); a face it gives no triangle for is
