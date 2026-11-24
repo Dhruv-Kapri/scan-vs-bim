@@ -242,7 +242,7 @@ def test_fetch_samples_rejects_a_folder_missing_from_the_zip(tmp_path: Path) -> 
 
 
 def test_load_model_mesh_keeps_the_area_of_quads_and_ngons(tmp_path: Path) -> None:
-    """Open3D's reader drops every non-triangle face (#53); the loader fans them into triangles, whatever the token form."""
+    """Open3D's reader drops every non-triangle face (#53); the loader cuts them into triangles, whatever the token form."""
     obj = tmp_path / "model_m.obj"
     obj.write_text(
         "mtllib m.mtl\n"
