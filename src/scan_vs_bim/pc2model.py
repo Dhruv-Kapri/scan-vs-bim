@@ -145,6 +145,13 @@ def _is_convex(points: np.ndarray, normal: np.ndarray) -> bool:
     return bool(np.all(turns >= -1e-6 * np.ptp(points, axis=0).max() ** 2))
 
 
+def _fan_flips(points: np.ndarray, normal: np.ndarray) -> bool:
+    """A fan triangle from the first vertex faces against the polygon's normal: a reflex turn below `_is_convex`'s tolerance, which the
+    fan's long thin triangles would overlap across (house_11, #53)."""
+    spokes = points[1:] - points[0]
+    return bool(np.any(np.cross(spokes[:-1], spokes[1:]) @ normal < -1e-9 * float(normal @ normal)))
+
+
 def _fan(n: int) -> list[tuple[int, int, int]]:
     """Triangles (0, i, i + 1) of an n-gon, as vertex positions in the polygon."""
     return [(0, i, i + 1) for i in range(1, n - 1)]
@@ -212,10 +219,10 @@ def _earcut(points: np.ndarray, normal: np.ndarray) -> list[tuple[int, int, int]
 
 
 def _triangulate(points: np.ndarray) -> list[tuple[int, int, int]]:
-    """Fan for a convex polygon (or one with no area); for a concave one, rings (outline + holes) split off at repeated vertices and triangulated
+    """Fan for a convex polygon whose fan triangles all face its way (or one with no area); for a concave one, rings (outline + holes) split off at repeated vertices and triangulated
     with earcut, because a fan or a plain ear clip leaves the face, or overlaps, on these faces (#53). A face earcut gives no triangle for is fanned."""
     normal = _newell_normal(points)
-    if np.linalg.norm(normal) == 0 or _is_convex(points, normal):
+    if np.linalg.norm(normal) == 0 or (_is_convex(points, normal) and not _fan_flips(points, normal)):
         return _fan(len(points))
     return _earcut(points, normal) or _fan(len(points))
 

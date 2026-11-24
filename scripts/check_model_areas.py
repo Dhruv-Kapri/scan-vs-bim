@@ -1,12 +1,16 @@
 """Check #53's loader on every PC2Model model with non-triangle faces: the area `load_model_mesh` loads against the OBJ's own area,
-computed independently (triangles by cross product, n-gons by their Newell polygon area). Non-planar n-gons (more than 1% of their size
-off their plane) have no single area; their summed area is printed and a gap up to it is accepted. Prints one line per model."""
+computed independently (triangles by cross product, simple n-gons by their Newell polygon area). An n-gon that touches itself (a repeated
+corner position) is measured as the area it covers: its outline is cut into cells (shapely) and each cell with a nonzero winding number counts,
+so a hole inside it (winding 0) is left out and a flap wound backwards (winding -1) counts, where the Newell area would subtract it.
+Non-planar n-gons (more than 1% of their size off their plane) have no single area; their summed area is printed and a gap up to it is
+accepted. Prints one line per model."""
 
 import argparse
 from pathlib import Path
 
 import numpy as np
 import open3d as o3d
+from shapely import MultiLineString, get_parts, polygonize, unary_union
 
 from scan_vs_bim.benchmark import non_triangle_share
 from scan_vs_bim.pc2model import load_model_mesh
@@ -14,6 +18,30 @@ from scan_vs_bim.pc2model import load_model_mesh
 REPO = Path(__file__).resolve().parent.parent
 REL_TOL: float = 1e-6        # loaded vs OBJ area, relative, for a model whose n-gons are all planar
 PLANAR_FRACTION: float = 0.01  # an n-gon is non-planar when a corner lies further than this fraction of its extent off its plane
+
+
+def winding_number(xy: np.ndarray, point: np.ndarray) -> int:
+    """Winding number of the closed 2D polyline `xy` around `point`."""
+    x, y = point
+    w = 0
+    for (x0, y0), (x1, y1) in zip(xy, np.roll(xy, -1, axis=0)):
+        side = (x1 - x0) * (y - y0) - (x - x0) * (y1 - y0)
+        if y0 <= y < y1 and side > 0:
+            w += 1
+        elif y1 <= y < y0 and side < 0:
+            w -= 1
+    return w
+
+
+def covered_area(pts: np.ndarray, normal: np.ndarray) -> float:
+    """Area of the plane region a (planar) polygon covers: the cells its edges cut the plane into with a nonzero winding number."""
+    n_hat = normal / np.linalg.norm(normal)
+    u = np.cross(np.eye(3)[np.argmin(np.abs(n_hat))], n_hat)
+    u /= np.linalg.norm(u)
+    xy = np.column_stack((pts @ u, pts @ np.cross(n_hat, u)))
+    edges = MultiLineString([[xy[i], xy[(i + 1) % len(xy)]] for i in range(len(xy))])
+    cells = get_parts(polygonize(get_parts(unary_union(edges))))
+    return float(sum(c.area for c in cells if winding_number(xy, np.array(c.representative_point().coords[0]))))
 
 
 def obj_area(obj: Path) -> tuple[float, float]:
@@ -30,6 +58,8 @@ def obj_area(obj: Path) -> tuple[float, float]:
                 pts = np.array([vertices[i - 1] if i > 0 else vertices[len(vertices) + i] for i in idx])
                 normal = np.cross(pts, np.roll(pts, -1, axis=0)).sum(axis=0)
                 a = 0.5 * float(np.linalg.norm(normal))
+                if a > 0 and len({tuple(p) for p in pts}) < len(pts):
+                    a = covered_area(pts, normal)
                 area += a
                 if len(pts) > 3 and a > 0:
                     off = np.abs((pts - pts.mean(axis=0)) @ (normal / np.linalg.norm(normal))).max()

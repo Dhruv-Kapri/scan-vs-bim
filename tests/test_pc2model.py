@@ -342,3 +342,12 @@ def test_load_model_mesh_triangulates_a_square_with_a_hole_given_as_one_keyhole_
     mesh = load_model_mesh(obj)
     assert mesh.get_surface_area() == pytest.approx(16 - 4)
     assert np.all(np.asarray(mesh.compute_triangle_normals().triangle_normals)[:, 2] > 0.99)
+
+
+def test_load_model_mesh_does_not_fan_a_face_with_a_notch_below_the_convexity_tolerance(tmp_path: Path) -> None:
+    """house_11's face 287170 (#53): a 10x1 rectangle with a 1 mm notch in its top edge. The notch's reflex turn is below the convexity
+    tolerance, but a fan from (0,0) flips a long thin triangle across it, adding 2 x 0.00225 to the face's 10 - 5e-7."""
+    corners = [(0, 0), (10, 0), (10, 1), (5.001, 1), (5.0005, 0.999), (5, 1), (0, 1)]
+    obj = tmp_path / "model_n.obj"
+    obj.write_text("".join(f"v {x} {y} 0\n" for x, y in corners) + "f 1 2 3 4 5 6 7\n")
+    assert load_model_mesh(obj).get_surface_area() == pytest.approx(10 - 5e-7, abs=1e-9)
