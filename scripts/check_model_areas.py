@@ -84,7 +84,8 @@ def check_obj(obj: Path) -> dict[str, float]:
                 if len(pts) == 3:
                     total += triangles_area(pts, [(0, 1, 2)])
                     continue
-                got = triangles_area(pts, _triangulate(pts))
+                triangles, extra = _triangulate(pts)
+                got = triangles_area(np.vstack((pts, extra)), triangles)
                 total += got
                 normal = np.cross(pts, np.roll(pts, -1, axis=0)).sum(axis=0)
                 if not np.linalg.norm(normal):

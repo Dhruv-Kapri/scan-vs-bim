@@ -351,3 +351,44 @@ def test_load_model_mesh_does_not_fan_a_face_with_a_notch_below_the_convexity_to
     obj = tmp_path / "model_n.obj"
     obj.write_text("".join(f"v {x} {y} 0\n" for x, y in corners) + "f 1 2 3 4 5 6 7\n")
     assert load_model_mesh(obj).get_surface_area() == pytest.approx(10 - 5e-7, abs=1e-9)
+
+
+@pytest.mark.parametrize("tilted", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_load_model_mesh_triangulates_a_bowtie_to_the_area_it_covers(tmp_path: Path, tilted: bool, reverse: bool) -> None:
+    """A quad with two corners swapped, its edges crossing (house_20, veh_012, veh_016; #53): corners (0,0) (2,2) (2,0) (0,3) cross at (1.2,1.2) into a lobe of
+    area 1.8 (wound with the face) and one of area 0.8 (against it); the face covers 2.6, where the Newell area is 1.8 - 0.8 = 1. (A symmetric bowtie has
+    Newell area 0, no plane, and stays a fan.) Every triangle, in the backward lobe too, faces along the Newell normal of the whole face."""
+    corners = [(0, 0), (2, 2), (2, 0), (0, 3)]
+    if reverse:
+        corners.reverse()
+    points = np.array([(x, y, 0.0) for x, y in corners])
+    if tilted:
+        points = points @ _rotation(0.7, (1, 2, 3)).T + np.array([5.0, -2.0, 1.0])
+    newell = sum(np.cross(a, b) for a, b in zip(points, np.roll(points, -1, axis=0)))
+    obj = tmp_path / "model_b.obj"
+    obj.write_text("".join(f"v {x:.9f} {y:.9f} {z:.9f}\n" for x, y, z in points) + "f 1 2 3 4\n")
+    mesh = load_model_mesh(obj)
+    mesh.compute_triangle_normals()
+    assert len(mesh.triangles) == 2
+    assert mesh.get_surface_area() == pytest.approx(2.6, rel=1e-6)
+    assert np.all(np.asarray(mesh.triangle_normals) @ newell > 0)
+
+
+def test_load_model_mesh_keeps_later_faces_and_formats_valid_around_a_crossing_face(tmp_path: Path) -> None:
+    """The crossing point of a bowtie is a new vertex: it goes at the end of the file, so a later face's relative indices still point at their vertices,
+    and the triangles using it are written as plain `f a b c` (an OBJ face does not mix `v` and `v/vt/vn` tokens), whatever the other faces use (#53)."""
+    obj = tmp_path / "model_m.obj"
+    obj.write_text(
+        "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\n"            # unit quad: area 1
+        "v 0 0 0\nv 2 2 0\nv 2 0 0\nv 0 3 0\n"            # bowtie: area 2.6
+        "v 10 0 0\nv 11 0 0\nv 10 1 0\n"                   # triangle by relative indices: area 0.5
+        "vt 0 0\nvn 0 0 1\n"
+        "f 1/1/1 2/1/1 3/1/1 4/1/1\n"
+        "f 5/1/1 6/1/1 7/1/1 8/1/1\n"
+        "f -3 -2 -1\n"
+    )
+    mesh = load_model_mesh(obj)
+    assert len(mesh.triangles) == 2 + 2 + 1
+    assert mesh.get_surface_area() == pytest.approx(1 + 2.6 + 0.5, rel=1e-6)
+    assert [p.name for p in tmp_path.iterdir()] == ["model_m.obj"]

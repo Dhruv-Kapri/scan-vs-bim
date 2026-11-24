@@ -50,7 +50,7 @@ ignore_missing_imports = true
 module = ["remotezip"]
 ignore_missing_imports = true
 
-# shapely (installed with ifcopenshell) ships no stubs; only scripts/check_model_areas.py imports it.
+# shapely (installed with ifcopenshell, not a declared dependency) ships no stubs; imported by pc2model.py and scripts/check_model_areas.py.
 [[tool.mypy.overrides]]
 module = ["shapely", "shapely.*"]
 ignore_missing_imports = true
