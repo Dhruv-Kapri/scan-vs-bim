@@ -156,7 +156,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   returns None when nothing converts: no densities are ever guessed.
 - `src/scan_vs_bim/register.py`: registration, once (#37; notebooks 00, 02 and 05a import it). `register_sample` (05a's
   pipeline: the RMS scale estimate on every sample (no scaled flag, #38 / ADR 0001), FPFH + RANSAC + ICP per seed in `SEEDS` via `preprocess`/`coarse_draw`,
-  the best coarse ICP fitness, then `refine_plan`), `score` (rotation, centroid and scale error, success on CONTEXT.md's
+  the best coarse ICP fitness, then `refine_plan`; `metric=True`: rigid only at scale 1, for scans known to be metric, ADR 0001, #52), `score` (rotation, centroid and scale error, success on CONTEXT.md's
   thresholds `ROT_MAX_DEG`/`CENTROID_MAX_M`/`SCALE_MAX_REL`), `apply(T, pts)`, `seed_all`, `rms_radius`; `refine_icp`
   (scale-fitting point-to-point ICP stages, then rigid point-to-plane stages, coarse to fine, after the coarse RANSAC + ICP),
   `refine_plan` (the stages 05a runs; chosen in 05c, issue #20) and `voxel_schedule`.

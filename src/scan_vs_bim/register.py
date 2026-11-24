@@ -1,7 +1,7 @@
 """Registration as notebook 05a ran it, moved into the package (issue #37): FPFH + RANSAC + point-to-plane ICP over five seeds,
 the draw with the highest coarse ICP fitness, then ICP passes that first fit a scale and then refine rigidly (issue #20), on every
-sample, without the benchmark's scaled flag (issue #38, docs/adr/0001-fit-scale-on-every-sample.md); and the score against a
-ground-truth transform (CONTEXT.md "Registration success")."""
+sample, without the benchmark's scaled flag (issue #38, docs/adr/0001-fit-scale-on-every-sample.md), unless the caller declares the
+scan metric (`metric=True`: rigid only, scale exactly 1, issue #52); and the score against a ground-truth transform (CONTEXT.md "Registration success")."""
 
 import time
 from collections.abc import Sequence
@@ -83,7 +83,7 @@ def refine_plan(voxel: float, n_scale: int = SCALE_STAGES, floor: float = FINE_F
     """The stages notebook 05a runs after the coarse ICP at `voxel`, on every sample (ADR 0001).
 
     n_scale scale stages (the coarsest of the schedule), then rigid stages from the last of them down to `floor`;
-    n_scale=0 gives rigid stages only (05c's candidate R, a tuning candidate, not a mode of the pipeline).
+    n_scale=0 gives rigid stages only (05c's candidate R; `register_sample`'s metric mode, #52).
     """
     schedule = voxel_schedule(voxel, floor)
     if n_scale == 0:
@@ -188,13 +188,17 @@ class SampleRegistration:
     refine_s: float   # seconds in the refinement
 
 
-def register_sample(scan: o3d.geometry.PointCloud, model: o3d.geometry.PointCloud, voxel: float) -> SampleRegistration:
+def register_sample(scan: o3d.geometry.PointCloud, model: o3d.geometry.PointCloud, voxel: float, metric: bool = False) -> SampleRegistration:
     """05a's registration on every sample, whatever its true scale (ADR 0001): the RMS-radius scale estimate as the start, a coarse
     draw per seed, pick the best coarse ICP fitness, refine it and seed 0 (scale-fitting stages, then rigid ones).
 
+    metric=True is the user's declaration that the scan is already in the model's units (a real scanner): no RMS-radius estimate (start
+    scale 1) and rigid stages only, so the result's scale is exactly 1 (ADR 0001, #52). The benchmark leaves it False: a per-sample flag
+    would be the oracle again.
+
     Reseeds numpy's and Open3D's global RNG (once per seed, see `coarse_draw`), so the global RNG state afterwards is the last seed's.
     """
-    est_scale = rms_radius(model, voxel) / rms_radius(scan, voxel)
+    est_scale = 1.0 if metric else rms_radius(model, voxel) / rms_radius(scan, voxel)
     S = np.diag([est_scale, est_scale, est_scale, 1.0])
     scaled_scan = o3d.geometry.PointCloud(scan)
     scaled_scan.transform(S)   # in place
@@ -208,7 +212,7 @@ def register_sample(scan: o3d.geometry.PointCloud, model: o3d.geometry.PointClou
     best, first = max(prescaled, key=lambda d: d.fitness), prescaled[0]   # coarse ICP fitness; ties: the earlier seed
 
     t1 = time.perf_counter()
-    plan = refine_plan(voxel)
+    plan = refine_plan(voxel, n_scale=0 if metric else SCALE_STAGES)
     T_best = refine_icp(scaled_scan, model, best.T, **plan) @ S
     T_seed0 = T_best if best is first else refine_icp(scaled_scan, model, first.T, **plan) @ S
     refine_s = time.perf_counter() - t1
