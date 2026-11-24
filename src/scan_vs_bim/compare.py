@@ -10,11 +10,53 @@ onto the element's own face lies on that face (issue #20: the own-face patch).
 """
 
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, fields, replace
 from typing import Final, Protocol, TypedDict
 
 import numpy as np
 import open3d as o3d
+
+__all__ = [
+    "Element",
+    "HORIZONTAL_CLASSES",
+    "HOW_AMBIGUOUS",
+    "HOW_OWN",
+    "HOW_PLANE",
+    "Judgement",
+    "Measurement",
+    "Mesh",
+    "NUMERIC_TOL",
+    "Occupancy",
+    "PatchView",
+    "Patches",
+    "RECUT_FIELDS",
+    "RULES",
+    "SideTest",
+    "VerdictRow",
+    "VerdictRules",
+    "WallInfo",
+    "aligned_faces",
+    "apply_junction",
+    "assign_patches",
+    "closest_signed",
+    "element_rows",
+    "face_coverage",
+    "judge",
+    "judge_elements",
+    "judged_faces",
+    "measure",
+    "mesh_of",
+    "occupancy",
+    "occupied_along",
+    "over_own_face",
+    "own_face_triangles",
+    "past_edge_mask",
+    "place_wall_points",
+    "plane_vote",
+    "recut",
+    "room_facing",
+    "thin_plan_axis",
+]
 
 NUMERIC_TOL: float = 1e-4  # m: float32 closest-point noise; a point that projects onto the face is within this of its foot point's plane
 
@@ -121,18 +163,19 @@ class VerdictRules:
     side_far: float = 0.20  # to this far: past a 10 cm drywall's other face, short of most furniture, in
     side_step: float = 0.02  # steps of one occupancy voxel
     occ_voxel: float = 0.02  # (judgement call) occupancy grid voxel of the side test
-    vote_bin: float = 0.005  # plane vote: 5 mm bins along the thickness axis; the window is `tol` each side (`vote_half` bins)
+    vote_bin: float = 0.005  # plane vote: 5 mm bins along the thickness axis; the window is `vote_window` each side (`vote_half` bins)
+    vote_window: float = 0.015  # (judgement call) half-width of a plane in the plane vote: LOA30's 15 mm, the same as `tol`, but its own field so a `tol` sweep does not move the vote window (#51)
     vote_share: float | None = 0.5  # (judgement call) a plane takes the side that more than this share of its points show by themselves; None: no plane vote (03a's section 3 gives the reason)
     junction: float | None = 0.10  # (judgement call) a wall point within this of any other element's surface is at a junction and left out of the wall's verdict (03a's section 3: the reason, and the sensitivity at 0, 5, 10, 15 cm); None: no margin
     probe: float = 0.05  # (judgement call) a wall face is room-facing if the point this far outside it, along its normal, is within the room box's extent along that normal (half of a 10 cm wall)
     own_face: bool = True  # False: no own-face patch (issue #20)
     own_face_margin: float = 0.01  # (judgement call, tuned on held-out rooms) edge allowance in m of the own-face patch: 1 cm is the scan's voxel
-    own_face_classes: tuple[str, ...] = ("IfcWallStandardCase", "IfcSlab", "IfcCovering")  # (judgement call, tuned) the classes with one or two broad faces
+    own_face_classes: tuple[str, ...] = ("IfcWallStandardCase", "IfcSlab", "IfcCovering")  # (judgement call, tuned) the classes with one or two broad faces; see HORIZONTAL_CLASSES for how `own_face_triangles` cuts them
     own_face_one_sided: bool = True  # (judgement call, tuned) a wall is patched only if exactly one of its faces is room-facing: a partition is left as it was
 
     @property
     def vote_half(self) -> int:
-        return round(self.tol / self.vote_bin)
+        return round(self.vote_window / self.vote_bin)
 
     @property
     def reach(self) -> float:
@@ -141,6 +184,12 @@ class VerdictRules:
 
 
 RULES: Final = VerdictRules()
+
+# The rules `measure` does not read, which `recut` may change. A new own-face rule must keep the `own_face` prefix to be included (#46 adds `local_plane_*` fields here).
+RECUT_FIELDS: Final[tuple[str, ...]] = tuple(f.name for f in fields(VerdictRules) if f.name.startswith("own_face"))
+
+# The classes whose own faces are their two broad faces across z. A class added to `own_face_classes` that is neither a wall nor in here is cut across its thinnest plan axis.
+HORIZONTAL_CLASSES: Final[tuple[str, ...]] = ("IfcSlab", "IfcCovering")
 
 
 class Mesh(Protocol):
@@ -192,6 +241,22 @@ class SideTest:
     d_other: np.ndarray
     signed_side: np.ndarray
     occ: dict[int, Occupancy]
+
+
+@dataclass
+class Measurement:
+    """What `measure` returns, per point (arrays, one entry per scan point passed in) and for the walls' side test.
+
+    geom_id: the index of the nearest element (over all of `els`, scope first). distance: the distance to it.
+    signed: the signed offset: for a wall, along the reference side's normal, NaN for a point that is the back of the wall and for a point within `rules.junction`
+    of any other element's surface (a junction with the ceiling, the floor, a window, another wall: not the wall's own plane; None: off).
+    signed_nearest: the offset by 00's nearest-triangle rule. side: the wall side test's findings (a `SideTest`)."""
+
+    geom_id: np.ndarray
+    distance: np.ndarray
+    signed: np.ndarray
+    signed_nearest: np.ndarray
+    side: SideTest
 
 
 def mesh_of(e: Mesh, flip: bool = False) -> o3d.geometry.TriangleMesh:
@@ -279,10 +344,13 @@ def occupied_along(occ: Occupancy, p: np.ndarray, axis: int, sign: int, rules: V
     return hit
 
 
-def plane_vote(u: np.ndarray, facing: np.ndarray, share: float, rules: VerdictRules = RULES) -> np.ndarray:
+def plane_vote(u: np.ndarray, facing: np.ndarray, rules: VerdictRules = RULES) -> np.ndarray:
     """Per point: the side its surface plane shows as a whole, or 0. u: the points' coordinate along the wall's thickness axis; facing: what each
-    point shows by itself (1, -1 or 0). A plane is the points within `tol` of u (`vote_half` bins of `vote_bin` each side); it takes a side if more than
-    `share` of all its points show that side by themselves."""
+    point shows by itself (1, -1 or 0). A plane is the points within `rules.vote_window` of u (`vote_half` bins of `vote_bin` each side); it takes a side if more than
+    `rules.vote_share` of all its points show that side by themselves. `vote_share` None: no vote, every point gets 0."""
+    if rules.vote_share is None:
+        return np.zeros(len(u), int)
+    share = rules.vote_share
     b = np.floor((u - u.min()) / rules.vote_bin).astype(int)
     window = np.ones(2 * rules.vote_half + 1)
     count = lambda m: np.convolve(np.bincount(b[m], minlength=max(b.max() + 1, window.size)), window, "same")[b]  # np.convolve "same" returns the longer input: pad to the window
@@ -303,7 +371,7 @@ def place_wall_points(e: Mesh, face_set: np.ndarray, p: np.ndarray, fallback: np
     assert sides, "a wall has no room-facing side"
     free_plus, free_minus = ~occupied_along(occ, p, a, +1, rules), ~occupied_along(occ, p, a, -1, rules)
     own = np.where(free_plus & ~free_minus, 1, np.where(~free_plus & free_minus, -1, 0))  # the direction the surface was seen from; 0: ambiguous
-    plane = plane_vote(p[:, a], own, rules.vote_share, rules) if rules.vote_share is not None else np.zeros(len(p), int)  # vote_share None: no plane vote
+    plane = plane_vote(p[:, a], own, rules)
     facing = np.where(plane != 0, plane, own)  # a plane that most of its own points see from one side takes that side, also from the ones that say otherwise
     off: dict[int, np.ndarray] = {}  # per room-facing side: the offset to that side's faces, along its outward normal
     for s in sides:
@@ -342,8 +410,8 @@ def apply_junction(signed_side: np.ndarray, d_other: np.ndarray, junction: float
     return s
 
 
-def measure(els: Sequence[Mesh], faces: Sequence[np.ndarray], pts: np.ndarray, rules: VerdictRules = RULES) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, SideTest]:
-    """Returns per point: the element index, the distance to it, the signed offset, the offset by 00's nearest-triangle rule, and the wall side test's findings (a `SideTest`).
+def measure(els: Sequence[Mesh], faces: Sequence[np.ndarray], pts: np.ndarray, rules: VerdictRules = RULES) -> Measurement:
+    """Returns a `Measurement`: per point, the element index, the distance to it, the signed offset, the offset by 00's nearest-triangle rule, and the wall side test's findings (a `SideTest`).
     els: the elements to judge first, then their neighbours (never judged: their faces are all True, which skips them below; they take the points that are nearer to them,
     and they are "another element" at a wall's junctions). faces[i]: boolean per triangle of element i, the triangles its offset is measured against (all True is 00's rule).
     A point is in element i's patch if i is its nearest element over all of `els` and the distance is <= `rules.band` (the caller selects).
@@ -390,7 +458,8 @@ def measure(els: Sequence[Mesh], faces: Sequence[np.ndarray], pts: np.ndarray, r
                 if j != i:
                     others.add_triangles(t_meshes[j])
             d_other[idx] = others.compute_distance(o3d.core.Tensor(np.ascontiguousarray(pts[idx], dtype=np.float32), o3d.core.float32, o3d.core.Device("CPU:0"))).numpy()
-    return geom, dist, apply_junction(signed_side, d_other, rules.junction), nearest, SideTest(how=how, walls=walls_info, fallback=fallback_all, d_other=d_other, signed_side=signed_side, occ=occ)
+    return Measurement(geom_id=geom, distance=dist, signed=apply_junction(signed_side, d_other, rules.junction), signed_nearest=nearest,
+                       side=SideTest(how=how, walls=walls_info, fallback=fallback_all, d_other=d_other, signed_side=signed_side, occ=occ))
 
 
 def own_face_triangles(e: Mesh, face_set: np.ndarray) -> np.ndarray:
@@ -399,7 +468,7 @@ def own_face_triangles(e: Mesh, face_set: np.ndarray) -> np.ndarray:
     A deep covering's side faces are not counted (#32): room B's 0.5 m Forros 1 is the only slab or covering deeper than 15 cm in room B and the held-out rooms, so no held-out room can check such a rule."""
     if e.ifc_class == "IfcWallStandardCase":
         return aligned_faces(e.vertices, e.faces, thin_plan_axis(e), among=face_set)
-    if e.ifc_class in ("IfcSlab", "IfcCovering"):
+    if e.ifc_class in HORIZONTAL_CLASSES:
         return aligned_faces(e.vertices, e.faces, 2)
     return aligned_faces(e.vertices, e.faces, thin_plan_axis(e))
 
@@ -428,7 +497,7 @@ def judged_faces(e: Mesh, lo: np.ndarray, hi: np.ndarray, rules: VerdictRules = 
 
 @dataclass
 class PatchView:
-    """What `element_rows` reads from `Patches`."""
+    """What `element_rows` reads from `Patches`, plus each point's owner (`geom_id`, `band`, `n_scope`): the lean form of `Patches` that a caller keeping many assignments (03b) holds instead."""
 
     signed: np.ndarray
     how: np.ndarray
@@ -437,19 +506,18 @@ class PatchView:
     junction_of: list[np.ndarray]
     past_of: list[np.ndarray]
     walls: dict[int, WallInfo]
+    geom_id: np.ndarray
+    band: np.ndarray
+    n_scope: int
 
 
 @dataclass
 class Patches:
-    """The scan points assigned to the elements, for the scope's elements (the first `n_scope` of the element list). Per point: the nearest element, the distance, the signed offset
-    (NaN where a point does not count), the offset by 00's rule and the side test; masks over the points; and per scope element the indices of its counted points (`points_of`),
-    of the points that are the back of a wall (`dropped_of`), at a junction (`junction_of`) and past the edge of its own face (`past_of`)."""
+    """The scan points assigned to the elements, for the scope's elements (the first `n_scope` of the element list). Per point: the `measurement` (the nearest element, the distance, the signed offset
+    (NaN where a point does not count), the offset by 00's rule and the side test; also readable as `geom_id`, `distance`, `signed`, `signed_nearest` and `side`); masks over the points; and per scope
+    element the indices of its counted points (`points_of`), of the points that are the back of a wall (`dropped_of`), at a junction (`junction_of`) and past the edge of its own face (`past_of`)."""
 
-    geom_id: np.ndarray
-    distance: np.ndarray
-    signed: np.ndarray
-    signed_nearest: np.ndarray
-    side: SideTest
+    measurement: Measurement
     band: np.ndarray
     back: np.ndarray
     at_junction: np.ndarray
@@ -462,22 +530,43 @@ class Patches:
     junction_of: list[np.ndarray]
     rules: VerdictRules  # the rules the patches were made with (`recut` checks that only the own-face ones differ)
 
+    @property
+    def geom_id(self) -> np.ndarray:
+        return self.measurement.geom_id
+
+    @property
+    def distance(self) -> np.ndarray:
+        return self.measurement.distance
+
+    @property
+    def signed(self) -> np.ndarray:
+        return self.measurement.signed
+
+    @property
+    def signed_nearest(self) -> np.ndarray:
+        return self.measurement.signed_nearest
+
+    @property
+    def side(self) -> SideTest:
+        return self.measurement.side
+
     def view(self) -> PatchView:
-        return PatchView(signed=self.signed, how=self.side.how, points_of=self.points_of, dropped_of=self.dropped_of, junction_of=self.junction_of, past_of=self.past_of, walls=self.side.walls)
+        return PatchView(signed=self.signed, how=self.side.how, points_of=self.points_of, dropped_of=self.dropped_of, junction_of=self.junction_of, past_of=self.past_of, walls=self.side.walls,
+                         geom_id=self.geom_id, band=self.band, n_scope=self.n_scope)
 
 
-def _own_face_cut(scope: Sequence[Element], scope_fc: Sequence[np.ndarray], points: np.ndarray, rules: VerdictRules, geom: np.ndarray, dist: np.ndarray, sgn: np.ndarray, nearest: np.ndarray,
-                  side: SideTest) -> Patches:
+def _own_face_cut(scope: Sequence[Element], scope_fc: Sequence[np.ndarray], points: np.ndarray, rules: VerdictRules, m: Measurement) -> Patches:
     """Everything `assign_patches` does after `measure`: the masks and per-element index lists, with the own-face patch cut by `rules`. The one code path of `assign_patches` and `recut`."""
     n_scope = len(scope)
-    bnd = dist <= rules.band
+    geom, sgn, side = m.geom_id, m.signed, m.side
+    bnd = m.distance <= rules.band
     past = past_edge_mask(scope, scope_fc, geom, bnd, side.walls, points, rules)  # band points past the edge of their element's own face (issue #20)
     mine = geom < n_scope  # the nearest element of the point is in scope; it is in that element's patch if it is also within the band
     bk = bnd & mine & np.isnan(side.signed_side)  # walls: the points seen from the neighbouring room
     jn = bnd & mine & ~np.isnan(side.signed_side) & np.isnan(sgn)  # walls: counted by the side test, but within the junction margin of another element
     ib = bnd & mine & ~np.isnan(sgn) & ~past  # the points that count: within the band, not the back of a wall, not at a junction, over the element's own face
     pe = bnd & mine & ~np.isnan(sgn) & past  # would count, but lie past the edge of their element's own face (issue #20)
-    return Patches(geom_id=geom, distance=dist, signed=sgn, signed_nearest=nearest, side=side, band=bnd, back=bk, at_junction=jn, in_band=ib, past_edge=past, n_scope=n_scope,
+    return Patches(measurement=m, band=bnd, back=bk, at_junction=jn, in_band=ib, past_edge=past, n_scope=n_scope,
                    points_of=[np.flatnonzero((geom == i) & ib) for i in range(n_scope)],
                    past_of=[np.flatnonzero((geom == i) & pe) for i in range(n_scope)],
                    dropped_of=[np.flatnonzero((geom == i) & bk) for i in range(n_scope)],
@@ -491,19 +580,19 @@ def assign_patches(scope: Sequence[Element], others: Sequence[Element], points: 
     The scope comes first in the element list (index i < len(scope) is scope[i]). `scope` and `others` must be disjoint by `global_id`: an element in both would compete with itself."""
     assert not {e.global_id for e in scope} & {e.global_id for e in others}, "an element is in both scope and others (same global_id)"
     scope_fc = [judged_faces(e, lo, hi, rules) for e in scope]
-    geom, dist, sgn, nearest, side = measure([*scope, *others], scope_fc + [np.ones(len(e.faces), bool) for e in others], points, rules)
-    return _own_face_cut(scope, scope_fc, points, rules, geom, dist, sgn, nearest, side)
+    m = measure([*scope, *others], scope_fc + [np.ones(len(e.faces), bool) for e in others], points, rules)
+    return _own_face_cut(scope, scope_fc, points, rules, m)
 
 
 def recut(patches: Patches, scope: Sequence[Element], points: np.ndarray, lo: np.ndarray, hi: np.ndarray, rules: VerdictRules = RULES) -> Patches:
     """The `Patches` that `assign_patches(scope, others, points, lo, hi, rules)` would give, from the measurement already in `patches` (the expensive step, `measure`, is not repeated).
     Only the own-face part is redone: `past_edge`, `in_band`, `points_of` and `past_of` (and the masks derived with them). `scope`, `points`, `lo` and `hi` must be those `patches` was made from.
-    Contract: only the own-face fields of `rules` (own_face, own_face_margin, own_face_classes, own_face_one_sided) may differ from `patches.rules`; anything else would change the measurement."""
-    own_face = {f: getattr(rules, f) for f in ("own_face", "own_face_margin", "own_face_classes", "own_face_one_sided")}
+    Contract: only the fields in `RECUT_FIELDS` (the own-face rules) may differ from `patches.rules`; anything else would change the measurement."""
+    own_face = {f: getattr(rules, f) for f in RECUT_FIELDS}
     assert replace(patches.rules, **own_face) == rules, "recut: rules differ from the measured ones outside the own-face fields; measure again with assign_patches"
     assert len(scope) == patches.n_scope, "recut: scope is not the one the patches were made from"
     scope_fc = [judged_faces(e, lo, hi, rules) for e in scope]
-    return _own_face_cut(scope, scope_fc, points, rules, patches.geom_id, patches.distance, patches.signed, patches.signed_nearest, patches.side)
+    return _own_face_cut(scope, scope_fc, points, rules, patches.measurement)
 
 
 class VerdictRow(TypedDict):

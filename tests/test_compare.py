@@ -1,3 +1,5 @@
+import ast
+import inspect
 from collections.abc import Callable
 from dataclasses import fields, is_dataclass, replace
 from typing import Any, cast
@@ -6,6 +8,7 @@ import numpy as np
 import open3d as o3d
 import pytest
 
+import scan_vs_bim.compare as compare
 from scan_vs_bim.compare import RULES, VerdictRow, VerdictRules, aligned_faces, assign_patches, face_coverage, judge, judge_elements, mesh_of, over_own_face, own_face_triangles, plane_vote, recut
 from scan_vs_bim.load import ElementMesh
 
@@ -234,7 +237,20 @@ def test_the_own_face_patch_leaves_out_a_surface_carried_past_the_walls_end() ->
 
 def test_plane_vote_does_not_let_two_of_ten_points_decide_a_narrow_walls_side() -> None:
     # All points in two 5 mm bins (less than the vote window); 2 of the 10 show a side by themselves.
-    assert not plane_vote(np.array([0.0] * 2 + [0.006] * 8), np.array([1] * 2 + [0] * 8), 0.5).any()
+    assert not plane_vote(np.array([0.0] * 2 + [0.006] * 8), np.array([1] * 2 + [0] * 8)).any()
+
+
+def test_plane_vote_with_no_vote_share_gives_no_side_for_every_point() -> None:
+    u, facing = np.array([0.0] * 10), np.array([1] * 10)  # every point shows a side by itself: with the vote on, the plane takes it
+    assert (plane_vote(u, facing) == 1).all()
+    assert (plane_vote(u, facing, replace(RULES, vote_share=None)) == 0).all()
+
+
+def test_the_plane_vote_window_does_not_move_with_the_tolerance() -> None:
+    # 6 points at u = 0 that show a side, 10 that show none 4 cm away. Inside the 15 mm window the first plane is unanimous; a 50 mm window would take the 10 in and lose the majority.
+    u, facing = np.array([0.0] * 6 + [0.04] * 10), np.array([1] * 6 + [0] * 10)
+    assert plane_vote(u, facing).tolist() == [1] * 6 + [0] * 10
+    assert plane_vote(u, facing, replace(RULES, tol=0.05)).tolist() == plane_vote(u, facing).tolist()
 
 
 def test_the_use_mask_decides_which_points_count_and_which_are_reported_left_out() -> None:
@@ -300,6 +316,15 @@ def test_recut_gives_what_assign_patches_gives_from_the_same_measurement(room: t
     assert_same(recut(measured, scope, points, *room, recut_to), expected)
 
 
+@pytest.mark.parametrize("changed", [pytest.param(replace(RULES, tol=0.02), id="tol"), pytest.param(replace(RULES, band=0.2), id="band")])
+def test_recut_refuses_a_change_of_a_rule_the_measurement_depends_on(changed: VerdictRules) -> None:
+    scope = [element(0, 0.1, 0, 5, 0, 3)]
+    points = scan_plane(np.random.default_rng(0), 0.1)
+    measured = assign_patches(scope, [], points, *BOUNDARY_BOX)
+    with pytest.raises(AssertionError, match="outside the own-face fields"):
+        recut(measured, scope, points, *BOUNDARY_BOX, changed)
+
+
 def test_assign_patches_refuses_an_element_in_both_scope_and_others() -> None:
     # It would compete with itself, and its back face would read as a junction at distance 0.
     wall = element(0, 0.1, 0, 5, 0, 3)
@@ -314,3 +339,18 @@ def test_mesh_of_flip_negates_triangle_normals() -> None:
     flipped = np.asarray(mesh_of(el, flip=True).triangle_normals)
     assert np.abs(plain).sum() > 0
     np.testing.assert_allclose(flipped, -plain)
+
+
+def test_all_lists_every_public_name_compare_defines() -> None:
+    assert compare.__all__ == sorted(compare.__all__)
+    assert all(hasattr(compare, name) for name in compare.__all__)
+    defined: set[str] = set()  # from the source, so imported names (np, Sequence, replace, ...) are not counted
+    for node in ast.parse(inspect.getsource(compare)).body:
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            defined.add(node.name)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            defined.add(node.target.id)
+        elif isinstance(node, ast.Assign):
+            defined.update(t.id for t in node.targets if isinstance(t, ast.Name))
+    public = {name for name in defined if not name.startswith("_")}
+    assert public == set(compare.__all__), sorted(public ^ set(compare.__all__))
