@@ -8,6 +8,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import mapbox_earcut
 import numpy as np
 import open3d as o3d
 
@@ -149,48 +150,74 @@ def _fan(n: int) -> list[tuple[int, int, int]]:
     return [(0, i, i + 1) for i in range(1, n - 1)]
 
 
-def _ear_clip(points: np.ndarray, normal: np.ndarray) -> list[tuple[int, int, int]]:
-    """Triangles of a simple planar polygon by ear clipping in 2D: repeatedly cut off a convex vertex whose triangle holds no other vertex.
-    Triangles keep the polygon's winding. With no ear left (a degenerate or self-intersecting polygon) the remaining polygon is fanned."""
+def _signed_area(xy: np.ndarray) -> float:
+    """Shoelace area of a 2D ring: positive counter-clockwise."""
+    return 0.5 * float(np.dot(xy[:, 0], np.roll(xy[:, 1], -1)) - np.dot(np.roll(xy[:, 0], -1), xy[:, 1]))
+
+
+def _contains(ring: np.ndarray, point: np.ndarray) -> bool:
+    """Even-odd test of a 2D point against a 2D ring."""
+    x, y = point
+    nxt = np.roll(ring, -1, axis=0)
+    crossing = (ring[:, 1] > y) != (nxt[:, 1] > y)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        x_at = ring[:, 0] + (y - ring[:, 1]) * (nxt[:, 0] - ring[:, 0]) / (nxt[:, 1] - ring[:, 1])
+    return bool(np.count_nonzero(crossing & (x < x_at)) % 2)
+
+
+def _rings(points: np.ndarray) -> list[list[int]]:
+    """Corner indices of the simple rings a face splits into at repeated vertex positions (exact equality): walk the corners on a stack,
+    and when a position already on the stack recurs, the corners since it close a ring. A keyhole face (a hole joined to the outline by a bridge
+    walked twice) or a pinched one becomes its outline and its holes. Rings with fewer than 3 corners are dropped."""
+    keys = [tuple(p) for p in points]
+    stack: list[int] = []
+    rings: list[list[int]] = []
+    for i, key in enumerate(keys):
+        seen = next((k for k, j in enumerate(stack) if keys[j] == key), None)
+        if seen is not None:
+            rings.append(stack[seen:])
+            del stack[seen:]
+        stack.append(i)
+    rings.append(stack)
+    return [r for r in rings if len(r) >= 3]
+
+
+def _earcut(points: np.ndarray, normal: np.ndarray) -> list[tuple[int, int, int]]:
+    """Triangles of a concave face as corner indices, keeping its winding: the face is split at repeated vertices into rings (counter-clockwise
+    in its Newell plane = outlines, clockwise = holes), each hole goes to the smallest outline containing its vertex mean (a hole inside no outline
+    is triangulated alone), and each outline with its holes is triangulated by earcut. Earcut returns counter-clockwise triangles whatever the
+    input winding, which is the face's winding in the plane (u, v, n) used here. Empty if earcut finds no triangle."""
     n_hat = normal / np.linalg.norm(normal)
     u = np.cross(n_hat, np.eye(3)[np.argmin(np.abs(n_hat))])
     u /= np.linalg.norm(u)
-    xy = np.column_stack((points @ u, points @ np.cross(n_hat, u)))  # (u, v, n_hat) is right-handed: the polygon runs counter-clockwise in xy
-    tol = 1e-12 * np.ptp(points, axis=0).max() ** 2
-
-    def cross(a: int, b: int, c: int) -> float:
-        (bx, by), (cx, cy) = xy[b] - xy[a], xy[c] - xy[a]
-        return float(bx * cy - by * cx)
-
-    def is_ear(a: int, b: int, c: int, others: list[int]) -> bool:
-        if cross(a, b, c) <= tol:
-            return False
-        return not any(
-            cross(a, b, q) >= -tol and cross(b, c, q) >= -tol and cross(c, a, q) >= -tol
-            for q in others
-            if not any(np.array_equal(xy[q], xy[t]) for t in (a, b, c))
-        )
-
-    remaining = list(range(len(points)))
-    triangles: list[tuple[int, int, int]] = []
-    while len(remaining) > 3:
-        for k, b in enumerate(remaining):
-            a, c = remaining[k - 1], remaining[(k + 1) % len(remaining)]
-            if is_ear(a, b, c, remaining):
-                triangles.append((a, b, c))
-                del remaining[k]
-                break
+    xy = np.column_stack((points @ u, points @ np.cross(n_hat, u)))  # (u, v, n_hat) is right-handed: the face runs counter-clockwise in xy
+    areas = {tuple(r): _signed_area(xy[r]) for r in _rings(points)}
+    outlines = [r for r, a in areas.items() if a > 0]
+    holes: dict[tuple[int, ...], list[tuple[int, ...]]] = {r: [] for r in outlines}
+    groups: list[list[tuple[int, ...]]] = []
+    for hole in (r for r, a in areas.items() if a < 0):
+        inside = [o for o in outlines if _contains(xy[list(o)], xy[list(hole)].mean(axis=0))]
+        if inside:
+            holes[min(inside, key=areas.__getitem__)].append(hole)
         else:
-            return triangles + [(remaining[0], remaining[i], remaining[i + 1]) for i in range(1, len(remaining) - 1)]
-    return triangles + [(remaining[0], remaining[1], remaining[2])]
+            groups.append([hole])
+    groups += [[o, *holes[o]] for o in outlines]
+    triangles: list[tuple[int, int, int]] = []
+    for group in groups:
+        corners = [i for ring in group for i in ring]
+        ends = np.cumsum([len(ring) for ring in group]).astype(np.uint32)
+        found = mapbox_earcut.triangulate_float64(xy[corners], ends).reshape(-1, 3)
+        triangles += [(corners[a], corners[b], corners[c]) for a, b, c in found]
+    return triangles
 
 
 def _triangulate(points: np.ndarray) -> list[tuple[int, int, int]]:
-    """Fan for a convex polygon (or one with no area), ear clipping for a concave one: a fan over a concave face adds surface outside it (#53)."""
+    """Fan for a convex polygon (or one with no area); for a concave one, rings (outline + holes) split off at repeated vertices and triangulated
+    with earcut, because a fan or a plain ear clip leaves the face, or overlaps, on these faces (#53). A face earcut gives no triangle for is fanned."""
     normal = _newell_normal(points)
     if np.linalg.norm(normal) == 0 or _is_convex(points, normal):
         return _fan(len(points))
-    return _ear_clip(points, normal)
+    return _earcut(points, normal) or _fan(len(points))
 
 
 def _vertex_index(token: str, seen: int) -> int:
@@ -201,7 +228,8 @@ def _vertex_index(token: str, seen: int) -> int:
 
 def load_model_mesh(obj: Path) -> o3d.geometry.TriangleMesh:
     """Read a model OBJ with every quad and n-gon cut into triangles: Open3D's reader (ASSIMP) silently drops non-triangle faces (#53).
-    A convex face is fanned from its first vertex; a concave one is ear-clipped, since a fan over it adds surface outside the face.
+    A convex face is fanned from its first vertex; a concave one is split at repeated vertices into rings (outline + holes) and triangulated with
+    earcut, since a fan over it adds surface outside the face and a plain ear clip overlaps on faces that touch themselves.
     A model of triangles only is read from the original file, unchanged."""
     lines = obj.read_text().splitlines(keepends=True)
     out: list[str] = []

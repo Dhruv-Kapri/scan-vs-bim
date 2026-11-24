@@ -12,7 +12,7 @@ the research framing (`docs/research-outline.md`). Read the roadmap before start
 ## Commands
 
 ```sh
-uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57; dev: pytest,
+uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57, mapbox-earcut; dev: pytest,
                                           # jupyter/ipykernel, nbclient, matplotlib, scipy, mypy
 uv run pytest                             # tests
 uv run mypy                               # type check src/scan_vs_bim + tests (config in pyproject.toml: every def
@@ -166,8 +166,10 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   `gate_agreement` build docs/phase-1-results.md.
 - `src/scan_vs_bim/pc2model.py` `load_model_mesh(obj)`: Open3D's OBJ reader drops quads/n-gons silently (19 of 137 models; veh_008 is all quads), so
   face lines with more than 3 vertices are cut into triangles (via a hidden temp OBJ beside the original): a convex face is fanned from its first vertex,
-  a concave one (house_11, house_19 have thousands; a fan adds +47% / +23% area there) is ear-clipped in its Newell plane, the remaining polygon fanned if no ear is
-  found; triangle-only models are read as before, convex-only ones are byte-identical to the old fan (#53).
+  a concave one (house_11, house_19 have thousands; a fan adds +47% / +23% area there) is split at repeated vertex positions into rings (outline + holes:
+  keyhole bridges and pinches make these faces touch themselves, where a fan or a plain ear clip overlaps) and each outline with its holes goes to
+  `mapbox-earcut` in the face's Newell plane (earcut always returns counter-clockwise triangles = the face's winding); a face it gives no triangle for is
+  fanned; triangle-only models are read as before, convex-only ones are byte-identical to the old fan (#53).
 - `src/scan_vs_bim/tables.py`: `read_rows(path)`, a CSV as text rows in file order (03a's verdicts, 03b's scores, 05a's
   registration, read back by 04a, 04b and 05b). `src/scan_vs_bim/memory.py`: `peak_rss_gb()` (macOS bytes, Linux KB).
 - In a git worktree, uv warns that `VIRTUAL_ENV` (the main checkout's venv, exported by the shell) "does not match the

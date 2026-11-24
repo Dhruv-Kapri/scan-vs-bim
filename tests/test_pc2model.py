@@ -317,3 +317,28 @@ def test_load_model_mesh_fans_a_convex_ngon_exactly_as_before(tmp_path: Path) ->
     mesh, expected = load_model_mesh(obj), o3d.io.read_triangle_mesh(fan)
     assert np.array_equal(np.asarray(mesh.vertices), np.asarray(expected.vertices))
     assert np.array_equal(np.asarray(mesh.triangles), np.asarray(expected.triangles))
+
+
+def test_load_model_mesh_triangulates_a_keyhole_face_to_its_exact_area(tmp_path: Path) -> None:
+    """One face with repeated vertices, as in house_11 (#53): an L (area 27) with a quadrilateral hole (area 6) that touches the L's outline at (0,0) and at
+    its reflex corner (3,3), so both are listed twice. Plain ear clipping accepts an ear whose diagonal runs through the hole and covers more than the face.
+    Split at the repeated vertices it is two pentagons (6 triangles, not len(face) - 2 = 8: no hole remains to bridge)."""
+    corners = [(0, 0), (6, 0), (6, 3), (3, 3), (3, 6), (0, 6), (1, 3), (3, 1)]   # OBJ vertices 1..8
+    face = [1, 7, 4, 5, 6, 1, 2, 3, 4, 8]   # hole (1,3) then the outline from (3,3) round to (0,0), then back to the hole at (3,3) and (3,1)
+    obj = tmp_path / "model_k.obj"
+    obj.write_text("".join(f"v {x} {y} 0\n" for x, y in corners) + "f " + " ".join(map(str, face)) + "\n")
+    mesh = load_model_mesh(obj)
+    assert len(mesh.triangles) == 6
+    assert mesh.get_surface_area() == pytest.approx(27 - 6)
+
+
+def test_load_model_mesh_triangulates_a_square_with_a_hole_given_as_one_keyhole_face(tmp_path: Path) -> None:
+    """A 4x4 square with a 2x2 hole as one face: outline counter-clockwise, bridge in to the hole, the hole clockwise, the bridge back, bridge
+    vertices listed twice (#53). The hole stays empty and every triangle points along the face's normal (+z)."""
+    corners = [(0, 0), (4, 0), (4, 4), (0, 4), (1, 1), (1, 3), (3, 3), (3, 1)]   # OBJ vertices 1..8
+    face = [1, 2, 3, 4, 1, 5, 6, 7, 8, 5, 1]   # outline, bridge 1-5, hole (1,1) (1,3) (3,3) (3,1) back to (1,1), bridge 5-1
+    obj = tmp_path / "model_h.obj"
+    obj.write_text("".join(f"v {x} {y} 0\n" for x, y in corners) + "f " + " ".join(map(str, face)) + "\n")
+    mesh = load_model_mesh(obj)
+    assert mesh.get_surface_area() == pytest.approx(16 - 4)
+    assert np.all(np.asarray(mesh.compute_triangle_normals().triangle_normals)[:, 2] > 0.99)
