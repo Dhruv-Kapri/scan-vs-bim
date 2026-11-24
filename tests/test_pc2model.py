@@ -392,3 +392,10 @@ def test_load_model_mesh_keeps_later_faces_and_formats_valid_around_a_crossing_f
     assert len(mesh.triangles) == 2 + 2 + 1
     assert mesh.get_surface_area() == pytest.approx(1 + 2.6 + 0.5, rel=1e-6)
     assert [p.name for p in tmp_path.iterdir()] == ["model_m.obj"]
+
+
+def test_load_model_mesh_appends_crossing_vertices_after_a_last_line_without_newline(tmp_path: Path) -> None:
+    """A crossing face's new vertices go at the end of the file; an OBJ whose last line has no newline must not have them glued onto it."""
+    obj = tmp_path / "model_e.obj"
+    obj.write_text("v 0 0 0\nv 2 2 0\nv 2 0 0\nv 0 3 0\nv 5 0 0\nv 6 0 0\nv 5 1 0\nf 1 2 3 4\nf 5 6 7")
+    assert load_model_mesh(obj).get_surface_area() == pytest.approx(2.6 + 0.5, rel=1e-6)

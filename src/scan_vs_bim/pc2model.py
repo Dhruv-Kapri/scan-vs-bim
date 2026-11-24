@@ -343,6 +343,8 @@ def load_model_mesh(obj: Path) -> o3d.geometry.TriangleMesh:
         return o3d.io.read_triangle_mesh(obj)
     n = len(vertices)
     text = [x if isinstance(x, str) else "f " + " ".join(t if isinstance(t, str) else str(n + 1 + t) for t in x) + "\n" for x in out]
+    if extra_vertices and text and not text[-1].endswith("\n"):   # a last line without newline would run into the first new `v` line
+        text[-1] += "\n"
     text += [f"v {x:.17g} {y:.17g} {z:.17g}\n" for x, y, z in extra_vertices]
     # beside the original, so a relative `mtllib` still resolves; the name does not match model_*.obj
     with tempfile.NamedTemporaryFile("w", dir=obj.parent, prefix=".triangulated_", suffix=".obj", delete=False) as tmp:
