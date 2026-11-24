@@ -171,7 +171,8 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   face lines with more than 3 vertices are cut into triangles (via a hidden temp OBJ beside the original): a convex face is fanned from its first vertex (unless a fan triangle would flip: a notch below the convexity tolerance),
   a concave one (house_11, house_19 have thousands; a fan adds +36% / +23% to the model's area) is split at repeated vertex positions into rings (outline + holes:
   keyhole bridges and pinches make these faces touch themselves, where a fan or a plain ear clip overlaps) and each outline with its holes goes to
-  `mapbox-earcut` in the face's Newell plane (earcut always returns counter-clockwise triangles = the face's winding); a face it gives no triangle for is
+  `mapbox-earcut` in the face's Newell plane (earcut always returns counter-clockwise triangles = the face's winding); a face whose edges cross (bowtie
+  quads) is cut into the cells it covers (shapely), the crossings appended as new `v` lines at the end of the temp OBJ; a face earcut gives no triangle for is
   fanned; triangle-only models are read as before, convex-only ones are byte-identical to the old fan (#53).
 - `src/scan_vs_bim/tables.py`: `read_rows(path)`, a CSV as text rows in file order (03a's verdicts, 03b's scores, 05a's
   registration, read back by 04a, 04b and 05b). `src/scan_vs_bim/memory.py`: `peak_rss_gb()` (macOS bytes, Linux KB).
