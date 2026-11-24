@@ -2808,6 +2808,7 @@ dependencies = [
     { name = "pye57" },
     { name = "remotezip" },
     { name = "requests" },
+    { name = "shapely" },
 ]
 
 [package.dev-dependencies]
@@ -2831,6 +2832,7 @@ requires-dist = [
     { name = "pye57", specifier = ">=0.4.19" },
     { name = "remotezip", specifier = ">=0.12.6" },
     { name = "requests", specifier = ">=2.34.2" },
+    { name = "shapely", specifier = ">=2.2" },
 ]
 
 [package.metadata.requires-dev]

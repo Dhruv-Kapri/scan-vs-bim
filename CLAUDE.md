@@ -12,7 +12,7 @@ the research framing (`docs/research-outline.md`). Read the roadmap before start
 ## Commands
 
 ```sh
-uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57, mapbox-earcut; dev: pytest,
+uv sync                                   # Python 3.12 venv: Open3D 0.20, IfcOpenShell 0.9, pye57, mapbox-earcut, shapely; dev: pytest,
                                           # jupyter/ipykernel, nbclient, matplotlib, scipy, mypy
 uv run pytest                             # tests
 uv run mypy                               # type check src/scan_vs_bim + tests (config in pyproject.toml: every def

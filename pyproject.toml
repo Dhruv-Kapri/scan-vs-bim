@@ -15,6 +15,7 @@ dependencies = [
     "pye57>=0.4.19",
     "remotezip>=0.12.6",
     "requests>=2.34.2",
+    "shapely>=2.2",
 ]
 
 [build-system]
@@ -50,7 +51,7 @@ ignore_missing_imports = true
 module = ["remotezip"]
 ignore_missing_imports = true
 
-# shapely (installed with ifcopenshell, not a declared dependency) ships no stubs; imported by pc2model.py and scripts/check_model_areas.py.
+# shapely ships no stubs; imported by pc2model.py and scripts/check_model_areas.py.
 [[tool.mypy.overrides]]
 module = ["shapely", "shapely.*"]
 ignore_missing_imports = true
