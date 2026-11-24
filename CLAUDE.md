@@ -78,7 +78,10 @@ uv run python scripts/show_unaligned.py   # scan + IFC in one Open3D window, una
                                           # --no-interactive: PNGs only)
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=3000 notebooks/01_data.ipynb
                                           # re-run notebook 01 in place (needs the CRAS cache + IFC; ~5-6 min, peak
-                                          # RSS under 3 GB); rewrites notebooks/01_cras_slice.json (read by 03/04)
+                                          # RSS under 3 GB); writes outputs/01/01_cras_slice.json and checks it against the
+                                          # committed notebooks/01_cras_slice.json within slice_parity's tolerances (ICP drift
+                                          # is run-to-run noise, #50); WRITE_SLICE=1 rewrites the committed slice (then
+                                          # re-run 03a, 03b, 05b and make_tuning_slice.py)
 uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPreprocessor.enabled=True \
   notebooks/00_pipeline_overview.ipynb    # notebook 00 (toy room, no downloaded data); the flag drops timing
                                           # metadata so re-runs give no diff
@@ -147,6 +150,8 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   form `assign_patches` (runs the expensive `measure` once) + `element_rows(scope, view, use)` per use mask is what 03a
   calls, as 03b and 03c do (#41), and 05b too (its close-ups' patches and categories, #42); 03c compares own-face variants on one
   measurement with `recut`.
+- `src/scan_vs_bim/slice_parity.py`: `slice_mismatches` (a re-run of 01's slice against the committed one, with `SLICE_TOLERANCES` per
+  path, all else exact) and `max_abs_drift`: the parity check at the end of notebook 01 (#50).
 - `src/scan_vs_bim/ramp.py`: `plane_gradient(x, y, values, groups)` (least-squares plane, one intercept per group and one shared
   (gx, gy), with residuals; refuses positions on a line) and `block_resamples` (seeded bootstrap of whole square blocks of cells):
   the seam of notebook 03d (#26).
