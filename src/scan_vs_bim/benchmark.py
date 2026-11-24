@@ -256,7 +256,7 @@ def results_markdown(
         "Generated from outputs/phase1/registration.csv by `uv run python scripts/write_phase1_results.py`.", "",
         f"Success: rotation error <= {ROT_MAX_DEG} deg, centroid error <= {CENTROID_MAX_M} m, relative scale error <= {SCALE_MAX_REL} "
         "(judgement calls, CONTEXT.md \"Registration success\"). Unseen = neither a Phase 0.5 gate sample nor one of 05c's tuning samples. "
-        "A model with no triangles left at load (below) counts as a failure; its errors are not measured, so the medians and p90s leave it out.", "",
+        "A model with no faces at load would count as a failure; its errors are not measured, so the medians and p90s would leave it out.", "",
         *head, *body, "",
         "## Agreement with the Phase 0.5 gate (05a)", "",
         f"A gate row agrees when its success equals 05a's and the differences are within {AGREE_ROT_DEG} deg, {AGREE_CENTROID_M} m and "
@@ -264,5 +264,5 @@ def results_markdown(
         *glines, "", f"all agree: {'yes' if all_agree else 'no'}", "",
         "## Not scored", "", "Samples whose run raised (scripts/run_benchmark.py logs the error):", "", *unscored, "",
         "## Models with non-triangle faces", "",
-        "These faces are triangulated at load (`pc2model.load_model_mesh`, #53: convex ones as a fan, concave ones by ear clipping). Before #53 Open3D's OBJ reader skipped them without an "
-        "error, so these models were sampled from their triangles only. The share counts faces, not area.", "", *ngons, ""])
+        "These faces are triangulated at load (`pc2model.load_model_mesh`, #53: convex ones as a fan, concave ones split into rings and cut by earcut). Before #53 Open3D's OBJ reader skipped them without an "
+        "error, so these models were sampled from their triangles only. The share counts faces, not area. Checked once for #53 against each OBJ's own polygon areas: the loaded area matches on every model (exactly on planar faces; non-planar faces have no single area), except house_11, 1.2e-4 over (0.38 m2 of 3,272 m2) from a few self-touching faces that earcut still overlaps.", "", *ngons, ""])
