@@ -142,9 +142,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   `exclude=`). `tests/run_notebook.py`: `run_notebook(path)`
   executes a notebook top to bottom for tests (nbclient; raises on any cell error).
 - `src/scan_vs_bim/compare.py`: `mesh_of(e, flip=False)` (an element as an Open3D mesh with triangle normals; `flip` reverses the winding; used by 03a/03b/03c, #41/#42), `over_own_face(points, vertices, faces, margin)` (which scan points lie over an element's
-  own face; points past its edges do not) and `aligned_faces`: the geometry of the own-face patch in 03a/03b/03c (#20);
-  `face_coverage(points, vertices, faces, axis, cell)`: share of an element's face covered by points, seen across its
-  thickness axis (03c section 8b, #30: tested as a rule for label-free shifted, rejected; the rule is unchanged).
+  own face; points past its edges do not) and `aligned_faces`: the geometry of the own-face patch in 03a/03b/03c (#20).
   The verdict rule, moved from 03a (#40, no rule change): `judge_elements(scope, others, points, use, lo, hi, rules)`
   gives one `VerdictRow` per scope element; `VerdictRules`/`RULES` hold the constants (LOA30 `tol` 15 mm). The two-step
   form `assign_patches` (runs the expensive `measure` once) + `element_rows(scope, view, use)` per use mask is what 03a
