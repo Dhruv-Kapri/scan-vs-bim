@@ -2,11 +2,11 @@
 
 Command: `uv run python scripts/run_benchmark.py`
 
-Commit(s): 153efeb-dirty, 5a7d301, b3824fc, df946cc
+Commit(s): 551f3b3, 5a7d301, b3824fc, df946cc
 
 Samples present: 137 of 137
 
-Cost: 3.2 h summed over the samples' run_s; largest per-sample peak RSS 2.01 GB (veh_002-sketchfab)
+Cost: 4.0 h summed over the samples' run_s; largest per-sample peak RSS 2.01 GB (veh_002-sketchfab)
 
 Generated from outputs/phase1/registration.csv by `uv run python scripts/write_phase1_results.py`.
 
