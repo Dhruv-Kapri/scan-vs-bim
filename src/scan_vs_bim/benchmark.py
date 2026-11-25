@@ -73,11 +73,11 @@ def score_sample(folder: str, data_dir: Path, seen: str, commit: str) -> dict[st
     mesh = load_model_mesh(obj)
     T_gt = parse_transform(txt.read_text())
     gt_scale = scale_of(T_gt)
-    who = dict(sample=Path(folder).name, folder=folder, category=folder.split("/")[1], seen=seen, scaled=abs(gt_scale - 1) > SCALED_TOL,
+    who: dict[str, object] = dict(sample=Path(folder).name, folder=folder, category=folder.split("/")[1], seen=seen, scaled=abs(gt_scale - 1) > SCALED_TOL,
                gt_scale=gt_scale, commit=commit)
     if not mesh.has_triangles():   # an OBJ with no faces at all: nothing to register
-        t = time.perf_counter() - t0
-        return _row(**who, load_s=t, run_s=t, peak_rss_gb=peak_rss_gb())
+        elapsed = time.perf_counter() - t0
+        return _row(**who, load_s=elapsed, run_s=elapsed, peak_rss_gb=peak_rss_gb())
     seed_all(SEED)
     model = mesh.sample_points_uniformly(MODEL_POINTS)
     scan = load_e57(e57, MAX_SCAN_POINTS, SEED, CHUNK_POINTS)
