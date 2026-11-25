@@ -12,6 +12,7 @@ import numpy as np
 import open3d as o3d
 import open3d.pipelines.registration as reg
 
+from scan_vs_bim.load import seed_all
 from scan_vs_bim.pc2model import scale_of
 
 # 05a's values (02's before it): features, RANSAC, coarse ICP; distances are multiples of the voxel.
@@ -108,12 +109,6 @@ def _stage(
     return np.array(reg.registration_icp(s, t, dist_x * voxel, T, estimation, reg.ICPConvergenceCriteria(max_iteration=max_iter)).transformation)
 
 
-def seed_all(seed: int) -> None:
-    """Seed numpy and Open3D's RNG (05a's seed_all)."""
-    np.random.seed(seed)
-    o3d.utility.random.seed(seed)
-
-
 def preprocess(pcd: o3d.geometry.PointCloud, voxel: float) -> tuple[o3d.geometry.PointCloud, reg.Feature]:
     """Voxel-downsample, estimate normals, compute FPFH (05a's preprocess)."""
     down = pcd.voxel_down_sample(voxel)
@@ -177,6 +172,37 @@ def coarse_draw(
 
 
 @dataclass(frozen=True)
+class CoarseRegistration:
+    """The front half of `register_sample` (#33): the scale start and the coarse draws, all in the scaled scan's frame."""
+
+    est_scale: float   # the start scale: the RMS-radius ratio, 1.0 for a metric scan
+    S: np.ndarray   # diag(est_scale, est_scale, est_scale, 1): scan -> scaled scan
+    scaled_scan: o3d.geometry.PointCloud   # a copy of the scan multiplied by est_scale: what `refine_icp` continues from
+    draws: tuple[Draw, ...]   # one per seed in SEEDS; T maps the scaled scan onto the model (compose with S for the original scan)
+    best: Draw   # the highest coarse ICP fitness; ties: the earlier seed
+    first: Draw   # seed 0's draw
+    coarse_s: float   # seconds in preprocess + the coarse draws
+
+
+def coarse_register(scan: o3d.geometry.PointCloud, model: o3d.geometry.PointCloud, voxel: float, metric: bool = False) -> CoarseRegistration:
+    """The RMS-radius scale estimate (scale 1 if `metric`), the scan scaled by it (a copy), and a coarse draw per seed in SEEDS.
+
+    Reseeds numpy's and Open3D's global RNG once per seed (see `coarse_draw`), so the global RNG state afterwards is the last seed's.
+    """
+    est_scale = 1.0 if metric else rms_radius(model, voxel) / rms_radius(scan, voxel)
+    S = np.diag([est_scale, est_scale, est_scale, 1.0])
+    scaled_scan = o3d.geometry.PointCloud(scan)
+    scaled_scan.transform(S)   # in place
+
+    t0 = time.perf_counter()
+    src, src_f = preprocess(scaled_scan, voxel)
+    tgt, tgt_f = preprocess(model, voxel)
+    draws = tuple(coarse_draw(src, tgt, src_f, tgt_f, voxel, seed) for seed in SEEDS)
+    coarse_s = time.perf_counter() - t0
+    return CoarseRegistration(est_scale, S, scaled_scan, draws, max(draws, key=lambda d: d.fitness), draws[0], coarse_s)
+
+
+@dataclass(frozen=True)
 class SampleRegistration:
     """05a's registration of one sample: every transform maps the original (unscaled) scan onto the model."""
 
@@ -189,8 +215,8 @@ class SampleRegistration:
 
 
 def register_sample(scan: o3d.geometry.PointCloud, model: o3d.geometry.PointCloud, voxel: float, metric: bool = False) -> SampleRegistration:
-    """05a's registration on every sample, whatever its true scale (ADR 0001): the RMS-radius scale estimate as the start, a coarse
-    draw per seed, pick the best coarse ICP fitness, refine it and seed 0 (scale-fitting stages, then rigid ones).
+    """05a's registration on every sample, whatever its true scale (ADR 0001): `coarse_register` (RMS-radius scale estimate as the start, a coarse
+    draw per seed, the best coarse ICP fitness picked), then the refinement of the picked draw and of seed 0 (scale-fitting stages, then rigid ones).
 
     metric=True is the user's declaration that the scan is already in the model's units (a real scanner): no RMS-radius estimate (start
     scale 1) and rigid stages only, so the result's scale is exactly 1 (ADR 0001, #52). The benchmark leaves it False: a per-sample flag
@@ -198,25 +224,21 @@ def register_sample(scan: o3d.geometry.PointCloud, model: o3d.geometry.PointClou
 
     Reseeds numpy's and Open3D's global RNG (once per seed, see `coarse_draw`), so the global RNG state afterwards is the last seed's.
     """
-    est_scale = 1.0 if metric else rms_radius(model, voxel) / rms_radius(scan, voxel)
-    S = np.diag([est_scale, est_scale, est_scale, 1.0])
-    scaled_scan = o3d.geometry.PointCloud(scan)
-    scaled_scan.transform(S)   # in place
-
-    t0 = time.perf_counter()
-    src, src_f = preprocess(scaled_scan, voxel)
-    tgt, tgt_f = preprocess(model, voxel)
-    prescaled = [coarse_draw(src, tgt, src_f, tgt_f, voxel, seed) for seed in SEEDS]   # in the scaled scan's frame: what refine_icp continues from
-    coarse_s = time.perf_counter() - t0
-    draws = [Draw(d.seed, d.T_ransac @ S, d.ransac_fitness, d.T @ S, d.fitness) for d in prescaled]   # compose: scale first, then the rigid transform
-    best, first = max(prescaled, key=lambda d: d.fitness), prescaled[0]   # coarse ICP fitness; ties: the earlier seed
+    c = coarse_register(scan, model, voxel, metric)
+    draws = [Draw(d.seed, d.T_ransac @ c.S, d.ransac_fitness, d.T @ c.S, d.fitness) for d in c.draws]   # compose: scale first, then the rigid transform
 
     t1 = time.perf_counter()
     plan = refine_plan(voxel, n_scale=0 if metric else SCALE_STAGES)
-    T_best = refine_icp(scaled_scan, model, best.T, **plan) @ S
-    T_seed0 = T_best if best is first else refine_icp(scaled_scan, model, first.T, **plan) @ S
+    T_best = refine_icp(c.scaled_scan, model, c.best.T, **plan) @ c.S
+    T_seed0 = T_best if c.best is c.first else refine_icp(c.scaled_scan, model, c.first.T, **plan) @ c.S
     refine_s = time.perf_counter() - t1
-    return SampleRegistration(T_best, best.seed, tuple(draws), T_seed0, coarse_s, refine_s)
+    return SampleRegistration(T_best, c.best.seed, tuple(draws), T_seed0, c.coarse_s, refine_s)
+
+
+def median_to_model(scene: o3d.t.geometry.RaycastingScene, T: np.ndarray, pts: np.ndarray) -> float:
+    """Median distance from `pts` moved by T to the mesh in `scene` (05a's and 02's registration residual and direction check, #33); float32, as they were."""
+    moved = o3d.core.Tensor(apply(T, pts).astype(np.float32), o3d.core.float32, o3d.core.Device("CPU:0"))
+    return float(np.median(scene.compute_distance(moved).numpy()))
 
 
 def rotation_error_deg(T_est: np.ndarray, T_gt: np.ndarray) -> float:
@@ -241,9 +263,14 @@ class Score:
     success: bool
 
 
+def succeeded(rot_deg: float, centroid_m: float, scale_err: float) -> bool:
+    """CONTEXT.md "Registration success": all three errors within their thresholds (equal passes). `score` uses it; 05b re-derives 05a's flags with it (#33)."""
+    return rot_deg <= ROT_MAX_DEG and centroid_m <= CENTROID_MAX_M and scale_err <= SCALE_MAX_REL
+
+
 def score(T_est: np.ndarray, T_gt: np.ndarray, pts: np.ndarray) -> Score:
-    """Rotation, centroid and relative scale error of T_est against T_gt over the scan points `pts`; success is all three <= the thresholds."""
+    """Rotation, centroid and relative scale error of T_est against T_gt over the scan points `pts`; success is `succeeded`."""
     rot, cen = rotation_error_deg(T_est, T_gt), centroid_error(T_est, T_gt, pts)
     s_gt = scale_of(T_gt)
     scale_err = abs(scale_of(T_est) - s_gt) / s_gt
-    return Score(rot, cen, scale_err, rot <= ROT_MAX_DEG and cen <= CENTROID_MAX_M and scale_err <= SCALE_MAX_REL)
+    return Score(rot, cen, scale_err, succeeded(rot, cen, scale_err))

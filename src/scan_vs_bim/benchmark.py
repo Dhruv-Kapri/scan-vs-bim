@@ -13,10 +13,9 @@ from pathlib import Path
 import numpy as np
 import open3d as o3d
 
-from scan_vs_bim.load import load_e57
 from scan_vs_bim.memory import peak_rss_gb
-from scan_vs_bim.pc2model import BUILDING_CATEGORIES, load_model_mesh, parse_transform, scale_of
-from scan_vs_bim.register import CENTROID_MAX_M, ROT_MAX_DEG, SCALE_MAX_REL, register_sample, score, seed_all
+from scan_vs_bim.pc2model import BUILDING_CATEGORIES, EmptyModelError, load_sample, scale_of
+from scan_vs_bim.register import CENTROID_MAX_M, ROT_MAX_DEG, SCALE_MAX_REL, register_sample, score
 
 log = logging.getLogger(__name__)
 
@@ -54,17 +53,15 @@ def seen_mark(folder: str, gate: Collection[str], tuning: Collection[str]) -> st
 
 
 def score_sample(folder: str, data_dir: Path, seen: str, commit: str) -> dict[str, object]:
-    """Load (as 05a's load_sample does, same call order, via `load_model_mesh`), register and score one sample; the row, keyed by COLUMNS."""
+    """Load (`pc2model.load_sample`, 05a's call order), register and score one sample; the row, keyed by COLUMNS."""
     t0 = time.perf_counter()
     d = data_dir / Path(folder).name
     try:
-        obj, txt, e57 = (next(d.glob(g)) for g in ("model_*.obj", "transformation_matrix_*.txt", "pointcloud_*_transformed.e57"))
-    except StopIteration:
-        raise FileNotFoundError(f"{d} lacks model/transform/scan files: run scripts/fetch_all_samples.py") from None
-    mesh = load_model_mesh(obj)
-    T_gt = parse_transform(txt.read_text())
-    gt_scale = scale_of(T_gt)
-    if not mesh.has_triangles():   # an OBJ with no faces at all: nothing to register
+        s = load_sample(d, MODEL_POINTS, MAX_SCAN_POINTS, SEED, CHUNK_POINTS)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"{d} lacks model/transform/scan files: run scripts/fetch_all_samples.py") from e
+    except EmptyModelError as e:   # an OBJ with no faces at all: nothing to register
+        gt_scale = scale_of(e.T_gt)
         nan = float("nan")
         return dict(
             sample=Path(folder).name, folder=folder, category=folder.split("/")[1], seen=seen, scaled=abs(gt_scale - 1) > SCALED_TOL,
@@ -72,15 +69,12 @@ def score_sample(folder: str, data_dir: Path, seen: str, commit: str) -> dict[st
             seed0_rot_deg=nan, seed0_centroid_m=nan, seed0_scale_err_pct=nan, seed0_success=False, n_scan_points=0, voxel_m=nan,
             load_s=time.perf_counter() - t0, coarse_s=0.0, refine_s=0.0, run_s=time.perf_counter() - t0, peak_rss_gb=peak_rss_gb(),
             commit=commit)
-    seed_all(SEED)
-    model = mesh.sample_points_uniformly(MODEL_POINTS)
-    scan = load_e57(e57, MAX_SCAN_POINTS, SEED, CHUNK_POINTS)
-    diag = float(np.linalg.norm(mesh.get_axis_aligned_bounding_box().get_extent()))
+    T_gt, scan, diag, gt_scale = s.T_gt, s.scan, s.diag, scale_of(s.T_gt)
     load_s = time.perf_counter() - t0
 
     pts = np.asarray(scan.points)
     voxel = VOXEL_FRACTION * diag
-    res = register_sample(scan, model, voxel)
+    res = register_sample(scan, s.model, voxel)
     sc, sc0 = score(res.T, T_gt, pts), score(res.T_seed0, T_gt, pts)
     return dict(
         sample=Path(folder).name, folder=folder, category=folder.split("/")[1], seen=seen, scaled=abs(gt_scale - 1) > SCALED_TOL,

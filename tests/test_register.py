@@ -7,7 +7,7 @@ import pytest
 
 from scan_vs_bim import register
 from scan_vs_bim.pc2model import scale_of
-from scan_vs_bim.register import CENTROID_MAX_M, ROT_MAX_DEG, SCALE_MAX_REL, Draw, refine_icp, refine_plan, register_sample, score, voxel_schedule
+from scan_vs_bim.register import CENTROID_MAX_M, ROT_MAX_DEG, SCALE_MAX_REL, Draw, coarse_register, median_to_model, refine_icp, refine_plan, register_sample, score, succeeded, voxel_schedule
 
 # Gate thresholds (docs/roadmap.md) are 2 deg, 5 cm, 1 %; these tests ask for clearly tighter.
 ROT_DEG: float = 0.3
@@ -149,6 +149,30 @@ def test_register_sample_picks_the_best_coarse_fitness_and_the_earlier_seed_on_a
     assert np.array_equal(result.T_seed0, T_of(0))   # seed 0's, not the winner's
 
 
+def test_coarse_register_hands_over_the_scaled_scan_and_the_draws_in_its_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The seam 05c uses (#33): the start scale is the RMS-radius ratio (1 if metric), the scan is copied and scaled, the draws stay in the scaled scan's frame."""
+    fitness = {0: 0.5, 1: 0.9, 2: 0.7, 3: 0.8, 4: 0.2}
+    monkeypatch.setattr(register, "coarse_draw", lambda src, tgt, src_f, tgt_f, voxel, seed: Draw(seed, np.eye(4), fitness[seed], similarity(1.0, 0.0, (0, 0, 1), (seed + 1.0, 0, 0)), fitness[seed]))
+    monkeypatch.setattr(register, "preprocess", lambda pcd, voxel: (pcd, None))
+    scan_pts = np.random.default_rng(0).random((50, 3))
+    model, scan = cloud(2.0 * scan_pts), cloud(scan_pts)
+    c = coarse_register(scan, model, voxel=1e-6)
+    assert c.est_scale == pytest.approx(2.0) and np.array_equal(c.S, np.diag([c.est_scale] * 3 + [1.0]))
+    assert np.allclose(np.asarray(c.scaled_scan.points), 2.0 * scan_pts) and np.array_equal(np.asarray(scan.points), scan_pts)   # a copy: the caller's scan is untouched
+    assert (c.best.seed, c.first.seed) == (1, 0) and [d.seed for d in c.draws] == [0, 1, 2, 3, 4]
+    assert np.array_equal(c.best.T, similarity(1.0, 0.0, (0, 0, 1), (2.0, 0, 0)))   # not composed with S
+    assert coarse_register(scan, model, voxel=1e-6, metric=True).est_scale == 1.0
+
+
+def test_median_to_model_is_the_median_distance_of_the_moved_points_to_the_mesh() -> None:
+    """A big triangle in the plane z = 0; T lowers the points by 0.1, so their distances to it are 0.1, 0.2, 0.4 and the median is 0.2 (not the mean, 0.233)."""
+    mesh = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector([[-9.0, -9.0, 0.0], [9.0, -9.0, 0.0], [0.0, 9.0, 0.0]]), o3d.utility.Vector3iVector([[0, 1, 2]]))
+    scene = o3d.t.geometry.RaycastingScene()
+    scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
+    pts = np.array([[0.0, 0.0, 0.2], [1.0, 0.0, 0.3], [0.0, 1.0, 0.5]])
+    assert median_to_model(scene, similarity(1.0, 0.0, (0, 0, 1), (0, 0, -0.1)), pts) == pytest.approx(0.2, abs=1e-6)
+
+
 def test_score_reports_each_error_of_a_hand_made_estimate() -> None:
     pts = np.array([[0.0, 0.0, 1.0], [0.0, 0.0, 3.0]])   # centroid on the z axis: a turn about z or a scale about the origin is easy to read off
     eye = np.eye(4)
@@ -177,6 +201,15 @@ def test_score_success_flips_at_each_threshold_and_is_inclusive_on_centroid(crit
     assert not score(estimate(limit + 1e-9), np.eye(4), pts).success
     if criterion == "centroid":   # the only limit float arithmetic can hit exactly: a pure shift of (0.05, 0, 0); `<` would fail here
         assert score(estimate(limit), np.eye(4), pts).success
+
+
+@pytest.mark.parametrize("worst", ["rot_deg", "centroid_m", "scale_err"])
+def test_succeeded_is_inclusive_at_each_threshold(worst: str) -> None:
+    """The shared rule (#33): each error <= its threshold, equality passes; one error just over fails with the other two at zero."""
+    limit = {"rot_deg": ROT_MAX_DEG, "centroid_m": CENTROID_MAX_M, "scale_err": SCALE_MAX_REL}[worst]
+    zero = {"rot_deg": 0.0, "centroid_m": 0.0, "scale_err": 0.0}
+    assert succeeded(**zero | {worst: limit})
+    assert not succeeded(**zero | {worst: limit * (1 + 1e-9)})
 
 
 def test_apply_f32_is_the_float32_transform_the_verdict_notebooks_were_run_with() -> None:

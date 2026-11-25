@@ -12,7 +12,7 @@ A large slab or covering (`VerdictRules.local_plane_*`) is judged against a plan
 offsets and keeps their level, so a scan that ramps over the element's length (03d) does not fail it, and a real offset still reads shifted. The fitted tilt is reported in the element's row.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, fields, replace
 from typing import Final, Protocol, TypedDict
 
@@ -64,6 +64,7 @@ __all__ = [
     "room_facing",
     "shown_along",
     "thin_plan_axis",
+    "verdict_counts",
 ]
 
 LOCAL_PLANE_MIN_EXTENT: Final[float] = 6.0  # m (judgement call, issue #46, accepted on 03c's held-out rooms): 03d's shared tilt of 1.5 to 1.7 mm/m moves the far edges of a 6 m element by 4.5 to 5 mm, a third of LOA30's 15 mm
@@ -704,3 +705,8 @@ def judge_elements(scope: Sequence[Element], others: Sequence[Element], points: 
     the expensive step, is paid once. To compare own-face variants (patch off, on, all walls, other margins or classes) on one measurement, `recut` the patches instead of assigning again.
     A large slab or covering is judged against a plane fitted to its own points, tilt removed and level kept, and its row reports the tilt (`element_rows`, #46)."""
     return element_rows(scope, assign_patches(scope, others, points, lo, hi, rules).view(), use, rules)
+
+
+def verdict_counts(rows: Sequence[Mapping[str, object]]) -> dict[str, int]:
+    """How many rows hold each verdict (OK, shifted, not confirmed; a verdict nobody got counts 0): the tally 03a, 03b and 03c print and assert on (#33)."""
+    return {v: sum(r["verdict"] == v for r in rows) for v in ("OK", "shifted", "not confirmed")}

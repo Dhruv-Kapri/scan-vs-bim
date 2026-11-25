@@ -23,6 +23,12 @@ class ElementMesh:
     faces: np.ndarray  # (m, 3) int32, indices into vertices
 
 
+def seed_all(seed: int) -> None:
+    """Seed numpy and Open3D's RNG (05a's seed_all). Here, not in register.py, so `pc2model.load_sample` can use it without a cycle (#33)."""
+    np.random.seed(seed)
+    o3d.utility.random.seed(seed)
+
+
 def load_e57(path: Path, max_points: int, seed: int = 0, chunk_points: int = 1_000_000) -> o3d.geometry.PointCloud:
     """XYZ only, scan poses applied, about max_points kept across scans (proportional, seeded).
     Reads `chunk_points` at a time, so memory stays flat however big a scan is; the points do not depend on `chunk_points`.
