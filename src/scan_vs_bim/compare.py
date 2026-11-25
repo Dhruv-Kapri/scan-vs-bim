@@ -139,7 +139,7 @@ class VerdictRules:
     occ_voxel: float = 0.02  # (judgement call) occupancy grid voxel of the side test
     side_shown: bool = True  # (judgement call, #45) a point takes a side from its own free space only if the scan shows the space on that side: some voxel occupied, at any height
     # of the wall's grid, `side_near` to `side_far` along it (the neighbouring space's floor or ceiling). Free space with nothing scanned beyond it is unscanned, not "seen from there": the point
-    # is ambiguous. False: the rule before #45 (the default until room B was re-run with it, #47)
+    # is ambiguous. False: the rule before #45
     vote_bin: float = 0.005  # plane vote: 5 mm bins along the thickness axis; the window is `vote_window` each side (`vote_half` bins)
     vote_window: float = 0.015  # (judgement call) half-width of a plane in the plane vote: LOA30's 15 mm, the same as `tol`, but its own field so a `tol` sweep does not move the vote window (#51)
     vote_share: float | None = 0.5  # (judgement call) a plane takes the side that more than this share of its points show by themselves; None: no plane vote (03a's section 3 gives the reason)
@@ -150,7 +150,7 @@ class VerdictRules:
     own_face_classes: tuple[str, ...] = ("IfcWallStandardCase", "IfcSlab", "IfcCovering")  # (judgement call, tuned) the classes with one or two broad faces; see HORIZONTAL_CLASSES for how `own_face_triangles` cuts them
     own_face_one_sided: bool = True  # (judgement call, tuned) a wall is patched only if exactly one of its faces is room-facing: a partition is left as it was
     local_plane_classes: tuple[str, ...] = HORIZONTAL_CLASSES  # (judgement call, issue #46) the classes judged against a plane fitted to their own points: the broad horizontal surfaces whose scan ramps (03d)
-    local_plane_min_extent: float | None = LOCAL_PLANE_MIN_EXTENT  # (judgement call, issue #46) m, the largest plan extent (bounding box in x or y) of a "large" element; None: no local plane (the rule before #46, the default until #47). The value's reason is at LOCAL_PLANE_MIN_EXTENT
+    local_plane_min_extent: float | None = LOCAL_PLANE_MIN_EXTENT  # (judgement call, issue #46) m, the largest plan extent (bounding box in x or y) of a "large" element; None: no local plane (the rule before #46). The value's reason is at LOCAL_PLANE_MIN_EXTENT
     local_plane_cell: float = 1.0  # (judgement call, issue #46) m, the plan cell the offsets are binned in (03d's)
     local_plane_min_cell_points: int = 100  # (judgement call, issue #46) counted points a cell needs to count
     local_plane_min_cells: int = 8  # (judgement call, issue #46) cells needed for a plane (03d's GROUP_MIN_CELLS); fewer: no plane, the element is judged on its offsets as they are

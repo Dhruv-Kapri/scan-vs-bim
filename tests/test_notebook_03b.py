@@ -85,7 +85,7 @@ def test_notebook_03b_scores_verdicts_against_the_manifest(tmp_path: Path) -> No
         control = list(reader)
         assert reader.fieldnames == ["wall", "configuration", "variant", "verdict", "reason", "point_count", "median_mm", "share_within_tol", "share_near_median"]
     walls = {r["wall"] for r in control}
-    hidden = next(c["name"] for c in changes if c["run"].endswith("_hidden"))  # the deleted clutter-hidden wall (chosen by the notebook's rule: 979093 on the patches, 919433 on the crop)
+    hidden = next(c["name"] for c in changes if c["run"].endswith("_hidden"))  # the deleted clutter-hidden wall (chosen by the notebook's rule: 979093 on the patches, 919433 on the crop and after Phase 1, #47)
     assert len(walls) == 2 and hidden in walls  # the clutter-hidden wall and the second control wall
     assert len(control) == 16 and len({r["configuration"] for r in control}) == 4 and {r["variant"] for r in control} == {"oracle_labels", "no_labels"}  # two walls x four configurations x two variants
     assert all(sum(r["wall"] == w for r in control) == 8 for w in walls)
