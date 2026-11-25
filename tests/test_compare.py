@@ -148,7 +148,8 @@ def test_a_wall_on_the_loa30_boundary_reads_ok_or_shifted_at_the_offset(offset: 
 def test_a_wall_scanned_from_both_sides_keeps_only_its_room_facing_points() -> None:
     rng = np.random.default_rng(0)
     room_face, back = scan_plane(rng, 0.1), scan_plane(rng, 0.0)  # the neighbouring room's surface lies on the wall's back face
-    row = judge_first([element(0, 0.1, 0, 5, 0, 3)], [], [room_face, back], BOUNDARY_BOX)
+    # no floor is scanned, so with `side_shown` (#45, the default) no side is shown: this pins the rule before #45; its #45 twin, with floors, is further down
+    row = judge_first([element(0, 0.1, 0, 5, 0, 3)], [], [room_face, back], BOUNDARY_BOX, replace(RULES, side_shown=False))
     assert (row["verdict"], row["point_count"], row["points_other_side"]) == ("OK", len(room_face), len(back))
     assert row["reference_side"] == "+x" and row["room_facing_sides"] == 1
 
@@ -235,7 +236,7 @@ def test_the_use_mask_decides_which_points_count_and_which_are_reported_left_out
 
 # The wall side test with `side_shown` (#45, #27): a point may take a side from its own free space only if the scan shows the space on that side. Floors at z = -0.15 lie
 # outside the band (no floor point is counted as the wall's) but inside the wall's occupancy grid, where they show which spaces were scanned.
-SHOWN: VerdictRules = replace(RULES, side_shown=True)
+SHOWN: VerdictRules = RULES  # side_shown on: the default since #47
 
 
 def floor(rng: np.random.Generator, x0: float, x1: float) -> np.ndarray:
@@ -272,6 +273,12 @@ def test_a_scanned_neighbouring_room_still_drops_the_back_of_the_wall() -> None:
 
 def test_the_tolerance_is_the_usibd_loa30_bound_not_a_tuning_value() -> None:
     assert RULES.tol == 0.015  # USIBD LOA30: at most 15 mm at 2 sigma
+
+
+def test_the_rules_accepted_on_the_held_out_rooms_are_on_by_default() -> None:
+    # #47: room B is re-reported with #45's side test fix and #46's local plane, so a caller of the defaults cannot leave either out
+    assert RULES.side_shown is True
+    assert RULES.local_plane_min_extent == LOCAL_PLANE_MIN_EXTENT
 
 
 def test_a_door_like_element_is_taken_across_its_thinnest_plan_axis_not_z() -> None:
@@ -368,7 +375,8 @@ SLAB_ROOM: tuple[np.ndarray, np.ndarray] = (np.array([-1.0, -1.0, -1.0]), np.arr
 TILT: float = float(np.tan(np.radians(0.1)))  # the 0.1 degrees of 03d's floor and ceiling ramp
 
 
-PLANE: VerdictRules = replace(RULES, local_plane_min_extent=LOCAL_PLANE_MIN_EXTENT)  # the local plane on (off in RULES until #47)
+PLANE: VerdictRules = RULES  # the local plane on (the default since #47)
+NO_PLANE: VerdictRules = replace(RULES, local_plane_min_extent=None)  # the rule before #46
 
 
 def tilted_top(length: float, width: float, tilt: float = TILT, raised: float = 0.0, rules: VerdictRules | None = None) -> VerdictRow:
@@ -384,7 +392,7 @@ def test_a_large_slabs_tilt_is_absorbed_and_reported() -> None:
     assert row["verdict"] == "OK" and abs(row["median_signed_offset_mm"]) < 1
     assert abs(float(row["plane_tilt_deg"]) - 0.1) < 0.01
     assert abs(float(row["plane_gx_mm_per_m"]) - 1000 * TILT) < 0.05 and abs(float(row["plane_gy_mm_per_m"])) < 0.05
-    without = tilted_top(20, 10, rules=RULES)
+    without = tilted_top(20, 10, rules=NO_PLANE)
     assert without["verdict"] == "not confirmed" and without["share_within_tol"] < RULES.min_frac_ok  # the tilt alone fails the slab: the test discriminates
 
 
@@ -396,7 +404,7 @@ def test_a_level_offset_of_a_large_slab_still_reads_shifted() -> None:
 def test_a_slab_below_the_large_extent_gets_no_plane_and_is_judged_as_before() -> None:
     row = tilted_top(4, 3)
     assert (row["plane_gx_mm_per_m"], row["plane_gy_mm_per_m"], row["plane_tilt_deg"]) == ("", "", "")
-    assert row == tilted_top(4, 3, rules=RULES)
+    assert row == tilted_top(4, 3, rules=NO_PLANE)
 
 
 def test_local_plane_needs_the_minimum_number_of_counting_cells() -> None:

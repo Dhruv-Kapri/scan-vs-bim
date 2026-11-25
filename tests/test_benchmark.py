@@ -6,7 +6,7 @@ from types import ModuleType
 
 import pytest
 
-from scan_vs_bim.benchmark import COLUMNS, gate_agreement, non_triangle_share, results_markdown, run_benchmark, score_sample, seen_mark
+from scan_vs_bim.benchmark import COLUMNS, ROOM_B_HEADING, gate_agreement, non_triangle_share, results_markdown, run_benchmark, score_sample, seen_mark, with_kept_section
 
 ROOT: Path = Path(__file__).resolve().parent.parent
 SCRIPT: Path = ROOT / "scripts" / "run_benchmark.py"
@@ -142,3 +142,11 @@ def test_a_model_with_no_triangles_is_a_failed_row_not_a_skipped_sample(tmp_path
     assert list(row) == COLUMNS
     assert row["success"] is False and row["seed0_success"] is False and row["scaled"] is True
     assert all(math.isnan(float(str(row[k]))) for k in ("rot_deg", "centroid_m", "scale_err_pct", "est_scale"))
+
+
+def test_regenerating_the_results_keeps_the_hand_written_room_b_section() -> None:
+    # #47: the room-B section is written by hand below the generated tables; a re-run of write_phase1_results.py must not drop it, nor keep the old tables
+    old = "# old tables\n\nstale\n\n" + ROOM_B_HEADING + "\n\nhand-written\n"
+    assert with_kept_section("# new tables\n", old) == "# new tables\n\n" + ROOM_B_HEADING + "\n\nhand-written\n"
+    assert with_kept_section("# new tables\n", "# old tables, no section\n") == "# new tables\n"
+    assert with_kept_section("# new tables\n", None) == "# new tables\n"

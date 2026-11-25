@@ -196,6 +196,15 @@ def gate_agreement(rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mappin
     return out
 
 
+ROOM_B_HEADING: str = "## Room B after Phase 1"  # #47: a hand-written section at the end of docs/phase-1-results.md, kept by `with_kept_section`
+
+
+def with_kept_section(generated: str, old: str | None) -> str:
+    """`generated` (the tables of `results_markdown`) followed by the hand-written section of the old doc, from `ROOM_B_HEADING` to its end, if it has one."""
+    at = -1 if old is None else old.find("\n" + ROOM_B_HEADING + "\n")
+    return generated if old is None or at < 0 else generated.rstrip("\n") + "\n" + old[at:]
+
+
 def results_markdown(
     rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mapping[str, str]], command: str, *,
     expected: Sequence[str], non_triangle: Mapping[str, float], before: Sequence[Mapping[str, str]] | None = None,
