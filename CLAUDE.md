@@ -168,14 +168,19 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   returns None when nothing converts: no densities are ever guessed.
 - `src/scan_vs_bim/register.py`: registration, once (#37; notebooks 00, 02 and 05a import it). `register_sample` (05a's
   pipeline: the RMS scale estimate on every sample (no scaled flag, #38 / ADR 0001), FPFH + RANSAC + ICP per seed in `SEEDS` via `preprocess`/`coarse_draw`,
-  the best coarse ICP fitness, then `refine_plan`; `metric=True`: rigid only at scale 1, for scans known to be metric, ADR 0001, #52), `score` (rotation, centroid and scale error, success on CONTEXT.md's
-  thresholds `ROT_MAX_DEG`/`CENTROID_MAX_M`/`SCALE_MAX_REL`), `apply(T, pts)`, `seed_all`, `rms_radius`; `refine_icp`
+  the best coarse ICP fitness (that front half is `coarse_register`, which 05c runs before its own refinements, #33), then `refine_plan`; `metric=True`: rigid only at scale 1, for scans known to be metric, ADR 0001, #52), `score` (rotation, centroid and scale error, success on CONTEXT.md's
+  thresholds `ROT_MAX_DEG`/`CENTROID_MAX_M`/`SCALE_MAX_REL`; the rule alone is `succeeded`, 05b's cross-check uses it), `apply(T, pts)`, `seed_all` (defined in `load`,
+  so `pc2model` can use it), `rms_radius`, `median_to_model` (02's and 05a's residual / direction check, #33); `refine_icp`
   (scale-fitting point-to-point ICP stages, then rigid point-to-plane stages, coarse to fine, after the coarse RANSAC + ICP),
   `refine_plan` (the stages 05a runs; chosen in 05c, issue #20) and `voxel_schedule`.
   `apply_f32(T, pts)`: the CRAS notebooks' float32 transform (T cast to float32, float32 out; not `apply`, which rounds
   differently: 05b's patch counts must equal 03a's exactly, #42; 03a/03b/03c use it too, and `memory.peak_rss_gb`, since #41/#42 no notebook redefines them).
-- `src/scan_vs_bim/benchmark.py`: the Phase 1 benchmark (#39). `score_sample` loads a sample as 05a's `load_sample` does (`pc2model.load_model_mesh`, same
-  constants and call order, so the nine gate rows reproduce 05a's) and registers + scores it; `run_benchmark` runs each sample in a
+- `src/scan_vs_bim/room.py`: a CRAS room's frame and verdict cloud, once (#33; 03a, 03b, 03c, 03c_room_a import it): `icp_target` (seeded samples
+  on the elements near the box, and the in-crop mask), `refine_from_recorded` (plain then Tukey point-to-plane ICP from the recorded transform),
+  `transform_delta`, `area_in_box`, `element_boxes` + `patch_cloud` (the cache streamed after the ICP correction, cut to per-element boxes; with
+  `crop=` also 03b's room crop and recorded-frame points). `compare.verdict_counts` tallies verdict rows.
+- `src/scan_vs_bim/benchmark.py`: the Phase 1 benchmark (#39). `score_sample` loads a sample with `pc2model.load_sample`, as 05a does (same
+  constants, so the nine gate rows reproduce 05a's) and registers + scores it; `run_benchmark` runs each sample in a
   spawned child and appends its row (resumable); `results_markdown` (optionally with the pre-#53 rows, `write_phase1_results.py --before`, default
   outputs/phase1/registration_before_53.csv: a copy of the CSV taken before #53's re-run of the 19 models with non-triangle faces) +
   `gate_agreement` build docs/phase-1-results.md.
@@ -186,6 +191,8 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   `mapbox-earcut` in the face's Newell plane (earcut always returns counter-clockwise triangles = the face's winding); a face whose edges cross (bowtie
   quads) is cut into the cells it covers (shapely), the crossings appended as new `v` lines at the end of the temp OBJ; a face earcut gives no triangle for is
   fanned; triangle-only models are read as before, convex-only ones are byte-identical to the old fan (#53).
+  `load_sample(d, ...)`: one sample as 02, 05a, 05c and the benchmark load it (model, transform, seeded surface sample, seeded scan subsample, in that
+  order; `EmptyModelError` carrying the ground truth for a model without triangles, #33).
 - `src/scan_vs_bim/tables.py`: `read_rows(path)`, a CSV as text rows in file order (03a's verdicts, 03b's scores, 05a's
   registration, read back by 04a, 04b and 05b). `src/scan_vs_bim/memory.py`: `peak_rss_gb()` (macOS bytes, Linux KB).
 - In a git worktree, uv warns that `VIRTUAL_ENV` (the main checkout's venv, exported by the shell) "does not match the

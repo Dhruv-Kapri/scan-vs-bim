@@ -381,7 +381,7 @@ def load_sample(d: Path, model_points: int, max_scan_points: int, seed: int, chu
     The call order is part of the numbers: parse the model, seed numpy and Open3D with `seed`, sample the surface, then load the scan with the same seed.
     Raises FileNotFoundError naming the missing pattern, and EmptyModelError (before any seeding or sampling, the scan unread) for a model without triangles.
     """
-    files = []
+    files: list[Path] = []
     for g in ("model_*.obj", "transformation_matrix_*.txt", "pointcloud_*_transformed.e57"):
         found = next(d.glob(g), None)
         if found is None:

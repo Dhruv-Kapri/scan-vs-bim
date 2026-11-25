@@ -8,10 +8,11 @@ All of it is the notebooks' code, moved unchanged (the same seeds, casts and chu
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Final, NamedTuple
+from typing import Final, NamedTuple
 
 import numpy as np
 import open3d as o3d
+import open3d.pipelines.registration as reg
 
 from scan_vs_bim.compare import Mesh, mesh_of
 from scan_vs_bim.load import ElementMesh, merge_meshes
@@ -21,15 +22,13 @@ __all__ = ["CHUNK", "PatchCloud", "area_in_box", "element_boxes", "icp_target", 
 
 CHUNK: Final[int] = 4_000_000  # scan points transformed at a time when streaming the cache (the peak-memory knob of the CRAS notebooks)
 
-reg = o3d.pipelines.registration
-
 
 def transform_delta(T_a: np.ndarray, T_b: np.ndarray, centroid: np.ndarray) -> tuple[float, float]:
     """How far apart two scan -> model transforms are: the rotation (deg) between them, and the displacement (m) of the room `centroid`.
     The residual T_a @ inv(T_b) is the identity when they agree (00's errors())."""
     residual = T_a @ np.linalg.inv(T_b)
     angle = np.degrees(np.arccos(np.clip((np.trace(residual[:3, :3]) - 1) / 2, -1, 1)))
-    return angle, np.linalg.norm(residual[:3, :3] @ centroid + residual[:3, 3] - centroid)
+    return float(angle), float(np.linalg.norm(residual[:3, :3] @ centroid + residual[:3, 3] - centroid))
 
 
 def icp_target(
@@ -46,7 +45,7 @@ def icp_target(
     return target, ((q >= crop_lo) & (q <= crop_hi)).all(1)
 
 
-def refine_from_recorded(points: np.ndarray, target: o3d.geometry.PointCloud, icp_dist: float, icp_fine_dist: float, tukey_k: float) -> tuple[Any, Any]:
+def refine_from_recorded(points: np.ndarray, target: o3d.geometry.PointCloud, icp_dist: float, icp_fine_dist: float, tukey_k: float) -> tuple[reg.RegistrationResult, reg.RegistrationResult]:
     """ICP from the recorded transform: the scan `points` are already in the model frame under it, so ICP starts at the identity and its result is the correction in the model frame
     (T_refined = correction @ T_REC). Plain point-to-plane ICP within `icp_dist`, then a Tukey-robust pass within `icp_fine_dist` (residuals beyond `tukey_k` get no weight). Returns both results."""
     src = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(points.astype(np.float64)))

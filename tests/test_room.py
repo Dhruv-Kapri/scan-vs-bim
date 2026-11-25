@@ -100,7 +100,8 @@ def test_refine_from_recorded_finds_a_small_known_offset_of_a_room() -> None:
     rng = np.random.default_rng(0)
     sides = [(0, 0.0), (0, 4.0), (1, 0.0), (1, 3.0), (2, 0.0), (2, 2.5)]  # the six faces of a 4 x 3 x 2.5 m room: (axis, position)
     extent = np.array([4.0, 3.0, 2.5])
-    pts, normals = [], []
+    pts: list[np.ndarray] = []
+    normals: list[np.ndarray] = []
     for axis, pos in sides:
         p = rng.uniform(0, extent, (4000, 3))
         p[:, axis] = pos
