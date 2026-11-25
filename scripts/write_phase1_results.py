@@ -4,8 +4,9 @@ Also reads outputs/pc2model_scales.csv (the samples expected) and every model OB
 import argparse
 from pathlib import Path
 
-from scan_vs_bim.benchmark import gate_agreement, non_triangle_share, results_markdown
+from scan_vs_bim.obj_mesh import non_triangle_share
 from scan_vs_bim.pc2model import download_order
+from scan_vs_bim.phase1_report import gate_agreement, results_markdown
 from scan_vs_bim.tables import read_rows
 
 REPO = Path(__file__).resolve().parent.parent

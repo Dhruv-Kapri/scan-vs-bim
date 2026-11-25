@@ -51,7 +51,7 @@ ignore_missing_imports = true
 module = ["remotezip"]
 ignore_missing_imports = true
 
-# shapely ships no stubs; imported by pc2model.py and scripts/check_model_areas.py.
+# shapely ships no stubs; imported by obj_mesh.py and scripts/check_model_areas.py.
 [[tool.mypy.overrides]]
 module = ["shapely", "shapely.*"]
 ignore_missing_imports = true

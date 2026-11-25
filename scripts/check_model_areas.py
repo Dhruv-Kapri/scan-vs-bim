@@ -1,6 +1,6 @@
 """Check #53's loader on every PC2Model model with non-triangle faces, face by face, so a lost face of any size shows.
 
-Each n-gon's triangles (`pc2model._triangulate`, what `load_model_mesh` writes) are measured against the face's own outline, computed
+Each n-gon's triangles (`obj_mesh._triangulate`, what `load_model_mesh` writes) are measured against the face's own outline, computed
 independently in the face's Newell plane: a simple outline by its Newell polygon area; one that is not simple (it touches itself at a
 repeated corner, or its edges cross) as the area it covers: its edges cut the plane into cells (shapely) and each cell with a nonzero
 winding number counts, so a hole inside it (winding 0) is left out and a flap wound backwards (winding -1) counts, where the Newell area
@@ -22,8 +22,7 @@ import numpy as np
 import open3d as o3d
 from shapely import LinearRing, MultiLineString, get_parts, polygonize, unary_union
 
-from scan_vs_bim.benchmark import non_triangle_share
-from scan_vs_bim.pc2model import _triangulate, load_model_mesh
+from scan_vs_bim.obj_mesh import _triangulate, load_model_mesh, non_triangle_share
 
 REPO = Path(__file__).resolve().parent.parent
 REL_TOL: float = 1e-6        # relative tolerance of every check

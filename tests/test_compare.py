@@ -404,3 +404,8 @@ def test_local_plane_needs_the_minimum_number_of_counting_cells() -> None:
     s = np.zeros(len(xy))
     assert local_plane(xy, s) is not None
     assert local_plane(xy, s, replace(RULES, local_plane_min_cells=10)) is None
+
+
+def test_local_plane_columns_are_mm_per_m_and_degrees() -> None:
+    plane = compare.LocalPlane(gx=0.002, gy=-0.004, x0=0.0, y0=0.0, n_cells=5)
+    assert plane.columns() == {"plane_gx_mm_per_m": 2.0, "plane_gy_mm_per_m": -4.0, "plane_tilt_deg": plane.tilt_deg}
