@@ -73,7 +73,7 @@ def score_sample(folder: str, data_dir: Path, seen: str, commit: str) -> dict[st
     try:
         s = load_sample(d, MODEL_POINTS, MAX_SCAN_POINTS, SEED, CHUNK_POINTS)
     except FileNotFoundError as e:
-        raise FileNotFoundError(f"{d} lacks model/transform/scan files: run scripts/fetch_all_samples.py") from e
+        raise FileNotFoundError(f"{e}: run scripts/fetch_all_samples.py") from e
     except EmptyModelError as e:   # an OBJ with no faces at all: nothing to register
         gt_scale = scale_of(e.T_gt)
         elapsed = time.perf_counter() - t0

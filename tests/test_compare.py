@@ -9,7 +9,7 @@ import open3d as o3d
 import pytest
 
 import scan_vs_bim.compare as compare
-from scan_vs_bim.compare import LOCAL_PLANE_MIN_EXTENT, RULES, VerdictRow, VerdictRules, aligned_faces, assign_patches, judge, judge_elements, local_plane, mesh_of, over_own_face, own_face_triangles, plane_vote, recut, verdict_counts
+from scan_vs_bim.compare import LOCAL_PLANE_MIN_EXTENT, RECUT_FIELDS, RULES, VerdictRow, VerdictRules, aligned_faces, assign_patches, judge, judge_elements, local_plane, mesh_of, over_own_face, own_face_triangles, plane_vote, recut, verdict_counts
 from scan_vs_bim.load import ElementMesh
 
 
@@ -328,6 +328,37 @@ def test_recut_gives_what_assign_patches_gives_from_the_same_measurement(room: t
     expected = assign_patches(scope, [], points, *room, recut_to)
     assert not np.array_equal(measured.past_edge, expected.past_edge)  # the cut matters here, or this would pass on a recut that does nothing
     assert_same(recut(measured, scope, points, *room, recut_to), expected)
+
+
+def changed_value(value: Any) -> Any:
+    """A clearly different value of the same kind: bool negated, number doubled, None given a number (and a number None), a tuple emptied (or given one entry)."""
+    if isinstance(value, bool):
+        return not value
+    if value is None:
+        return LOCAL_PLANE_MIN_EXTENT
+    if isinstance(value, (int, float)):
+        return value * 2
+    if isinstance(value, tuple):
+        return () if value else (1.0,)
+    raise AssertionError(f"no change defined for {value!r}")
+
+
+def test_recut_fields_cover_both_rule_groups() -> None:
+    assert any(f.startswith("own_face") for f in RECUT_FIELDS) and any(f.startswith("local_plane") for f in RECUT_FIELDS)
+
+
+# `recut` reuses a `Measurement`, so `measure` (the expensive step) must not read any of RECUT_FIELDS. A wall and a large slab (past local_plane_min_extent) are in scope, so both rule groups have something to act on.
+@pytest.mark.parametrize("field", RECUT_FIELDS)
+def test_measure_ignores_every_recut_field(field: str) -> None:
+    rng = np.random.default_rng(0)
+    wall, slab = element(0, 0.1, 0, 5, 0, 3), element(-1, 9, -1, 6, -0.15, 0, "IfcSlab", "slab")
+    xy = np.column_stack([rng.uniform(-1, 9, 4000), rng.uniform(-1, 6, 4000), rng.normal(0, 0.003, 4000)]).astype(np.float32)
+    points = np.concatenate([scan_plane(rng, 0.1, 4.3, 4.9), scan_plane(rng, 0.1, 5.02, 5.11), xy])
+    changed = replace(RULES, **{field: changed_value(getattr(RULES, field))})
+    assert changed != RULES
+    same = assign_patches([wall, slab], [], points, *SLAB_ROOM, RULES).measurement
+    other = assign_patches([wall, slab], [], points, *SLAB_ROOM, changed).measurement
+    assert_same(other, same, f"measurement under {field}")
 
 
 @pytest.mark.parametrize("changed", [pytest.param(replace(RULES, tol=0.02), id="tol"), pytest.param(replace(RULES, band=0.2), id="band")])
