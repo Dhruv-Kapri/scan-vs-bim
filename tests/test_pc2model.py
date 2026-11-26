@@ -7,9 +7,11 @@ from pathlib import Path
 import numpy as np
 import open3d as o3d
 import pytest
+from test_load import write_e57
 
 from scan_vs_bim.fetch import data_start
-from scan_vs_bim.pc2model import Sample, download_order, fetch_samples, group_samples, load_model_mesh, parse_transform, pick_gate_samples, pick_smallest_scaled, read_member, scale_of
+from scan_vs_bim.load import load_e57, seed_all
+from scan_vs_bim.pc2model import EmptyModelError, Sample, load_sample, download_order, fetch_samples, group_samples, load_model_mesh, parse_transform, pick_gate_samples, pick_smallest_scaled, read_member, scale_of
 
 
 def matrix_text(scale: float = 1.0, rotate: bool = False) -> str:
@@ -399,3 +401,37 @@ def test_load_model_mesh_appends_crossing_vertices_after_a_last_line_without_new
     obj = tmp_path / "model_e.obj"
     obj.write_text("v 0 0 0\nv 2 2 0\nv 2 0 0\nv 0 3 0\nv 5 0 0\nv 6 0 0\nv 5 1 0\nf 1 2 3 4\nf 5 6 7")
     assert load_model_mesh(obj).get_surface_area() == pytest.approx(2.6 + 0.5, rel=1e-6)
+
+
+CUBE_OBJ: str = "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nv 0 0 1\nv 1 0 1\nv 1 1 1\nv 0 1 1\n" + "".join(
+    f"f {a} {b} {c}\n" for a, b, c in [(1, 3, 2), (1, 4, 3), (5, 6, 7), (5, 7, 8), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 4, 8), (3, 8, 7), (4, 1, 5), (4, 5, 8)])
+
+
+def make_sample_dir(tmp_path: Path, obj: str) -> Path:
+    d = tmp_path / "cube-x"
+    d.mkdir()
+    (d / "model_cube-x.obj").write_text(obj)
+    (d / "transformation_matrix_pc2model_cube-x.txt").write_text(matrix_text(2.0))
+    write_e57(d / "pointcloud_cube-x_transformed.e57", [(300, (0, 0, 0))])
+    return d
+
+
+def test_load_sample_is_the_seeded_sequence_the_gate_notebooks_ran(tmp_path: Path) -> None:
+    """#33: seed, sample the model surface, then load the scan with the same seed: the order 05a/05c/benchmark used, so their numbers do not move."""
+    d = make_sample_dir(tmp_path, CUBE_OBJ)
+    s = load_sample(d, model_points=500, max_scan_points=100, seed=3)
+    mesh = load_model_mesh(d / "model_cube-x.obj")
+    seed_all(3)
+    model = mesh.sample_points_uniformly(500)
+    assert np.array_equal(np.asarray(s.model.points), np.asarray(model.points))
+    assert np.array_equal(np.asarray(s.scan.points), np.asarray(load_e57(d / "pointcloud_cube-x_transformed.e57", 100, 3).points))
+    assert scale_of(s.T_gt) == pytest.approx(2.0) and s.diag == pytest.approx(3 ** 0.5) and len(s.mesh.triangles) == 12
+
+
+def test_load_sample_of_a_model_without_triangles_raises_before_touching_the_scan(tmp_path: Path) -> None:
+    """The benchmark scores such a model as a failed row, so the error carries the ground truth; the scan is never read (the file here is empty)."""
+    d = make_sample_dir(tmp_path, "v 0 0 0\nv 1 0 0\nv 1 1 0\n")
+    (d / "pointcloud_cube-x_transformed.e57").write_bytes(b"")
+    with pytest.raises(EmptyModelError) as e:
+        load_sample(d, model_points=500, max_scan_points=100, seed=0)
+    assert scale_of(e.value.T_gt) == pytest.approx(2.0)

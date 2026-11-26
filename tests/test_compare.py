@@ -9,7 +9,7 @@ import open3d as o3d
 import pytest
 
 import scan_vs_bim.compare as compare
-from scan_vs_bim.compare import LOCAL_PLANE_MIN_EXTENT, RULES, VerdictRow, VerdictRules, aligned_faces, assign_patches, judge, judge_elements, local_plane, mesh_of, over_own_face, own_face_triangles, plane_vote, recut
+from scan_vs_bim.compare import LOCAL_PLANE_MIN_EXTENT, RULES, VerdictRow, VerdictRules, aligned_faces, assign_patches, judge, judge_elements, local_plane, mesh_of, over_own_face, own_face_triangles, plane_vote, recut, verdict_counts
 from scan_vs_bim.load import ElementMesh
 
 
@@ -404,3 +404,9 @@ def test_local_plane_needs_the_minimum_number_of_counting_cells() -> None:
     s = np.zeros(len(xy))
     assert local_plane(xy, s) is not None
     assert local_plane(xy, s, replace(RULES, local_plane_min_cells=10)) is None
+
+
+def test_verdict_counts_tallies_the_three_verdicts_and_keeps_the_empty_ones() -> None:
+    rows = [{"verdict": v} for v in ("OK", "OK", "shifted", "not confirmed", "OK")]
+    assert verdict_counts(rows) == {"OK": 3, "shifted": 1, "not confirmed": 1}
+    assert verdict_counts([{"verdict": "OK"}]) == {"OK": 1, "shifted": 0, "not confirmed": 0}

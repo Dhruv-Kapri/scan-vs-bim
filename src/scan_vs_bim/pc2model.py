@@ -14,6 +14,7 @@ import open3d as o3d
 import shapely
 
 from scan_vs_bim.fetch import ReadRange, data_start, extract_zip_member
+from scan_vs_bim.load import load_e57, seed_all
 
 log = logging.getLogger(__name__)
 
@@ -353,3 +354,45 @@ def load_model_mesh(obj: Path) -> o3d.geometry.TriangleMesh:
         return o3d.io.read_triangle_mesh(Path(tmp.name))
     finally:
         Path(tmp.name).unlink()
+
+
+class EmptyModelError(ValueError):
+    """A sample's model OBJ has no triangles at all. Carries the ground truth, which the benchmark still reports (#53)."""
+
+    def __init__(self, obj: Path, T_gt: np.ndarray) -> None:
+        super().__init__(f"{obj} has no triangles")
+        self.T_gt: np.ndarray = T_gt
+
+
+@dataclass(frozen=True)
+class LoadedSample:
+    """One PC2Model sample as 05a, 05c, 02 and the benchmark load it (#33)."""
+
+    mesh: o3d.geometry.TriangleMesh   # the model, non-triangle faces cut (`load_model_mesh`)
+    T_gt: np.ndarray   # ground truth: maps the scan onto the model
+    model: o3d.geometry.PointCloud   # `model_points` uniform samples of the mesh surface
+    scan: o3d.geometry.PointCloud   # at most `max_scan_points`, seeded subsample
+    diag: float   # diagonal of the mesh's bounding box
+
+
+def load_sample(d: Path, model_points: int, max_scan_points: int, seed: int, chunk_points: int = 1_000_000) -> LoadedSample:
+    """Load the sample in folder `d` (model_*.obj, transformation_matrix_*.txt, pointcloud_*_transformed.e57).
+
+    The call order is part of the numbers: parse the model, seed numpy and Open3D with `seed`, sample the surface, then load the scan with the same seed.
+    Raises FileNotFoundError naming the missing pattern, and EmptyModelError (before any seeding or sampling, the scan unread) for a model without triangles.
+    """
+    files: list[Path] = []
+    for g in ("model_*.obj", "transformation_matrix_*.txt", "pointcloud_*_transformed.e57"):
+        found = next(d.glob(g), None)
+        if found is None:
+            raise FileNotFoundError(f"{d}/{g} is missing")
+        files.append(found)
+    obj, txt, e57 = files
+    mesh = load_model_mesh(obj)
+    T_gt = parse_transform(txt.read_text())
+    if not mesh.has_triangles():
+        raise EmptyModelError(obj, T_gt)
+    seed_all(seed)
+    model = mesh.sample_points_uniformly(model_points)
+    scan = load_e57(e57, max_scan_points, seed, chunk_points)
+    return LoadedSample(mesh, T_gt, model, scan, float(np.linalg.norm(mesh.get_axis_aligned_bounding_box().get_extent())))
