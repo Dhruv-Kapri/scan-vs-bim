@@ -1,5 +1,7 @@
 # Phase 0.5: the validation gate failed (negative result)
 
+*Room B re-reported after Phase 1 (#47): [phase-1-results.md, "Room B after Phase 1"](phase-1-results.md#room-b-after-phase-1).*
+
 The [roadmap](roadmap.md) fixed a gate before notebook 05 ran, allowed one week of tuning if it failed, and
 said to write the result up if it still failed. It did. This page records the gate, what the tuning changed,
 why the rest still fails, and what that means for later phases. Issue:

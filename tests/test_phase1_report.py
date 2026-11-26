@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from scan_vs_bim.phase1_report import gate_agreement, results_markdown
+from scan_vs_bim.phase1_report import ROOM_B_HEADING, gate_agreement, results_markdown, with_kept_section
 
 
 def _row(folder: str, category: str, seen: str = "unseen", scaled: bool = False, success: bool = True, seed0: bool = True,
@@ -67,3 +67,11 @@ def test_results_show_before_and_now_for_models_with_non_triangle_faces() -> Non
     ngons = md.split("## Models with non-triangle faces")[1].split("##")[0]
     assert "| h_2 | 80.0% | False | True | 9 | 0.2 | 1.5 | 0.02 |" in ngons
     assert "| v_9 | 100.0% | not scored | not scored | - | - | - | - |" in ngons
+
+
+def test_regenerating_the_results_keeps_the_hand_written_room_b_section() -> None:
+    # #47: the room-B section is written by hand below the generated tables; a re-run of write_phase1_results.py must not drop it, nor keep the old tables
+    old = "# old tables\n\nstale\n\n" + ROOM_B_HEADING + "\n\nhand-written\n"
+    assert with_kept_section("# new tables\n", old) == "# new tables\n\n" + ROOM_B_HEADING + "\n\nhand-written\n"
+    assert with_kept_section("# new tables\n", "# old tables, no section\n") == "# new tables\n"
+    assert with_kept_section("# new tables\n", None) == "# new tables\n"

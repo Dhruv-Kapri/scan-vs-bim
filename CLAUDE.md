@@ -68,7 +68,8 @@ uv run python scripts/check_model_areas.py # #53's check, face by face, on each 
                                           # cover less than its outline (self-touching faces by covered area, shapely), the loaded mesh
                                           # holds every face's triangles, flat faces' excess within 1e-6; ~15 min
 uv run python scripts/write_phase1_results.py # docs/phase-1-results.md from outputs/phase1/registration.csv and 05a's
-                                          # outputs/05a/registration.csv (success tables, error medians/p90, gate agreement)
+                                          # outputs/05a/registration.csv (success tables, error medians/p90, gate agreement); keeps the
+                                          # doc's hand-written "Room B after Phase 1" section (#47) at its end
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=7200 notebooks/05c_registration_tuning.ipynb
                                           # notebook 05c (tunes 05a's registration refinement on held-out PC2Model samples:
                                           # fur_010, house_6, indoor_modelling_5-GM, real-indoor_modelling_5-GM and a
@@ -93,7 +94,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # of it tessellating the 135 element-class elements; measured 2026-11-03), up to
                                           # ~19 min on a busy machine (1156 s, 2026-11-04), peak RSS 0.9 GB since #31 (the verdict cloud is cut after ICP,
                                           # a second pass over the cache); needs the CRAS cache + IFC and notebooks/01_cras_slice.json;
-                                          # writes outputs/03a/, incl. crop_check.csv)
+                                          # writes outputs/03a/, incl. crop_check.csv); after Phase 1 (#47): 4186 s on a heavily loaded machine (2026-11-25), peak RSS 0.93 GB
 uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=1800 notebooks/03b_perturbed.ipynb
                                           # notebook 03b (03a's verdicts, on per-element patches and the own-face patch, for perturbed copies of the
                                           # CRAS model, 7 runs: one wall moved 1 cm both ways, 3 and 10 cm, one IFC copy
@@ -101,7 +102,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # scan masks; ~11 min measured (679 s, tessellating the 135 elements included,
                                           # 2026-11-03; 2176 s on a busy machine after #31, 2026-11-04), peak RSS 1.54 GB; needs the same inputs as 03a; writes
                                           # outputs/03b/: perturbed IFCs, manifest.json, scores_*.csv,
-                                          # occlusion_control.csv, figures)
+                                          # occlusion_control.csv, figures); after Phase 1 (#47): 3383 s on a loaded machine (2026-11-25), peak RSS 1.56 GB
 uv run python scripts/make_tuning_slice.py
                                           # writes notebooks/03c_tuning_slice.json (south part of the west hall) and
                                           # 03c_tuning_slice_room_a.json (room A): the held-out CRAS rooms for tuning 03a, in
@@ -128,7 +129,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor
                                           # notebook 05b (20 random CRAS verdicts as close-ups + the overall Phase 0.5
                                           # gate; ~4-6 min measured (340 s, 2026-11-08, on a loaded machine; 262 s on a quieter one; the close-ups rebuild 03a's element patches and categories with compare.assign_patches over all 135 elements, #42; 1482 s on a heavily loaded machine, 2026-11-12), peak RSS 1.0-2.0 GB (0.99 GB in the 1482 s run); needs outputs/03a, outputs/03b (run 03a
                                           # then 03b first; re-run both if either changes) and outputs/05a; writes
-                                          # outputs/05b/ and, only if absent, notebooks/05b_hand_check.csv, whose
+                                          # outputs/05b/ (after Phase 1, #47: 408 s on a loaded machine, peak RSS 1.29 GB) and, only if absent, notebooks/05b_hand_check.csv, whose
                                           # `judgement` column the author fills; re-run after filling)
 uv run python scripts/fetch_oekobaudat.py # the ÖKOBAUDAT process + flow datasets named in
                                           # notebooks/04b_material_mapping.csv, unmodified, into data/oekobaudat/
@@ -151,13 +152,14 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   gives one `VerdictRow` per scope element; `VerdictRules`/`RULES` hold the constants (LOA30 `tol` 15 mm). The two-step
   form `assign_patches` (runs the expensive `measure` once) + `element_rows(scope, view, use)` per use mask is what 03a
   calls, as 03b and 03c do (#41), and 05b too (its close-ups' patches and categories, #42); 03c compares own-face variants on one
-  measurement with `recut`. `VerdictRules.side_shown` (#45, off by default until #47 re-runs room B): a wall point takes a side
+  measurement with `recut`. `VerdictRules.side_shown` (#45, on by default since #47 re-ran room B): a wall point takes a side
   from its own free space only if the scan shows the space beyond the wall's face on that side (`shown_along`); it acts in
   `measure`, so it cannot be `recut` (03c section 8c measures once more with it on).
-  Local plane (#46; off in `RULES` until room B is re-run, #47): with `local_plane_min_extent=LOCAL_PLANE_MIN_EXTENT` (6 m) an
+  Local plane (#46; on in `RULES` since #47): with `local_plane_min_extent=LOCAL_PLANE_MIN_EXTENT` (6 m) an
   `IfcSlab`/`IfcCovering` that large is judged with the tilt of `local_plane` (a plane through its own 1 m cell medians)
   removed and its level kept; `VerdictRow` reports `plane_gx_mm_per_m`, `plane_gy_mm_per_m`, `plane_tilt_deg` ("" without a
-  plane). Accepted on 03c section 8d (both held-out rooms), which judges with it on (`PLANE`).
+  plane). Accepted on 03c section 8d (both held-out rooms), which judges with it on (`PLANE`). 03c pins its pre-#47 comparison states
+  explicitly (`SIDE_SHOWN` off on the held-out rooms, `NO_PLANE`), so its outputs do not move with the defaults.
 - `src/scan_vs_bim/slice_parity.py`: `slice_mismatches` (a re-run of 01's slice against the committed one, with `SLICE_TOLERANCES` per
   path, all else exact) and `max_abs_drift`: the parity check at the end of notebook 01 (#50).
 - `src/scan_vs_bim/ramp.py`: `plane_gradient(x, y, values, groups)` (least-squares plane, one intercept per group and one shared
@@ -185,7 +187,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   over the defaults of a sample never registered (`_UNREGISTERED`; a model without triangles, `EmptyModelError`, is such a row); `run_benchmark` runs each sample in a spawned child and appends its row (resumable).
   `src/scan_vs_bim/phase1_report.py`: the summary of the CSV. `results_markdown` (its prose in `phase1_results.md.tmpl`, a `string.Template`) (optionally with the pre-#53 rows, `write_phase1_results.py --before`, default
   outputs/phase1/registration_before_53.csv: a copy of the CSV taken before #53's re-run of the 19 models with non-triangle faces) +
-  `gate_agreement` build docs/phase-1-results.md.
+  `gate_agreement` build docs/phase-1-results.md; `with_kept_section(generated, old)` (with `ROOM_B_HEADING`, #47) appends the old doc's hand-written "Room B after Phase 1" section to the regenerated tables.
 - `src/scan_vs_bim/obj_mesh.py` `load_model_mesh(obj)` (#53, split from `pc2model.py` by #54; the only module importing shapely and mapbox-earcut;
   also `non_triangle_share(obj)`, the share of an OBJ's faces that are not triangles): Open3D's OBJ reader drops quads/n-gons silently (19 of 137 models; veh_008 is all quads), so
   face lines with more than 3 vertices are cut into triangles (via a temp OBJ in a temp directory, `mtllib` made absolute, so a read-only `data/` works): a convex face is fanned from its first vertex (unless a fan triangle would flip: a notch below the convexity tolerance),

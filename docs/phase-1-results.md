@@ -84,3 +84,40 @@ These faces are triangulated at load (`obj_mesh.load_model_mesh`, #53: convex on
 | house_19-sketchfab | 97.3% | False | False | 175.6 | 180 | 1280 | 0.5698 |
 | veh_012-sketchfab | 98.0% | False | True | 1.442 | 0.01103 | 0.04459 | 0.0002725 |
 | veh_008-sketchfab | 100.0% | False | False | - | 0.05825 | - | 0.001736 |
+
+## Room B after Phase 1
+
+Issue #47. Room B was re-run once with every Phase 1 verdict change: 03a, then 03b, then 05b. Two rules are now on by default in `scan_vs_bim.compare.RULES`: #45's wall side test fix (`side_shown`) and #46's local plane for slabs and coverings of 6 m or more. Both were accepted on 03c's two held-out rooms. False flags are counted against the baseline verdict (#44, ADR 0002). #40 to #43 moved code without changing a rule.
+
+Nothing was tuned on room B. These numbers are reported "after Phase 1": they are not a new pass or fail of the Phase 0.5 gate. The Phase 0.5 numbers are those of `docs/phase-0.5-negative-result.md`. The middle column re-scores the Phase 0.5 runs with #44's count, to separate the count rule from the verdict changes.
+
+The three gate numbers, for the gate's run (no oracle labels):
+
+| gate number | threshold | Phase 0.5 | Phase 0.5 runs, #44's count | after Phase 1 | what changed it |
+|---|---|---|---|---|---|
+| perturbed model, changes beyond tolerance with the right verdict | all | 3 of 5, FAIL | 3 of 5 | **3 of 5, FAIL** | nothing: the three deletions are right; the 3 and 10 cm moves still read not confirmed (medians -33.6 and -103.0 mm, not one cluster) |
+| perturbed model, untouched elements flagged shifted, worst run | ≤ 10% | 3 of 34 = 8.8%, ok | 0 of 31 = 0% | **0 of 30 = 0%, ok** | #44: the 3 were shifted on the real model already, so they leave the count. #45 makes `979093` shifted on the real model, which takes a fourth out (31 to 30 counted). Pooled: 21 of 238, then 0 of 217, then 0 of 210 |
+| hand check | ≥ 80% | 14 of 20 = 70%, FAIL | (not affected) | **14 of 20 = 70%, FAIL** | nothing: no drawn element's verdict changed in Phase 1 |
+
+Context (not part of the gate):
+- **With labels:**
+  - changes right: 5 of 5, then 5 of 5;
+  - worst run: 4 of 34 = 11.8% (would fail), then 0 of 30 (#44), so that run's criterion now reads PASS.
+- **Registration:** 7 of 9 in the write-up, and 6 of 9 since #38 (ADR 0001, no scaled flag), not #47.
+- **Overall:** still FAIL.
+
+**Verdicts on room B that changed** (03a, 35 elements):
+- **Without labels:** 6 OK / 3 shifted / 26 not confirmed became 6 / 4 / 25. The partition `Drywall:979093` went from not confirmed to **shifted** (#45). With the fix, 98% of its points are ambiguous (was 83%), so they are measured against the nearest room-facing face: median +49 mm, 87% within 15 mm of it. It is not in the hand-check draw, so nobody has judged whether the wall really is 5 cm off.
+- **With labels:** 8 / 4 / 23 became 9 / 4 / 22. The floor slab `911079` went from not confirmed to **OK** (#46). With its 0.087° tilt removed, 97.6% of its points lie within 15 mm (was 84%).
+
+**03b's perturbations follow the new baseline.** 03b's deletion rules were fixed before any run, and they now pick two other elements:
+- the baseline-OK element is the floor slab `911079` (run `delete_slab_ok`; was the wall `919433`);
+- the clutter-hidden wall is `919433` (was `979093`).
+
+The moves stay on `Drywall:973242`. Both new deletions read not confirmed, as expected.
+
+**Hand-check rows whose verdict changed since the author judged them:** one.
+- Element 3, `Compound Ceiling:Forro de gesso:1429616`, was judged on *not confirmed*. It has read **OK** since #20's own-face patch (a Phase 0.5 change, before Phase 1), and the author's judgement is OK, so it agrees now.
+- Phase 1's rules changed no drawn verdict. The 14 of 20 is scored against today's verdicts, the same six disagreements as before (elements 2, 4, 5, 6, 8, 15).
+
+Outputs: `outputs/03a`, `outputs/03b`, `outputs/05b/gate.json` (gitignored). The Answers of 03a, 03b and 05b open with an "After Phase 1" paragraph (03b's and 05b's numbers are asserted by their last code cell); the Phase 0.5 text below it is kept as written.
