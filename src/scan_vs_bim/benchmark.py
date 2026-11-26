@@ -1,21 +1,20 @@
 """The Phase 1 registration benchmark (issue #39): 05a's registration (`register.register_sample`, ADR 0001) on every PC2Model sample,
-one CSV row per sample, resumable, each sample in its own process; and the summary of the CSV (docs/phase-1-results.md)."""
+one CSV row per sample, resumable, each sample in its own process. The summary of the CSV (docs/phase-1-results.md) is `phase1_report`."""
 
 import concurrent.futures
 import csv
 import logging
 import multiprocessing
 import time
-from collections import Counter
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Collection, Sequence
 from pathlib import Path
 
 import numpy as np
 import open3d as o3d
 
 from scan_vs_bim.memory import peak_rss_gb
-from scan_vs_bim.pc2model import BUILDING_CATEGORIES, EmptyModelError, load_sample, scale_of
-from scan_vs_bim.register import CENTROID_MAX_M, ROT_MAX_DEG, SCALE_MAX_REL, register_sample, score
+from scan_vs_bim.pc2model import EmptyModelError, load_sample, scale_of
+from scan_vs_bim.register import register_sample, score
 
 log = logging.getLogger(__name__)
 
@@ -41,10 +40,25 @@ COLUMNS: list[str] = [
     "load_s", "coarse_s", "refine_s", "run_s", "peak_rss_gb", "commit",
 ]
 
-# Gate agreement: judgement calls for "agree" (registration is seeded, so near-exact is expected).
-AGREE_ROT_DEG: float = 0.01
-AGREE_CENTROID_M: float = 0.001
-AGREE_SCALE_PCT: float = 0.01
+_NAN: float = float("nan")
+# What a sample that was never registered has: NaN errors, no seed, no scan points, 0 s of coarse and refine; `_row` takes the rest from its caller.
+_UNREGISTERED: dict[str, object] = dict(
+    est_scale=_NAN, rot_deg=_NAN, centroid_m=_NAN, scale_err_pct=_NAN, success=False, best_seed=-1, seed0_rot_deg=_NAN, seed0_centroid_m=_NAN,
+    seed0_scale_err_pct=_NAN, seed0_success=False, n_scan_points=0, voxel_m=_NAN, coarse_s=0.0, refine_s=0.0)
+
+
+def _row(**values: object) -> dict[str, object]:
+    """A row keyed by COLUMNS, in order: `values` over `_UNREGISTERED`; a column left unset by both, or a key that is not a column, raises."""
+    row = {**_UNREGISTERED, **values}
+    if row.keys() != set(COLUMNS):
+        raise ValueError(f"row keys differ from COLUMNS: {sorted(row.keys() ^ set(COLUMNS))}")
+    return {c: row[c] for c in COLUMNS}
+
+
+def _who(folder: str, seen: str, gt_scale: float, commit: str) -> dict[str, object]:
+    """The columns that identify a sample, whatever became of it."""
+    return dict(sample=Path(folder).name, folder=folder, category=folder.split("/")[1], seen=seen, scaled=abs(gt_scale - 1) > SCALED_TOL,
+                gt_scale=gt_scale, commit=commit)
 
 
 def seen_mark(folder: str, gate: Collection[str], tuning: Collection[str]) -> str:
@@ -62,27 +76,21 @@ def score_sample(folder: str, data_dir: Path, seen: str, commit: str) -> dict[st
         raise FileNotFoundError(f"{d} lacks model/transform/scan files: run scripts/fetch_all_samples.py") from e
     except EmptyModelError as e:   # an OBJ with no faces at all: nothing to register
         gt_scale = scale_of(e.T_gt)
-        nan = float("nan")
-        return dict(
-            sample=Path(folder).name, folder=folder, category=folder.split("/")[1], seen=seen, scaled=abs(gt_scale - 1) > SCALED_TOL,
-            gt_scale=gt_scale, est_scale=nan, rot_deg=nan, centroid_m=nan, scale_err_pct=nan, success=False, best_seed=-1,
-            seed0_rot_deg=nan, seed0_centroid_m=nan, seed0_scale_err_pct=nan, seed0_success=False, n_scan_points=0, voxel_m=nan,
-            load_s=time.perf_counter() - t0, coarse_s=0.0, refine_s=0.0, run_s=time.perf_counter() - t0, peak_rss_gb=peak_rss_gb(),
-            commit=commit)
+        elapsed = time.perf_counter() - t0
+        return _row(**_who(folder, seen, gt_scale, commit), load_s=elapsed, run_s=elapsed, peak_rss_gb=peak_rss_gb())
     T_gt, scan, diag, gt_scale = s.T_gt, s.scan, s.diag, scale_of(s.T_gt)
+    who = _who(folder, seen, gt_scale, commit)
     load_s = time.perf_counter() - t0
 
     pts = np.asarray(scan.points)
     voxel = VOXEL_FRACTION * diag
     res = register_sample(scan, s.model, voxel)
     sc, sc0 = score(res.T, T_gt, pts), score(res.T_seed0, T_gt, pts)
-    return dict(
-        sample=Path(folder).name, folder=folder, category=folder.split("/")[1], seen=seen, scaled=abs(gt_scale - 1) > SCALED_TOL,
-        gt_scale=gt_scale, est_scale=scale_of(res.T), rot_deg=sc.rot_deg, centroid_m=sc.centroid_m, scale_err_pct=100 * sc.scale_err,
-        success=sc.success, best_seed=res.seed, seed0_rot_deg=sc0.rot_deg, seed0_centroid_m=sc0.centroid_m,
-        seed0_scale_err_pct=100 * sc0.scale_err, seed0_success=sc0.success, n_scan_points=len(pts), voxel_m=voxel,
-        load_s=load_s, coarse_s=res.coarse_s, refine_s=res.refine_s, run_s=time.perf_counter() - t0,
-        peak_rss_gb=peak_rss_gb(), commit=commit)
+    return _row(
+        **who, est_scale=scale_of(res.T), rot_deg=sc.rot_deg, centroid_m=sc.centroid_m, scale_err_pct=100 * sc.scale_err, success=sc.success,
+        best_seed=res.seed, seed0_rot_deg=sc0.rot_deg, seed0_centroid_m=sc0.centroid_m, seed0_scale_err_pct=100 * sc0.scale_err,
+        seed0_success=sc0.success, n_scan_points=len(pts), voxel_m=voxel, load_s=load_s, coarse_s=res.coarse_s, refine_s=res.refine_s,
+        run_s=time.perf_counter() - t0, peak_rss_gb=peak_rss_gb())
 
 
 def _done_folders(out_csv: Path) -> set[str]:
@@ -118,147 +126,3 @@ def run_benchmark(
             f.flush()
         log.info("done %d/%d: %s success=%s run_s=%.0f peak_rss_gb=%.2f", n, len(todo), folder, row["success"], row["run_s"], row["peak_rss_gb"])
     return failed
-
-
-# ---- the summary of the CSV ----------------------------------------------------------------------------------------------------
-
-_LINES: list[tuple[str, tuple[str, ...]]] = [
-    ("house", ("house",)),
-    ("simulated indoor (indoor_modelling)", ("indoor_modelling",)),
-    ("real indoor (ISPRS_indoor_modeling_benchmark)", ("ISPRS_indoor_modeling_benchmark",)),
-    ("furniture", ("furniture",)),
-    ("home_decor", ("home_decor",)),
-    ("mechanical", ("mechanical",)),
-    ("vehicle", ("vehicle",)),
-]
-
-
-def _is(v: str) -> bool:
-    return v == "True"
-
-
-def _rate(rows: Sequence[Mapping[str, str]], key: str = "success") -> str:
-    return f"{sum(_is(r[key]) for r in rows)}/{len(rows)}"
-
-
-def _stat(rows: Sequence[Mapping[str, str]], key: str) -> str:
-    v = [float(r[key]) for r in rows if r[key] != "nan"]   # nan: a model with no triangles, failed and not measured
-    if not v:
-        return "-"
-    return f"{np.percentile(v, 50):.4g} / {np.percentile(v, 90):.4g}"
-
-
-def _line(label: str, rows: Sequence[Mapping[str, str]]) -> list[str]:
-    out: list[str] = []
-    for kind, sub in (("unscaled", [r for r in rows if not _is(r["scaled"])]), ("scaled", [r for r in rows if _is(r["scaled"])])):
-        unseen = [r for r in sub if r["seen"] == "unseen"]
-        if sub:
-            pct = f"{100 * sum(_is(r['success']) for r in sub) / len(sub):.0f}%"
-            cells = [str(len(sub)), f"{_rate(sub)} ({pct})", _rate(unseen), _rate(sub, "seed0_success"),
-                     _stat(sub, "rot_deg"), _stat(sub, "centroid_m"), _stat(sub, "scale_err_pct")]
-        else:
-            cells = ["0"] + ["-"] * 6
-        out.append("| " + " | ".join([label, kind] + cells) + " |")
-    return out
-
-
-def non_triangle_share(obj: Path) -> float:
-    """Share of an OBJ's faces that are not triangles: Open3D's reader drops them silently; `load_model_mesh` triangulates them (#53)."""
-    n = other = 0
-    with obj.open() as f:
-        for line in f:
-            if line.startswith("f "):
-                n += 1
-                other += len(line.split()) != 4
-    return other / n if n else 0.0
-
-
-def gate_agreement(rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mapping[str, str]]) -> list[dict[str, object]]:
-    """Per 05a row (by `sample`): the benchmark row's success against 05a's, the absolute differences, and whether they agree.
-    A sample with no benchmark row is `missing` and does not agree."""
-    by_sample = {r["sample"]: r for r in rows}
-    out: list[dict[str, object]] = []
-    for g in gate_rows:
-        b = by_sample.get(g["sample"])
-        if b is None:
-            out.append(dict(sample=g["sample"], missing=True, agrees=False))
-            continue
-        d_rot, d_cen, d_sc = (abs(float(b[k]) - float(g[k])) for k in ("rot_deg", "centroid_m", "scale_err_pct"))
-        agrees = (_is(b["success"]) == _is(g["success"]) and d_rot <= AGREE_ROT_DEG and d_cen <= AGREE_CENTROID_M and d_sc <= AGREE_SCALE_PCT)
-        out.append(dict(sample=g["sample"], missing=False, bench_success=_is(b["success"]), gate_success=_is(g["success"]),
-                        d_rot_deg=d_rot, d_centroid_m=d_cen, d_scale_pct=d_sc, agrees=agrees))
-    return out
-
-
-def results_markdown(
-    rows: Sequence[Mapping[str, str]], gate_rows: Sequence[Mapping[str, str]], command: str, *,
-    expected: Sequence[str], non_triangle: Mapping[str, float], before: Sequence[Mapping[str, str]] | None = None,
-) -> str:
-    """The body of docs/phase-1-results.md from the benchmark CSV rows and 05a's registration.csv rows (all values text).
-    `expected`: every sample's zip folder (those without a row are listed as not scored); `non_triangle`: share of non-triangle
-    faces by sample name, for the models that have any (`non_triangle_share`); `before`: the benchmark rows from before #53, when
-    given the table of those models shows success, rot_deg and centroid_m before and now."""
-    per_commit = Counter(r["commit"] for r in rows)  # rows re-run on a later commit keep that commit (the CSV's commit column, per row)
-    commits = ", ".join(f"{c} ({n})" for c, n in sorted(per_commit.items(), key=lambda kv: (-kv[1], kv[0]))) or "-"
-    heaviest = max(rows, key=lambda r: float(r["peak_rss_gb"]), default=None)
-    cost = "-" if heaviest is None else (
-        f"{sum(float(r['run_s']) for r in rows) / 3600:.1f} h summed over the samples' run_s; largest per-sample peak RSS "
-        f"{float(heaviest['peak_rss_gb']):.2f} GB ({heaviest['sample']})")
-    head = ["| group | scale | n | success, all (k/n) | success, unseen only (k/n) | seed 0 success (context) | rot_deg median / p90 | centroid_m median / p90 | scale_err_pct median / p90 |",
-            "|---|---|---|---|---|---|---|---|---|"]
-    body: list[str] = []
-    for label, cats in _LINES:
-        body += _line(label, [r for r in rows if r["category"] in cats])
-    building = [r for r in rows if r["category"] in BUILDING_CATEGORIES]
-    body += _line("building (37)", building) + _line("objects (100)", [r for r in rows if r["category"] not in BUILDING_CATEGORIES])
-    body += _line("all", list(rows))
-
-    agree = gate_agreement(rows, gate_rows)
-    glines = ["| sample | benchmark success | 05a success | d rot_deg | d centroid_m | d scale_err_pct | agrees |", "|---|---|---|---|---|---|---|"]
-    for a in agree:
-        if a["missing"]:
-            glines.append(f"| {a['sample']} | missing | - | - | - | - | no |")
-        else:
-            glines.append(f"| {a['sample']} | {a['bench_success']} | {a['gate_success']} | {a['d_rot_deg']:.3g} | {a['d_centroid_m']:.3g} | "
-                          f"{a['d_scale_pct']:.3g} | {'yes' if a['agrees'] else 'no'} |")
-    all_agree = bool(agree) and all(a["agrees"] for a in agree)
-
-    scored = {r["folder"] for r in rows}
-    unscored = [f"- {Path(f).name}" for f in expected if f not in scored] or ["none"]
-    success = {r["sample"]: r["success"] for r in rows}
-    by_name = {r["sample"]: r for r in rows}
-    old_by_name = {r["sample"]: r for r in before or []}
-
-    def metric(r: Mapping[str, str] | None, key: str) -> str:
-        return "-" if r is None or r[key] == "nan" else f"{float(r[key]):.4g}"
-
-    if before is None:
-        ngons = ["| sample | non-triangle faces | success |", "|---|---|---|"]
-    else:
-        ngons = ["| sample | non-triangle faces | success before | success now | rot_deg before | rot_deg now | centroid_m before | centroid_m now |",
-                 "|---|---|---|---|---|---|---|---|"]
-    for name, share in sorted(non_triangle.items(), key=lambda kv: kv[1]):
-        if share <= 0:
-            continue
-        now, was = by_name.get(name), old_by_name.get(name)
-        if before is None:
-            ngons.append(f"| {name} | {100 * share:.1f}% | {success.get(name, 'not scored')} |")
-        else:
-            ngons.append(f"| {name} | {100 * share:.1f}% | {was['success'] if was else 'not scored'} | {success.get(name, 'not scored')} | "
-                         f"{metric(was, 'rot_deg')} | {metric(now, 'rot_deg')} | {metric(was, 'centroid_m')} | {metric(now, 'centroid_m')} |")
-    return "\n".join([
-        "# Phase 1 registration benchmark", "",
-        f"Command: `{command}`", "", f"Commit(s), rows each: {commits} (per row: the CSV's commit column)", "", f"Samples present: {len(rows)} of {len(expected)}", "", f"Cost: {cost}", "",
-        "Generated from outputs/phase1/registration.csv by `uv run python scripts/write_phase1_results.py`.", "",
-        f"Success: rotation error <= {ROT_MAX_DEG} deg, centroid error <= {CENTROID_MAX_M} m, relative scale error <= {SCALE_MAX_REL} "
-        "(judgement calls, CONTEXT.md \"Registration success\"). Unseen = neither a Phase 0.5 gate sample nor one of 05c's tuning samples. "
-        "A model with no faces at load would count as a failure; its errors are not measured, so the medians and p90s would leave it out.", "",
-        *head, *body, "",
-        "## Agreement with the Phase 0.5 gate (05a)", "",
-        f"A gate row agrees when its success equals 05a's and the differences are within {AGREE_ROT_DEG} deg, {AGREE_CENTROID_M} m and "
-        f"{AGREE_SCALE_PCT} percentage points (judgement calls; registration is seeded, so near-exact is expected).", "",
-        *glines, "", f"all agree: {'yes' if all_agree else 'no'}", "",
-        "## Not scored", "", "Samples whose run raised (scripts/run_benchmark.py logs the error):", "", *unscored, "",
-        "## Models with non-triangle faces", "",
-        "These faces are triangulated at load (`pc2model.load_model_mesh`, #53: convex ones as a fan, concave ones split into rings and cut by earcut). Before #53 Open3D's OBJ reader skipped them without an "
-        "error, so these models were sampled from their triangles only. The share counts faces, not area. Checked once for #53 face by face (`uv run python scripts/check_model_areas.py`): on all 19 models no face's triangles cover less than its outline (a lost face of any size would), the loaded mesh holds every face's triangles (within 1e-6), and on flat faces the triangles exceed the outline by under 1e-6 of the model's area (house_11: 6.5e-8, 0.0002 m2, from a few mm-scale faces whose edges cross, which earcut overlaps). A face that touches itself is measured as the area it covers, so a flap wound backwards counts as surface; a face that is not flat has no single area and is checked only against its outline's projection. veh_010 went from success to failure: before #53 it loaded 0.79 m2 of its 53 m2 model; now all of it loads and the scan sits on it under the true pose, but 35% of the model is unseen by the scan and the scale fit shrinks towards it (a registration limitation, not the loader's).", "", *ngons, ""])

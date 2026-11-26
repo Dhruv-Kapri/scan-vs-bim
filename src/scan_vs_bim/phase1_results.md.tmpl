@@ -1,0 +1,35 @@
+# Phase 1 registration benchmark
+
+Command: `$command`
+
+Commit(s), rows each: $commits (per row: the CSV's commit column)
+
+Samples present: $n_rows of $n_expected
+
+Cost: $cost
+
+Generated from outputs/phase1/registration.csv by `uv run python scripts/write_phase1_results.py`.
+
+Success: rotation error <= $rot_max deg, centroid error <= $centroid_max m, relative scale error <= $scale_max (judgement calls, CONTEXT.md "Registration success"). Unseen = neither a Phase 0.5 gate sample nor one of 05c's tuning samples. A model with no faces at load would count as a failure; its errors are not measured, so the medians and p90s would leave it out.
+
+$summary
+
+## Agreement with the Phase 0.5 gate (05a)
+
+A gate row agrees when its success equals 05a's and the differences are within $agree_rot deg, $agree_centroid m and $agree_scale percentage points (judgement calls; registration is seeded, so near-exact is expected).
+
+$gate_table
+
+all agree: $all_agree
+
+## Not scored
+
+Samples whose run raised (scripts/run_benchmark.py logs the error):
+
+$unscored
+
+## Models with non-triangle faces
+
+These faces are triangulated at load (`obj_mesh.load_model_mesh`, #53: convex ones as a fan, concave ones split into rings and cut by earcut). Before #53 Open3D's OBJ reader skipped them without an error, so these models were sampled from their triangles only. The share counts faces, not area. Checked once for #53 face by face (`uv run python scripts/check_model_areas.py`): on all 19 models no face's triangles cover less than its outline (a lost face of any size would), the loaded mesh holds every face's triangles (within 1e-6), and on flat faces the triangles exceed the outline by under 1e-6 of the model's area (house_11: 6.5e-8, 0.0002 m2, from a few mm-scale faces whose edges cross, which earcut overlaps). A face that touches itself is measured as the area it covers, so a flap wound backwards counts as surface; a face that is not flat has no single area and is checked only against its outline's projection. veh_010 went from success to failure: before #53 it loaded 0.79 m2 of its 53 m2 model; now all of it loads and the scan sits on it under the true pose, but 35% of the model is unseen by the scan and the scale fit shrinks towards it (a registration limitation, not the loader's).
+
+$ngons

@@ -6,7 +6,7 @@ from types import ModuleType
 
 import pytest
 
-from scan_vs_bim.benchmark import COLUMNS, gate_agreement, non_triangle_share, results_markdown, run_benchmark, score_sample, seen_mark
+from scan_vs_bim.benchmark import COLUMNS, _row, run_benchmark, score_sample, seen_mark
 
 ROOT: Path = Path(__file__).resolve().parent.parent
 SCRIPT: Path = ROOT / "scripts" / "run_benchmark.py"
@@ -21,13 +21,6 @@ def _load_script() -> ModuleType:
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
-
-
-def _row(folder: str, category: str, seen: str = "unseen", scaled: bool = False, success: bool = True, seed0: bool = True,
-         rot: float = 0.1, cen: float = 0.01, scale_err: float = 0.1) -> dict[str, str]:
-    return {"sample": Path(folder).name, "folder": folder, "category": category, "seen": seen, "scaled": str(scaled),
-            "rot_deg": str(rot), "centroid_m": str(cen), "scale_err_pct": str(scale_err), "success": str(success),
-            "seed0_success": str(seed0), "run_s": "60", "peak_rss_gb": "0.4", "commit": "abc1234"}
 
 
 def test_seen_mark_gate_wins_over_tuning() -> None:
@@ -64,72 +57,6 @@ def test_failing_samples_are_returned_and_the_run_continues(tmp_path: Path) -> N
     assert failed == folders
 
 
-def test_unseen_rates_exclude_gate_and_tuning_and_scaled_is_split() -> None:
-    rows = [
-        _row("PC2Model_v1.4/house/h_1", "house", "gate", success=True),
-        _row("PC2Model_v1.4/house/h_2", "house", "unseen", success=False),
-        _row("PC2Model_v1.4/house/h_3", "house", "unseen", scaled=True, success=True),
-        _row("PC2Model_v1.4/furniture/f_1", "furniture", "tuning", success=True),
-    ]
-    md = results_markdown(rows, [], "CMD", expected=[], non_triangle={})
-    house = [ln for ln in md.splitlines() if ln.startswith("| house")]
-    unscaled, scaled = house[0], house[1]
-    assert "unscaled" in unscaled and "scaled" in scaled and "unscaled" not in scaled
-    assert "1/2" in unscaled and "0/1" in unscaled   # all samples 1/2; unseen only 0/1 (the gate row is out)
-    assert "1/1" in scaled
-    assert "CMD" in md and "abc1234" in md
-
-
-def test_results_name_each_commit_with_its_row_count() -> None:
-    """Rows re-run on later commits (#53) keep their own commit: the doc says which commit produced how many rows, most first."""
-    rows = [_row(f"PC2Model_v1.4/house/h_{k}", "house") for k in range(3)]
-    rows[2]["commit"] = "def5678"
-    md = results_markdown(rows, [], "CMD", expected=[], non_triangle={})
-    assert "Commit(s), rows each: abc1234 (2), def5678 (1)" in md
-
-
-def test_gate_agreement_flags_a_changed_or_missing_row() -> None:
-    f1, f2 = "PC2Model_v1.4/house/h_1", "PC2Model_v1.4/house/h_2"
-    gate = [{"sample": "h_1", "success": "True", "rot_deg": "0.1", "centroid_m": "0.01", "scale_err_pct": "0.1"},
-            {"sample": "h_2", "success": "True", "rot_deg": "0.1", "centroid_m": "0.01", "scale_err_pct": "0.1"}]
-    same = [_row(f1, "house"), _row(f2, "house")]
-    assert all(a["agrees"] for a in gate_agreement(same, gate))
-    changed = [_row(f1, "house"), _row(f2, "house", success=False)]
-    assert [a["agrees"] for a in gate_agreement(changed, gate)] == [True, False]
-    assert [a["agrees"] for a in gate_agreement(same[:1], gate)] == [True, False]
-    assert "all agree: no" in results_markdown(changed, gate, "CMD", expected=[], non_triangle={})
-    assert "all agree: yes" in results_markdown(same, gate, "CMD", expected=[], non_triangle={})
-
-
-def test_non_triangle_share_counts_faces_open3d_drops(tmp_path: Path) -> None:
-    """Open3D's OBJ reader skips every face that is not a triangle (veh_008: all quads, no triangles left); the share is what it drops."""
-    obj = tmp_path / "m.obj"
-    obj.write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3\nf 1/1/1 3/3/3 4/4/4\nf 1 2 3 4\n")
-    assert non_triangle_share(obj) == 1 / 3
-
-
-def test_results_list_unscored_samples_and_models_with_non_triangle_faces() -> None:
-    rows = [_row("PC2Model_v1.4/house/h_1", "house"), _row("PC2Model_v1.4/house/h_2", "house", success=False)]
-    md = results_markdown(rows, [], "CMD", expected=[r["folder"] for r in rows] + ["PC2Model_v1.4/vehicle/v_9"],
-                          non_triangle={"h_2": 0.8, "v_9": 1.0})
-    assert "Samples present: 2 of 3" in md
-    unscored = md.split("## Not scored")[1].split("##")[0]
-    assert "v_9" in unscored and "h_1" not in unscored
-    ngons = md.split("## Models with non-triangle faces")[1].split("##")[0]
-    assert "| h_2 | 80.0% | False |" in ngons and "| v_9 | 100.0% | not scored |" in ngons and "h_1" not in ngons
-
-
-def test_results_show_before_and_now_for_models_with_non_triangle_faces() -> None:
-    """With the rows from before #53, each model's row shows success, rot_deg and centroid_m before and now."""
-    now = [_row("PC2Model_v1.4/house/h_2", "house", success=True, rot=0.2, cen=0.02)]
-    before = [_row("PC2Model_v1.4/house/h_2", "house", success=False, rot=9.0, cen=1.5)]
-    md = results_markdown(now, [], "CMD", expected=[r["folder"] for r in now] + ["PC2Model_v1.4/vehicle/v_9"],
-                          non_triangle={"h_2": 0.8, "v_9": 1.0}, before=before)
-    ngons = md.split("## Models with non-triangle faces")[1].split("##")[0]
-    assert "| h_2 | 80.0% | False | True | 9 | 0.2 | 1.5 | 0.02 |" in ngons
-    assert "| v_9 | 100.0% | not scored | not scored | - | - | - | - |" in ngons
-
-
 def test_a_model_with_no_triangles_is_a_failed_row_not_a_skipped_sample(tmp_path: Path) -> None:
     """A model with no faces at all cannot be registered by 05a's pipeline; that is a failure of the
     pipeline, scored as such (errors NaN, success False), not a sample left out of the benchmark."""
@@ -142,3 +69,12 @@ def test_a_model_with_no_triangles_is_a_failed_row_not_a_skipped_sample(tmp_path
     assert list(row) == COLUMNS
     assert row["success"] is False and row["seed0_success"] is False and row["scaled"] is True
     assert all(math.isnan(float(str(row[k]))) for k in ("rot_deg", "centroid_m", "scale_err_pct", "est_scale"))
+
+
+def test_a_row_must_set_every_column_and_only_columns() -> None:
+    who = dict.fromkeys(["sample", "folder", "category", "seen", "scaled", "gt_scale", "load_s", "run_s", "peak_rss_gb", "commit"], "x")
+    assert list(_row(**who)) == COLUMNS   # the measurements default to "not registered"
+    with pytest.raises(ValueError, match="commit"):
+        _row(**{k: v for k, v in who.items() if k != "commit"})
+    with pytest.raises(ValueError, match="rot_degrees"):
+        _row(**who, rot_degrees=1.0)

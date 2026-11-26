@@ -410,3 +410,8 @@ def test_verdict_counts_tallies_the_three_verdicts_and_keeps_the_empty_ones() ->
     rows = [{"verdict": v} for v in ("OK", "OK", "shifted", "not confirmed", "OK")]
     assert verdict_counts(rows) == {"OK": 3, "shifted": 1, "not confirmed": 1}
     assert verdict_counts([{"verdict": "OK"}]) == {"OK": 1, "shifted": 0, "not confirmed": 0}
+
+
+def test_local_plane_columns_are_mm_per_m_and_degrees() -> None:
+    plane = compare.LocalPlane(gx=0.002, gy=-0.004, x0=0.0, y0=0.0, n_cells=5)
+    assert plane.columns() == {"plane_gx_mm_per_m": 2.0, "plane_gy_mm_per_m": -4.0, "plane_tilt_deg": plane.tilt_deg}

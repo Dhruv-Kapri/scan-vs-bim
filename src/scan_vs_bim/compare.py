@@ -32,10 +32,12 @@ __all__ = [
     "LocalPlane",
     "Measurement",
     "Mesh",
+    "NO_PLANE_COLUMNS",
     "NUMERIC_TOL",
     "Occupancy",
     "PatchView",
     "Patches",
+    "PlaneColumns",
     "RECUT_FIELDS",
     "RULES",
     "SideTest",
@@ -278,6 +280,15 @@ def judge(s: np.ndarray, rules: VerdictRules = RULES) -> Judgement:
     return Judgement(verdict=verdict, reason=reason, point_count=n, median_m=median, spread_m=spread, share_within_tol=share, cluster_share=one_cluster)
 
 
+class PlaneColumns(TypedDict):
+    plane_gx_mm_per_m: float | str  # elements judged against a local plane (#46): the fitted gradient of the offsets along x, mm per m, along the face normal (the sign of median_signed_offset_mm); "" without a plane
+    plane_gy_mm_per_m: float | str  # the same along y
+    plane_tilt_deg: float | str  # the fitted tilt in degrees, atan(hypot(gx, gy)); "" without a plane
+
+
+NO_PLANE_COLUMNS: PlaneColumns = PlaneColumns(plane_gx_mm_per_m="", plane_gy_mm_per_m="", plane_tilt_deg="")
+
+
 @dataclass(frozen=True)
 class LocalPlane:
     """A plane fitted to an element's offsets: `gx` and `gy` are metres of offset per metre along x and y, about the point (`x0`, `y0`), from `n_cells` cells."""
@@ -291,6 +302,10 @@ class LocalPlane:
     @property
     def tilt_deg(self) -> float:
         return float(np.degrees(np.arctan(np.hypot(self.gx, self.gy))))
+
+    def columns(self) -> PlaneColumns:
+        """The row's three plane columns: the gradients in mm per m and the tilt in degrees."""
+        return PlaneColumns(plane_gx_mm_per_m=self.gx * 1000, plane_gy_mm_per_m=self.gy * 1000, plane_tilt_deg=self.tilt_deg)
 
     def detilt(self, xy: np.ndarray, s: np.ndarray) -> np.ndarray:
         """The offsets `s` at plan positions `xy` with the plane's tilt removed and its level kept: s - gx (x - x0) - gy (y - y0)."""
@@ -394,7 +409,10 @@ def plane_vote(u: np.ndarray, facing: np.ndarray, rules: VerdictRules = RULES) -
     share = rules.vote_share
     b = np.floor((u - u.min()) / rules.vote_bin).astype(int)
     window = np.ones(2 * rules.vote_half + 1)
-    count = lambda m: np.convolve(np.bincount(b[m], minlength=max(b.max() + 1, window.size)), window, "same")[b]  # np.convolve "same" returns the longer input: pad to the window
+
+    def count(m: np.ndarray) -> np.ndarray:
+        return np.convolve(np.bincount(b[m], minlength=max(b.max() + 1, window.size)), window, "same")[b]  # np.convolve "same" returns the longer input: pad to the window
+
     total, plus, minus = count(np.ones(len(u), bool)), count(facing == 1), count(facing == -1)
     return np.where(plus > share * total, 1, np.where(minus > share * total, -1, 0))
 
@@ -542,7 +560,9 @@ def judged_faces(e: Mesh, lo: np.ndarray, hi: np.ndarray, rules: VerdictRules = 
 
 @dataclass
 class PatchView:
-    """What `element_rows` reads from `Patches`, plus each point's owner (`geom_id`, `band`, `n_scope`): the lean form of `Patches` that a caller keeping many assignments (03b) holds instead."""
+    """The lean form of `Patches`, what `element_rows` reads, which a caller keeping many assignments (03b) holds instead. Per point: the nearest element (`geom_id`), the signed offset (`signed`; NaN where a point does not count), the side's
+    `how`, and the `band` mask; per scope element (the first `n_scope` of the element list) the indices of its counted points (`points_of`), of the points that are the back of a wall (`dropped_of`), at a junction (`junction_of`)
+    and past the edge of its own face (`past_of`); the wall info (`walls`), and the scan `points` (model frame) the patches were made from, by reference."""
 
     signed: np.ndarray
     how: np.ndarray
@@ -554,40 +574,24 @@ class PatchView:
     geom_id: np.ndarray
     band: np.ndarray
     n_scope: int
-    points: np.ndarray  # the scan points (model frame) the patches were made from, by reference
+    points: np.ndarray
 
 
 @dataclass
-class Patches:
-    """The scan points assigned to the elements, for the scope's elements (the first `n_scope` of the element list). Per point: the `measurement` (the nearest element, the distance, the signed offset
-    (NaN where a point does not count), the offset by 00's rule and the side test; also readable as `geom_id`, `distance`, `signed`, `signed_nearest` and `side`); masks over the points; and per scope
-    element the indices of its counted points (`points_of`), of the points that are the back of a wall (`dropped_of`), at a junction (`junction_of`) and past the edge of its own face (`past_of`)."""
+class Patches(PatchView):
+    """The scan points assigned to the elements: a `PatchView` plus the `measurement` it was cut from (also readable as `distance`, `signed_nearest` and `side`), and the masks `back`, `at_junction`, `in_band` and `past_edge`.
+    `view()` gives the lean `PatchView`, which keeps no reference to the measurement."""
 
     measurement: Measurement
-    band: np.ndarray
     back: np.ndarray
     at_junction: np.ndarray
     in_band: np.ndarray
     past_edge: np.ndarray
-    n_scope: int
-    points_of: list[np.ndarray]
-    past_of: list[np.ndarray]
-    dropped_of: list[np.ndarray]
-    junction_of: list[np.ndarray]
     rules: VerdictRules  # the rules the patches were made with (`recut` checks that only the own-face and local-plane ones differ)
-    points: np.ndarray  # the scan points (model frame) the patches were made from, held by reference, never copied
-
-    @property
-    def geom_id(self) -> np.ndarray:
-        return self.measurement.geom_id
 
     @property
     def distance(self) -> np.ndarray:
         return self.measurement.distance
-
-    @property
-    def signed(self) -> np.ndarray:
-        return self.measurement.signed
 
     @property
     def signed_nearest(self) -> np.ndarray:
@@ -598,8 +602,7 @@ class Patches:
         return self.measurement.side
 
     def view(self) -> PatchView:
-        return PatchView(signed=self.signed, how=self.side.how, points_of=self.points_of, dropped_of=self.dropped_of, junction_of=self.junction_of, past_of=self.past_of, walls=self.side.walls,
-                         geom_id=self.geom_id, band=self.band, n_scope=self.n_scope, points=self.points)
+        return PatchView(**{f.name: getattr(self, f.name) for f in fields(PatchView)})
 
 
 def _own_face_cut(scope: Sequence[Element], scope_fc: Sequence[np.ndarray], points: np.ndarray, rules: VerdictRules, m: Measurement) -> Patches:
@@ -613,7 +616,7 @@ def _own_face_cut(scope: Sequence[Element], scope_fc: Sequence[np.ndarray], poin
     jn = bnd & mine & ~np.isnan(side.signed_side) & np.isnan(sgn)  # walls: counted by the side test, but within the junction margin of another element
     ib = bnd & mine & ~np.isnan(sgn) & ~past  # the points that count: within the band, not the back of a wall, not at a junction, over the element's own face
     pe = bnd & mine & ~np.isnan(sgn) & past  # would count, but lie past the edge of their element's own face (issue #20)
-    return Patches(measurement=m, band=bnd, back=bk, at_junction=jn, in_band=ib, past_edge=past, n_scope=n_scope,
+    return Patches(measurement=m, signed=sgn, how=side.how, walls=side.walls, geom_id=geom, band=bnd, back=bk, at_junction=jn, in_band=ib, past_edge=past, n_scope=n_scope,
                    points_of=[np.flatnonzero((geom == i) & ib) for i in range(n_scope)],
                    past_of=[np.flatnonzero((geom == i) & pe) for i in range(n_scope)],
                    dropped_of=[np.flatnonzero((geom == i) & bk) for i in range(n_scope)],
@@ -642,7 +645,7 @@ def recut(patches: Patches, scope: Sequence[Element], points: np.ndarray, lo: np
     return _own_face_cut(scope, scope_fc, points, rules, patches.measurement)
 
 
-class VerdictRow(TypedDict):
+class VerdictRow(PlaneColumns):  # the three plane columns (inherited, so declared first here) come last in a row: `element_rows` passes them last
     global_id: str
     ifc_class: str
     verdict: str
@@ -658,9 +661,6 @@ class VerdictRow(TypedDict):
     ambiguous_share: float | str  # walls: the share of the counted points whose side the scan could not tell ("" for other classes)
     reference_side: str  # walls: the outward normal that the offsets are expressed along ("" for other classes)
     room_facing_sides: int | str  # walls: 1 or 2 ("" for other classes)
-    plane_gx_mm_per_m: float | str  # elements judged against a local plane (#46): the fitted gradient of the offsets along x, mm per m, along the face normal (the sign of median_signed_offset_mm); "" without a plane
-    plane_gy_mm_per_m: float | str  # the same along y
-    plane_tilt_deg: float | str  # the fitted tilt in degrees, atan(hypot(gx, gy)); "" without a plane
 
 
 def _wants_local_plane(e: Mesh, rules: VerdictRules) -> bool:
@@ -692,7 +692,7 @@ def element_rows(scope: Sequence[Element], view: PatchView, use: np.ndarray, rul
             points_other_side=int(use[view.dropped_of[i]].sum()) if w else 0, points_at_junction=int(use[view.junction_of[i]].sum()) if w else 0, points_past_edge=int(use[view.past_of[i]].sum()),
             ambiguous_share=float(np.mean(view.how[idx[use[idx]]] == HOW_AMBIGUOUS)) if w and j["point_count"] else (0.0 if w else ""),
             reference_side=(("+" if w["ref"] > 0 else "-") + "xy"[w["axis"]]) if w else "", room_facing_sides=len(w["sides"]) if w else "",
-            plane_gx_mm_per_m=plane.gx * 1000 if plane else "", plane_gy_mm_per_m=plane.gy * 1000 if plane else "", plane_tilt_deg=plane.tilt_deg if plane else ""))
+            **(plane.columns() if plane else NO_PLANE_COLUMNS)))
     return rows
 
 

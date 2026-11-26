@@ -146,6 +146,7 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   executes a notebook top to bottom for tests (nbclient; raises on any cell error).
 - `src/scan_vs_bim/compare.py`: `mesh_of(e, flip=False)` (an element as an Open3D mesh with triangle normals; `flip` reverses the winding; used by 03a/03b/03c, #41/#42), `over_own_face(points, vertices, faces, margin)` (which scan points lie over an element's
   own face; points past its edges do not) and `aligned_faces`: the geometry of the own-face patch in 03a/03b/03c (#20).
+  `Patches` is a `PatchView` (the lean fields `element_rows` reads, declared once) plus the measurement and masks; `view()` drops those (#54).
   The verdict rule, moved from 03a (#40, no rule change): `judge_elements(scope, others, points, use, lo, hi, rules)`
   gives one `VerdictRow` per scope element; `VerdictRules`/`RULES` hold the constants (LOA30 `tol` 15 mm). The two-step
   form `assign_patches` (runs the expensive `measure` once) + `element_rows(scope, view, use)` per use mask is what 03a
@@ -179,20 +180,22 @@ uv run jupyter nbconvert --to notebook --execute --inplace --ClearMetadataPrepro
   on the elements near the box, and the in-crop mask), `refine_from_recorded` (plain then Tukey point-to-plane ICP from the recorded transform),
   `transform_delta`, `area_in_box`, `element_boxes` + `patch_cloud` (the cache streamed after the ICP correction, cut to per-element boxes; with
   `crop=` also 03b's room crop and recorded-frame points). `compare.verdict_counts` tallies verdict rows.
-- `src/scan_vs_bim/benchmark.py`: the Phase 1 benchmark (#39). `score_sample` loads a sample with `pc2model.load_sample`, as 05a does (same
-  constants, so the nine gate rows reproduce 05a's) and registers + scores it; `run_benchmark` runs each sample in a
-  spawned child and appends its row (resumable); `results_markdown` (optionally with the pre-#53 rows, `write_phase1_results.py --before`, default
+- `src/scan_vs_bim/benchmark.py`: the Phase 1 benchmark (#39). `score_sample` loads a sample with `pc2model.load_sample` (#33; it loads the model via
+  `obj_mesh.load_model_mesh`; same constants and call order as 05a, so the nine gate rows reproduce 05a's) and registers + scores it, its row built by `_row`
+  over the defaults of a sample never registered (`_UNREGISTERED`; a model without triangles, `EmptyModelError`, is such a row); `run_benchmark` runs each sample in a spawned child and appends its row (resumable).
+  `src/scan_vs_bim/phase1_report.py`: the summary of the CSV. `results_markdown` (its prose in `phase1_results.md.tmpl`, a `string.Template`) (optionally with the pre-#53 rows, `write_phase1_results.py --before`, default
   outputs/phase1/registration_before_53.csv: a copy of the CSV taken before #53's re-run of the 19 models with non-triangle faces) +
   `gate_agreement` build docs/phase-1-results.md.
-- `src/scan_vs_bim/pc2model.py` `load_model_mesh(obj)`: Open3D's OBJ reader drops quads/n-gons silently (19 of 137 models; veh_008 is all quads), so
-  face lines with more than 3 vertices are cut into triangles (via a hidden temp OBJ beside the original): a convex face is fanned from its first vertex (unless a fan triangle would flip: a notch below the convexity tolerance),
+- `src/scan_vs_bim/obj_mesh.py` `load_model_mesh(obj)` (#53, split from `pc2model.py` by #54; the only module importing shapely and mapbox-earcut;
+  also `non_triangle_share(obj)`, the share of an OBJ's faces that are not triangles): Open3D's OBJ reader drops quads/n-gons silently (19 of 137 models; veh_008 is all quads), so
+  face lines with more than 3 vertices are cut into triangles (via a temp OBJ in a temp directory, `mtllib` made absolute, so a read-only `data/` works): a convex face is fanned from its first vertex (unless a fan triangle would flip: a notch below the convexity tolerance),
   a concave one (house_11, house_19 have thousands; a fan adds +36% / +23% to the model's area) is split at repeated vertex positions into rings (outline + holes:
   keyhole bridges and pinches make these faces touch themselves, where a fan or a plain ear clip overlaps) and each outline with its holes goes to
   `mapbox-earcut` in the face's Newell plane (earcut always returns counter-clockwise triangles = the face's winding); a face whose edges cross (bowtie
   quads) is cut into the cells it covers (shapely), the crossings appended as new `v` lines at the end of the temp OBJ; a face earcut gives no triangle for is
   fanned; triangle-only models are read as before, convex-only ones are byte-identical to the old fan (#53).
-  `load_sample(d, ...)`: one sample as 02, 05a, 05c and the benchmark load it (model, transform, seeded surface sample, seeded scan subsample, in that
-  order; `EmptyModelError` carrying the ground truth for a model without triangles, #33).
+- `src/scan_vs_bim/pc2model.py`: PC2Model sample fetching and parsing, plus `load_sample(d, ...)` (#33): one sample as 02, 05a, 05c and the benchmark load it
+  (model via `obj_mesh.load_model_mesh`, transform, seeded surface sample, seeded scan subsample, in that order; `EmptyModelError` carrying the ground truth for a model without triangles).
 - `src/scan_vs_bim/tables.py`: `read_rows(path)`, a CSV as text rows in file order (03a's verdicts, 03b's scores, 05a's
   registration, read back by 04a, 04b and 05b). `src/scan_vs_bim/memory.py`: `peak_rss_gb()` (macOS bytes, Linux KB).
 - In a git worktree, uv warns that `VIRTUAL_ENV` (the main checkout's venv, exported by the shell) "does not match the
